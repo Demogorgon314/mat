@@ -15,6 +15,9 @@
    <feature url="features/org.eclipse.mat.chart.feature_0.0.0.jar" id="org.eclipse.mat.chart.feature" version="0.0.0">
       <category name="Memory Analyzer IDE"/>
    </feature>
+   <feature url="features/org.eclipse.mat.cli.feature_0.0.0.qualifier.jar" id="org.eclipse.mat.cli.feature" version="0.0.0">
+      <category name="Memory Analyzer CLI"/>
+   </feature>
    <feature url="features/org.eclipse.mat.feature_0.0.0.jar" id="org.eclipse.mat.feature" version="0.0.0">
       <category name="Memory Analyzer IDE"/>
    </feature>
@@ -29,6 +32,11 @@
    <category-def name="Memory Analyzer RCP" label="Stand-alone Memory Analyzer">
       <description>
          Memory Analyzer features suitable for updating a stand-alone version of Memory Analyzer which is based on Eclipse RCP.
+      </description>
+   </category-def>
+   <category-def name="Memory Analyzer CLI" label="Stand-alone Memory Analyzer CLI">
+      <description>
+         Memory Analyzer feature suitable for the headless CLI distribution.
       </description>
    </category-def>
    <bundle id="org.eclipse.birt.core" version="0.0.0"/>

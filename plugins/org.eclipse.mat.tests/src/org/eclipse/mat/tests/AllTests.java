@@ -46,6 +46,9 @@ import org.junit.runners.Suite.SuiteClasses;
                 org.eclipse.mat.tests.acquire.AcquireDumpTest.class,
                 org.eclipse.mat.tests.collect.ExtractCollectionEntriesTest3.class, //
                 org.eclipse.mat.tests.collect.ExtractCollectionEntriesTest4.class, //
+                org.eclipse.mat.tests.cli.CliArgumentParserTest.class, //
+                org.eclipse.mat.tests.cli.ResultSerializerTest.class, //
+                org.eclipse.mat.tests.cli.CliCommandExecutorTest.class, //
                 org.eclipse.mat.tests.ui.snapshot.panes.textPartitioning.TestClassNameExtractor.class,
                 org.eclipse.mat.tests.ui.snapshot.panes.textPartitioning.TestOQLPartitionScanner.class, //
                 org.eclipse.mat.tests.report.ParametersExpandTest.class })

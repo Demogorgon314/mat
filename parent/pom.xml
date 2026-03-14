@@ -122,6 +122,7 @@
 				<module>../org.eclipse.mat.targetdef</module>
 				<!-- plugins -->
 				<module>../plugins/org.eclipse.mat.api</module>
+				<module>../plugins/org.eclipse.mat.cli</module>
 				<module>../plugins/org.eclipse.mat.chart</module>
 				<module>../plugins/org.eclipse.mat.chart.ui</module>
 				<module>../plugins/org.eclipse.mat.dtfj</module>
@@ -137,6 +138,7 @@
 				<module>../plugins/org.eclipse.mat.ui.rcp</module>
 				<!-- features -->
 				<module>../features/org.eclipse.mat.chart.feature</module>
+				<module>../features/org.eclipse.mat.cli.feature</module>
 				<module>../features/org.eclipse.mat.feature</module>
 				<module>../features/org.eclipse.mat.ui.rcp.feature</module>
 				<!-- update site -->

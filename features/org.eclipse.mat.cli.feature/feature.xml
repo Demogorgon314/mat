@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright (c) 2026 Eclipse Memory Analyzer Project.
+    All rights reserved. This program and the accompanying materials
+    are made available under the terms of the Eclipse Public License 2.0
+    which accompanies this distribution, and is available at
+    https://www.eclipse.org/legal/epl-2.0/
+
+    SPDX-License-Identifier: EPL-2.0
+ -->
+<feature
+      id="org.eclipse.mat.cli.feature"
+      label="Memory Analyzer CLI"
+      version="1.17.0.qualifier"
+      provider-name="Eclipse Memory Analyzer Project"
+      plugin="org.eclipse.mat.cli">
+
+   <description>
+      Headless command line distribution for Eclipse Memory Analyzer.
+   </description>
+
+   <copyright>
+      Copyright (c) 2026 Eclipse Memory Analyzer Project.
+   </copyright>
+
+   <license url="https://www.eclipse.org/legal/epl-2.0/">
+      Eclipse Public License 2.0
+   </license>
+
+   <plugin
+         id="org.eclipse.mat.cli"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="org.eclipse.mat.report"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="org.eclipse.mat.api"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="org.eclipse.mat.parser"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="org.eclipse.mat.hprof"
+         version="0.0.0"
+         unpack="false"/>
+
+</feature>

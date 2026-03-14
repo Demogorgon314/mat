@@ -1,0 +1,49 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Eclipse Memory Analyzer Project.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License 2.0
+ * which accompanies this distribution, and is available at
+ * https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *******************************************************************************/
+package org.eclipse.mat.cli.internal;
+
+import org.eclipse.mat.query.IResult;
+
+public final class CliExecution
+{
+    private final SnapshotSummary summary;
+    private final IResult result;
+
+    private CliExecution(SnapshotSummary summary, IResult result)
+    {
+        this.summary = summary;
+        this.result = result;
+    }
+
+    public static CliExecution summary(SnapshotSummary summary)
+    {
+        return new CliExecution(summary, null);
+    }
+
+    public static CliExecution result(IResult result)
+    {
+        return new CliExecution(null, result);
+    }
+
+    public boolean isSummary()
+    {
+        return summary != null;
+    }
+
+    public SnapshotSummary getSummary()
+    {
+        return summary;
+    }
+
+    public IResult getResult()
+    {
+        return result;
+    }
+}

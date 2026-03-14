@@ -1,0 +1,8 @@
+properties.0.name = org.eclipse.equinox.p2.description
+properties.0.value = Eclipse Memory Analyzer CLI is a headless Java heap analyzer package for command line use.
+properties.1.name = org.eclipse.equinox.p2.provider
+properties.1.value = Eclipse Memory Analyzer
+instructions.configure=\
+    org.eclipse.equinox.p2.touchpoint.natives.remove(path:${installFolder}/readme);\
+    org.eclipse.equinox.p2.touchpoint.natives.remove(path:${installFolder}/artifacts.xml);\
+    setProgramProperty(propName:osgi.requiredJavaVersion,propValue:17);

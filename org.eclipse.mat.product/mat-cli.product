@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?pde version="3.5"?>
+
+<product name="Memory Analyzer CLI" uid="org.eclipse.mat.cli.product" id="org.eclipse.mat.cli.product" application="org.eclipse.mat.cli.app" version="1.17.0.qualifier" useFeatures="true" includeLaunchers="true" autoIncludeRequirements="true">
+
+   <aboutInfo>
+      <text>
+         Eclipse Memory Analyzer CLI
+
+Version: 1.17.0
+
+Copyright (c) 2008, 2026 SAP AG, IBM Corporation and others.
+      </text>
+   </aboutInfo>
+
+   <configIni use="default">
+   </configIni>
+
+   <launcherArgs>
+      <vmArgs>-Xmx1024m</vmArgs>
+   </launcherArgs>
+
+   <launcher name="matcli">
+      <win useIco="false">
+         <bmp/>
+      </win>
+   </launcher>
+
+   <vm>
+   </vm>
+
+   <license>
+      <url>https://www.eclipse.org/legal/epl-2.0/</url>
+      <text>
+Eclipse Public License 2.0
+      </text>
+   </license>
+
+   <copyright>
+Copyright (c) 2008, 2026 SAP AG, IBM Corporation and others.
+   </copyright>
+
+   <plugins>
+   </plugins>
+
+   <features>
+      <feature id="org.eclipse.mat.cli.feature" installMode="root"/>
+   </features>
+
+   <configurations>
+      <plugin id="org.apache.felix.scr" autoStart="true" startLevel="2" />
+      <plugin id="org.eclipse.core.runtime" autoStart="true" startLevel="0" />
+      <plugin id="org.eclipse.core.contenttype" autoStart="true" startLevel="4" />
+      <plugin id="org.eclipse.equinox.common" autoStart="true" startLevel="2" />
+      <plugin id="org.eclipse.equinox.event" autoStart="true" startLevel="2" />
+      <plugin id="org.eclipse.equinox.preferences" autoStart="true" startLevel="4" />
+      <plugin id="org.eclipse.equinox.registry" autoStart="true" startLevel="4" />
+      <plugin id="org.eclipse.equinox.simpleconfigurator" autoStart="true" startLevel="1" />
+   </configurations>
+
+</product>

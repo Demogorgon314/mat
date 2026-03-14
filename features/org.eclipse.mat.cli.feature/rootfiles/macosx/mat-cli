@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# Run the Eclipse Memory Analyzer CLI application.
+#
+
+DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+JAVA_CMD=java
+LAUNCHER_JAR=
+
+if [ -n "$JAVA_HOME" ]; then
+    JAVA_CMD="$JAVA_HOME/bin/java"
+fi
+
+for candidate in "$DIR"/plugins/org.eclipse.equinox.launcher_*.jar
+do
+    if [ -f "$candidate" ]; then
+        LAUNCHER_JAR="$candidate"
+        break
+    fi
+done
+
+if [ -z "$LAUNCHER_JAR" ]; then
+    echo "Unable to locate org.eclipse.equinox.launcher_*.jar under $DIR/plugins" >&2
+    exit 1
+fi
+
+if [ -n "$MAT_CLI_VMARGS" ]; then
+    exec "$JAVA_CMD" $MAT_CLI_VMARGS -jar "$LAUNCHER_JAR" -configuration "$DIR/configuration" -nosplash -product org.eclipse.mat.cli.product -application org.eclipse.mat.cli.app "$@"
+fi
+
+exec "$JAVA_CMD" -Xmx1024m -jar "$LAUNCHER_JAR" -configuration "$DIR/configuration" -nosplash -product org.eclipse.mat.cli.product -application org.eclipse.mat.cli.app "$@"

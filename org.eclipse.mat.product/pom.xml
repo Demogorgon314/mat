@@ -32,6 +32,16 @@
 		<!--  chose .product file -->
 		<productFile>${mat-product}.product</productFile>
 		<productConfiguration>${project.basedir}/${productFile}</productConfiguration>
+		<productsDirectory>${project.basedir}</productsDirectory>
+		<productId>org.eclipse.mat.ui.rcp.MemoryAnalyzer</productId>
+		<productRootFolder>mat</productRootFolder>
+		<productMacRootFolder>MemoryAnalyzer.app</productMacRootFolder>
+		<productWinExecutableName>MemoryAnalyzer.exe</productWinExecutableName>
+		<productWinConsoleExecutableName>MemoryAnalyzerc.exe</productWinConsoleExecutableName>
+		<standaloneCliSourceDir>${project.build.directory}/products/${productId}/linux/gtk/x86_64/${productRootFolder}</standaloneCliSourceDir>
+		<standaloneCliWorkDir>${project.build.directory}/standalone-cli</standaloneCliWorkDir>
+		<standaloneCliDir>${standaloneCliWorkDir}/${productRootFolder}</standaloneCliDir>
+		<standaloneCliArchive>${project.build.directory}/extraArtifacts/${productRootFolder}.zip</standaloneCliArchive>
 	</properties>
 	<build>
 		<plugins>
@@ -64,13 +74,21 @@
 				<configuration>
 					<products>
 						<product>
-							<id>org.eclipse.mat.ui.rcp.MemoryAnalyzer</id>
-							<rootFolder>mat</rootFolder>
+							<id>${productId}</id>
+							<rootFolder>${productRootFolder}</rootFolder>
 							<rootFolders>
-								<macosx>MemoryAnalyzer.app</macosx>
+								<macosx>${productMacRootFolder}</macosx>
 							</rootFolders>
 						</product>
 					</products>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.eclipse.tycho</groupId>
+				<artifactId>tycho-p2-publisher-plugin</artifactId>
+				<version>${tycho-version}</version>
+				<configuration>
+					<productsDirectory>${productsDirectory}</productsDirectory>
 				</configuration>
 			</plugin>
 			<!--  
@@ -103,6 +121,79 @@
 	
 	<profiles>
 		<profile>
+			<id>mat-cli-product</id>
+			<activation>
+				<property>
+					<name>mat-product</name>
+					<value>mat-cli</value>
+				</property>
+			</activation>
+			<properties>
+				<productId>org.eclipse.mat.cli.product</productId>
+				<productsDirectory>${project.build.directory}/selected-product</productsDirectory>
+				<productRootFolder>mat-cli</productRootFolder>
+				<productMacRootFolder>matcli.app</productMacRootFolder>
+				<productWinExecutableName>matcli.exe</productWinExecutableName>
+				<productWinConsoleExecutableName>matclic.exe</productWinConsoleExecutableName>
+			</properties>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-antrun-plugin</artifactId>
+						<version>1.7</version>
+						<executions>
+							<execution>
+								<id>prepare-cli-product-definition</id>
+								<phase>generate-resources</phase>
+								<goals>
+									<goal>run</goal>
+								</goals>
+								<configuration>
+									<target>
+										<mkdir dir="${productsDirectory}" />
+										<copy file="${project.basedir}/mat-cli.product" todir="${productsDirectory}" overwrite="true" />
+										<copy file="${project.basedir}/mat-cli.p2.inf" todir="${productsDirectory}" overwrite="true" />
+									</target>
+								</configuration>
+							</execution>
+							<execution>
+								<id>assemble-standalone-cli-zip</id>
+								<phase>package</phase>
+								<goals>
+									<goal>run</goal>
+								</goals>
+								<configuration>
+									<target>
+										<delete dir="${standaloneCliWorkDir}" quiet="true" />
+										<mkdir dir="${standaloneCliWorkDir}" />
+										<copy todir="${standaloneCliDir}" overwrite="true">
+											<fileset dir="${standaloneCliSourceDir}" />
+										</copy>
+										<copy file="${project.basedir}/../features/org.eclipse.mat.cli.feature/rootfiles/win32/mat-cli.bat"
+										      tofile="${standaloneCliDir}/mat-cli.bat" overwrite="true" />
+										<delete file="${standaloneCliDir}/matcli" quiet="true" />
+										<delete file="${standaloneCliDir}/matcli.ini" quiet="true" />
+										<delete quiet="true">
+											<fileset dir="${standaloneCliDir}/plugins">
+												<include name="org.eclipse.equinox.launcher.*_*" />
+												<exclude name="org.eclipse.equinox.launcher_*.jar" />
+											</fileset>
+										</delete>
+										<delete file="${standaloneCliArchive}" quiet="true" />
+										<zip destfile="${standaloneCliArchive}">
+											<zipfileset dir="${standaloneCliWorkDir}" includes="${productRootFolder}/mat-cli" filemode="755" />
+											<zipfileset dir="${standaloneCliWorkDir}" excludes="${productRootFolder}/mat-cli" />
+										</zip>
+									</target>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<profile>
 			<id>build-server</id>
 			<build>
 				<plugins>
@@ -120,15 +211,15 @@
 								<configuration>
 									<target>
 										<!--  Remove unneeded executable -->
-										<delete includeemptydirs="false" failonerror="false">
-											<fileset dir="${project.build.directory}/products/org.eclipse.mat.ui.rcp.MemoryAnalyzer/macosx/cocoa/x86_64/MemoryAnalyzer.app/Contents/Eclipse/p2/org.eclipse.equinox.p2.core/cache/">
-												<include name="**" />
-											</fileset>
-										</delete>
-										<!--  Sign library -->
-										<first id="eclipse.so">
-											<fileset dir="${project.build.directory}/products/org.eclipse.mat.ui.rcp.MemoryAnalyzer/macosx/cocoa/x86_64/MemoryAnalyzer.app/Contents/Eclipse/plugins" includes="**/*.so" />
-										</first>
+											<delete includeemptydirs="false" failonerror="false">
+												<fileset dir="${project.build.directory}/products/${productId}/macosx/cocoa/x86_64/${productMacRootFolder}/Contents/Eclipse/p2/org.eclipse.equinox.p2.core/cache/">
+													<include name="**" />
+												</fileset>
+											</delete>
+											<!--  Sign library -->
+											<first id="eclipse.so">
+												<fileset dir="${project.build.directory}/products/${productId}/macosx/cocoa/x86_64/${productMacRootFolder}/Contents/Eclipse/plugins" includes="**/*.so" />
+											</first>
 										<exec dir="${project.build.directory}" executable="curl">
 											<arg value="--output"/>
 											<arg value="${toString:eclipse.so}"/>
@@ -151,15 +242,15 @@
 								<configuration>
 									<target>
 										<!--  Remove unneeded executable -->
-										<delete includeemptydirs="false" failonerror="false">
-											<fileset dir="${project.build.directory}/products/org.eclipse.mat.ui.rcp.MemoryAnalyzer/macosx/cocoa/aarch64/MemoryAnalyzer.app/Contents/Eclipse/p2/org.eclipse.equinox.p2.core/cache/">
-												<include name="**" />
-											</fileset>
-										</delete>
-										<!--  Sign library -->
-										<first id="eclipse.so">
-											<fileset dir="${project.build.directory}/products/org.eclipse.mat.ui.rcp.MemoryAnalyzer/macosx/cocoa/aarch64/MemoryAnalyzer.app/Contents/Eclipse/plugins" includes="**/*.so" />
-										</first>
+											<delete includeemptydirs="false" failonerror="false">
+												<fileset dir="${project.build.directory}/products/${productId}/macosx/cocoa/aarch64/${productMacRootFolder}/Contents/Eclipse/p2/org.eclipse.equinox.p2.core/cache/">
+													<include name="**" />
+												</fileset>
+											</delete>
+											<!--  Sign library -->
+											<first id="eclipse.so">
+												<fileset dir="${project.build.directory}/products/${productId}/macosx/cocoa/aarch64/${productMacRootFolder}/Contents/Eclipse/plugins" includes="**/*.so" />
+											</first>
 										<exec dir="${project.build.directory}" executable="curl">
 											<arg value="--output"/>
 											<arg value="${toString:eclipse.so}"/>
@@ -208,13 +299,13 @@
 								<goals>
 									<goal>sign</goal>
 								</goals>
-								<phase>package</phase>
-								<configuration>
-									<fileNames>
-										<fileName>MemoryAnalyzer.exe</fileName>
-										<fileName>MemoryAnalyzerc.exe</fileName>
-									</fileNames>
-								</configuration>
+									<phase>package</phase>
+									<configuration>
+										<fileNames>
+											<fileName>${productWinExecutableName}</fileName>
+											<fileName>${productWinConsoleExecutableName}</fileName>
+										</fileNames>
+									</configuration>
 							</execution>
 						</executions>
 					</plugin>
@@ -227,13 +318,13 @@
 								<goals>
 									<goal>sign</goal>
 								</goals>
-								<phase>package</phase>
-								<configuration>
-									<fileNames>
-										<fileName>MemoryAnalyzer.app</fileName>
-									</fileNames>
-									<timeoutMillis>300000</timeoutMillis> <!-- 5 min -->
-									<continueOnFail>${macSigner.forceContinue}</continueOnFail>
+									<phase>package</phase>
+									<configuration>
+										<fileNames>
+											<fileName>${productMacRootFolder}</fileName>
+										</fileNames>
+										<timeoutMillis>300000</timeoutMillis> <!-- 5 min -->
+										<continueOnFail>${macSigner.forceContinue}</continueOnFail>
 									<entitlements>${project.basedir}/mat.entitlement</entitlements>
 								</configuration>
 							</execution>
@@ -249,12 +340,12 @@
 								<goals>
 									<goal>package-dmg</goal>
 								</goals>
-								<phase>integration-test</phase>
-								<configuration>
-									<source>${project.build.directory}/products/org.eclipse.mat.ui.rcp.MemoryAnalyzer-macosx.cocoa.x86_64.zip</source>
-									<timeoutMillis>600000</timeoutMillis> <!-- 10 min -->
-									<continueOnFail>${macSigner.forceContinue}</continueOnFail>
-									<sign>true</sign>
+									<phase>integration-test</phase>
+									<configuration>
+										<source>${project.build.directory}/products/${productId}-macosx.cocoa.x86_64.zip</source>
+										<timeoutMillis>600000</timeoutMillis> <!-- 10 min -->
+										<continueOnFail>${macSigner.forceContinue}</continueOnFail>
+										<sign>true</sign>
 								</configuration>
 							</execution>
 							<execution>
@@ -262,12 +353,12 @@
 								<goals>
 									<goal>package-dmg</goal>
 								</goals>
-								<phase>integration-test</phase>
-								<configuration>
-									<source>${project.build.directory}/products/org.eclipse.mat.ui.rcp.MemoryAnalyzer-macosx.cocoa.aarch64.zip</source>
-									<timeoutMillis>600000</timeoutMillis> <!-- 10 min -->
-									<continueOnFail>${macSigner.forceContinue}</continueOnFail>
-									<sign>true</sign>
+									<phase>integration-test</phase>
+									<configuration>
+										<source>${project.build.directory}/products/${productId}-macosx.cocoa.aarch64.zip</source>
+										<timeoutMillis>600000</timeoutMillis> <!-- 10 min -->
+										<continueOnFail>${macSigner.forceContinue}</continueOnFail>
+										<sign>true</sign>
 								</configuration>
 							</execution>
 						</executions>
