@@ -23,10 +23,17 @@ exit /b 1
 
 :launcher_found
 
+pushd "%_DIRNAME%" >nul 2>&1
+if errorlevel 1 (
+  >&2 echo Unable to change directory to "%_DIRNAME%"
+  exit /b 1
+)
+
 if defined MAT_CLI_VMARGS (
   "%_JAVA%" %MAT_CLI_VMARGS% -jar "%_LAUNCHER%" -configuration "%_DIRNAME%configuration" -nosplash -product org.eclipse.mat.cli.product -application org.eclipse.mat.cli.app %*
 ) else (
   "%_JAVA%" -Xmx1024m -jar "%_LAUNCHER%" -configuration "%_DIRNAME%configuration" -nosplash -product org.eclipse.mat.cli.product -application org.eclipse.mat.cli.app %*
 )
 
+popd >nul 2>&1
 endlocal

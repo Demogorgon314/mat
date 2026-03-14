@@ -24,6 +24,11 @@ if [ -z "$LAUNCHER_JAR" ]; then
     exit 1
 fi
 
+if ! CDPATH= cd -- "$DIR"; then
+    echo "Unable to change directory to $DIR" >&2
+    exit 1
+fi
+
 if [ -n "$MAT_CLI_VMARGS" ]; then
     exec "$JAVA_CMD" $MAT_CLI_VMARGS -jar "$LAUNCHER_JAR" -configuration "$DIR/configuration" -nosplash -product org.eclipse.mat.cli.product -application org.eclipse.mat.cli.app "$@"
 fi
