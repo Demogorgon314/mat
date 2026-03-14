@@ -12,6 +12,7 @@ package org.eclipse.mat.cli.internal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -175,6 +176,7 @@ public final class CliCommandCatalog
     private static final List<OptionDefinition> FORMAT_AND_LIMIT_OPTIONS = Arrays.asList(
                     option("--limit", "N", false, "Limit rows or children per level."),
                     option("--format", "text|json", false, "Select text or JSON output."));
+    private static final Map<String, Integer> QUERY_LIMIT_OVERRIDES = queryLimitOverrides();
 
     private static final Map<CliCommand, CommandDefinition> DEFINITIONS = definitions();
 
@@ -184,6 +186,11 @@ public final class CliCommandCatalog
     public static CommandDefinition lookup(CliCommand command)
     {
         return DEFINITIONS.get(command);
+    }
+
+    public static Integer queryDefaultLimit(String queryIdentifier)
+    {
+        return queryIdentifier == null ? null : QUERY_LIMIT_OVERRIDES.get(queryIdentifier);
     }
 
     private static Map<CliCommand, CommandDefinition> definitions()
@@ -248,14 +255,14 @@ public final class CliCommandCatalog
                                         option("--query-stdin", null, false, "Read OQL text from stdin."),
                                         option("--format", "text|json", false, "Select text or JSON output."),
                                         option("--limit", "N", false, "Limit rows or children per level.")),
-                        Arrays.asList(output("default", "text", "text|table|tree", "Depends on the OQL result."),
-                                        output("default", "json", "text|table|tree", "Depends on the OQL result."),
-                                        output("agent", "json", "text|table|tree",
+                        Arrays.asList(output("default", "text", "text|table|tree|pie", "Depends on the OQL result."),
+                                        output("default", "json", "text|table|tree|pie", "Depends on the OQL result."),
+                                        output("agent", "json", "text|table|tree|pie",
                                                         "Stable JSON envelope around the resolved result kind.")),
                         Arrays.asList("histogram <heap> --agent", "query <heap> --command \"histogram\" --agent"),
                         "same payload contract as the resolved result kind returned by the OQL query.",
                         Arrays.asList("resultKind", "schema.columns[] when table/tree", "items[] when table/tree",
-                                        "content when text")));
+                                        "slices[] when pie", "content when text")));
         definitions.put(CliCommand.QUERY, new CommandDefinition(CliCommand.QUERY,
                         "Run a MAT query command string through SnapshotQuery.parse(...).",
                         "mat-cli query <heap> --command \"...\" [--format text|json]", true,
@@ -266,16 +273,16 @@ public final class CliCommandCatalog
                                         option("--command-stdin", null, false, "Read MAT query text from stdin."),
                                         option("--format", "text|json", false, "Select text or JSON output."),
                                         option("--limit", "N", false, "Limit rows or children per level.")),
-                        Arrays.asList(output("default", "text", "text|table|tree|section|top-consumers",
+                        Arrays.asList(output("default", "text", "text|table|tree|section|pie|top-consumers",
                                         "Depends on the resolved query result."),
-                                        output("default", "json", "text|table|tree|section|top-consumers",
+                                        output("default", "json", "text|table|tree|section|pie|top-consumers",
                                                         "Depends on the resolved query result."),
-                                        output("agent", "json", "text|table|tree|section|top-consumers",
+                                        output("agent", "json", "text|table|tree|section|pie|top-consumers",
                                                         "Stable JSON envelope around the resolved result kind.")),
                         Arrays.asList("schema histogram --agent", "describe top-consumers --agent"),
                         "same payload contract as the resolved result kind returned by the parsed query.",
                         Arrays.asList("resultKind", "schema.columns[] when table/tree", "items[] when table/tree",
-                                        "sections[] when section")));
+                                        "slices[] when pie", "sections[] when section")));
         definitions.put(CliCommand.DESCRIBE, new CommandDefinition(CliCommand.DESCRIBE,
                         "Describe a CLI command, its options, and the result kinds it can return.",
                         "mat-cli describe <command> [--format text|json]", false,
@@ -325,6 +332,14 @@ public final class CliCommandCatalog
     private static OptionDefinition option(String name, String valueHint, boolean required, String description)
     {
         return new OptionDefinition(name, valueHint, required, description);
+    }
+
+    private static Map<String, Integer> queryLimitOverrides()
+    {
+        Map<String, Integer> limits = new HashMap<String, Integer>();
+        limits.put("gc_roots", Integer.valueOf(100)); //$NON-NLS-1$
+        limits.put("thread_overview", Integer.valueOf(100)); //$NON-NLS-1$
+        return Collections.unmodifiableMap(limits);
     }
 
     private static OutputDefinition output(String profile, String format, String resultKind, String description)

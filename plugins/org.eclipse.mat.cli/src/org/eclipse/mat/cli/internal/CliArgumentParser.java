@@ -17,6 +17,7 @@ import java.nio.file.Files;
 public final class CliArgumentParser
 {
     static final int DEFAULT_LIMIT = 20;
+    static final int MAX_LIMIT = 10000;
     static final int DEFAULT_TREE_DEPTH = 8;
 
     public CliArguments parse(String[] args) throws CliException
@@ -36,6 +37,7 @@ public final class CliArgumentParser
         boolean verbose = false;
         boolean help = false;
         int limit = DEFAULT_LIMIT;
+        boolean limitExplicit = false;
         String objectAddress = null;
         String oqlQuery = null;
         String oqlQueryFile = null;
@@ -76,10 +78,12 @@ public final class CliArgumentParser
             else if (arg.startsWith("--limit=")) //$NON-NLS-1$
             {
                 limit = parseLimit(arg.substring("--limit=".length())); //$NON-NLS-1$
+                limitExplicit = true;
             }
             else if ("--limit".equals(arg)) //$NON-NLS-1$
             {
                 limit = parseLimit(nextArg(args, ++ii, "--limit")); //$NON-NLS-1$
+                limitExplicit = true;
             }
             else if (arg.startsWith("--object=")) //$NON-NLS-1$
             {
@@ -179,6 +183,9 @@ public final class CliArgumentParser
         else if (command == CliCommand.QUERY)
             queryCommand = resolveExclusiveInput("query", "--command", queryCommand, "--command-file", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                             queryCommandFile, "--command-stdin", queryCommandStdin); //$NON-NLS-1$
+
+        if (!limitExplicit)
+            limit = defaultLimit(command, queryCommand);
 
         CliArguments parsed = new CliArguments(command, subjectCommand, subjectName, heapFile, profile, format, verbose,
                         help, limit, DEFAULT_TREE_DEPTH, objectAddress, oqlQuery, queryCommand);
@@ -354,7 +361,7 @@ public final class CliArgumentParser
             int limit = Integer.parseInt(value);
             if (limit < 1)
                 throw CliException.usage("Limit must be >= 1"); //$NON-NLS-1$
-            return limit;
+            return Math.min(limit, MAX_LIMIT);
         }
         catch (NumberFormatException e)
         {
@@ -372,5 +379,122 @@ public final class CliArgumentParser
     private boolean isHelpToken(String token)
     {
         return "--help".equals(token) || "-h".equals(token) || "help".equals(token); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+    }
+
+    public CliArguments partialParse(String[] args, CliArguments.OutputProfile profile,
+                    CliArguments.OutputFormat format)
+    {
+        CliCommand command = null;
+        CliCommand subjectCommand = null;
+        String subjectName = null;
+        File heapFile = null;
+        boolean help = args == null || args.length == 0;
+        String objectAddress = null;
+        String oqlQuery = null;
+        String queryCommand = null;
+
+        if (args != null)
+        {
+            for (int ii = 0; ii < args.length; ii++)
+            {
+                String arg = args[ii];
+                if (isHelpToken(arg))
+                {
+                    help = true;
+                }
+                else if (expectsValue(arg))
+                {
+                    if (ii + 1 < args.length)
+                    {
+                        String value = args[++ii];
+                        if ("--object".equals(arg)) //$NON-NLS-1$
+                            objectAddress = value;
+                        else if ("--query".equals(arg)) //$NON-NLS-1$
+                            oqlQuery = value;
+                        else if ("--command".equals(arg)) //$NON-NLS-1$
+                            queryCommand = value;
+                    }
+                }
+                else if (arg.startsWith("--object=")) //$NON-NLS-1$
+                {
+                    objectAddress = arg.substring("--object=".length()); //$NON-NLS-1$
+                }
+                else if (arg.startsWith("--query=")) //$NON-NLS-1$
+                {
+                    oqlQuery = arg.substring("--query=".length()); //$NON-NLS-1$
+                }
+                else if (arg.startsWith("--command=")) //$NON-NLS-1$
+                {
+                    queryCommand = arg.substring("--command=".length()); //$NON-NLS-1$
+                }
+                else if (arg.startsWith("--")) //$NON-NLS-1$
+                {
+                    continue;
+                }
+                else if (command == null)
+                {
+                    try
+                    {
+                        command = CliCommand.parse(arg);
+                    }
+                    catch (CliException ignore)
+                    {
+                        break;
+                    }
+                }
+                else if (command.requiresSubjectCommand() && subjectCommand == null)
+                {
+                    subjectName = arg;
+                    try
+                    {
+                        subjectCommand = CliCommand.parse(arg);
+                    }
+                    catch (CliException ignore)
+                    {
+                        subjectCommand = null;
+                    }
+                }
+                else if (command.requiresQueryIdentifier() && subjectName == null)
+                {
+                    subjectName = arg;
+                }
+                else if (command.requiresSnapshot() && heapFile == null)
+                {
+                    heapFile = new File(arg).getAbsoluteFile();
+                }
+            }
+        }
+
+        return new CliArguments(command, subjectCommand, subjectName, heapFile, profile, format, false, help,
+                        defaultLimit(command, queryCommand), DEFAULT_TREE_DEPTH, objectAddress, oqlQuery, queryCommand);
+    }
+
+    private int defaultLimit(CliCommand command, String queryCommand)
+    {
+        if (command == CliCommand.QUERY)
+        {
+            String queryIdentifier = queryIdentifier(queryCommand);
+            Integer override = CliCommandCatalog.queryDefaultLimit(queryIdentifier);
+            if (override != null)
+                return override.intValue();
+        }
+        return DEFAULT_LIMIT;
+    }
+
+    private String queryIdentifier(String queryCommand)
+    {
+        if (isEmpty(queryCommand))
+            return null;
+
+        String trimmed = queryCommand.trim();
+        int separator = trimmed.indexOf(' ');
+        return separator < 0 ? trimmed : trimmed.substring(0, separator);
+    }
+
+    private boolean expectsValue(String option)
+    {
+        return "--profile".equals(option) || "--format".equals(option) || "--limit".equals(option) //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                        || "--object".equals(option) || "--query".equals(option) || "--query-file".equals(option) //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                        || "--command".equals(option) || "--command-file".equals(option); //$NON-NLS-1$ //$NON-NLS-2$
     }
 }

@@ -37,7 +37,7 @@ public final class CliHelp
         help.append("  describe-query <query-id> [--format text|json]\n\n"); //$NON-NLS-1$
         help.append("Global options:\n"); //$NON-NLS-1$
         help.append("  --format text|json   Output format (default: text, agent profile: json)\n"); //$NON-NLS-1$
-        help.append("  --limit N            Maximum rows or children per level (default: 20)\n"); //$NON-NLS-1$
+        help.append("  --limit N            Maximum rows or children per level (default: 20, max: 10000)\n"); //$NON-NLS-1$
         help.append("  --profile default|agent  Output profile (default: default)\n"); //$NON-NLS-1$
         help.append("  --agent              Shortcut for --profile agent\n"); //$NON-NLS-1$
         help.append("  --verbose            Print detailed diagnostics on failure\n"); //$NON-NLS-1$

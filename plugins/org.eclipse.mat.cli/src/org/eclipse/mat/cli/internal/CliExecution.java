@@ -15,21 +15,30 @@ public final class CliExecution
 {
     private final SnapshotSummary summary;
     private final IResult result;
+    private final String primaryObjectAddress;
+    private final String note;
 
-    private CliExecution(SnapshotSummary summary, IResult result)
+    private CliExecution(SnapshotSummary summary, IResult result, String primaryObjectAddress, String note)
     {
         this.summary = summary;
         this.result = result;
+        this.primaryObjectAddress = primaryObjectAddress;
+        this.note = note;
     }
 
     public static CliExecution summary(SnapshotSummary summary)
     {
-        return new CliExecution(summary, null);
+        return new CliExecution(summary, null, null, null);
     }
 
     public static CliExecution result(IResult result)
     {
-        return new CliExecution(null, result);
+        return new CliExecution(null, result, null, null);
+    }
+
+    public static CliExecution result(IResult result, String primaryObjectAddress, String note)
+    {
+        return new CliExecution(null, result, primaryObjectAddress, note);
     }
 
     public boolean isSummary()
@@ -45,5 +54,15 @@ public final class CliExecution
     public IResult getResult()
     {
         return result;
+    }
+
+    public String getPrimaryObjectAddress()
+    {
+        return primaryObjectAddress;
+    }
+
+    public String getNote()
+    {
+        return note;
     }
 }

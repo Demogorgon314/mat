@@ -12,6 +12,7 @@ package org.eclipse.mat.tests.cli;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.awt.Color;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -26,6 +27,7 @@ import org.eclipse.mat.cli.internal.TopConsumersResult;
 import org.eclipse.mat.cli.internal.serialization.ResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.JsonWriter;
 import org.eclipse.mat.cli.internal.serialization.QueryMetadataSerializer;
+import org.eclipse.mat.cli.internal.serialization.PieResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.SerializationOptions;
 import org.eclipse.mat.cli.internal.serialization.SpecResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.TableResultSerializer;
@@ -36,6 +38,7 @@ import org.eclipse.mat.query.Bytes;
 import org.eclipse.mat.query.Column;
 import org.eclipse.mat.query.IContextObject;
 import org.eclipse.mat.query.IResult;
+import org.eclipse.mat.query.IResultPie;
 import org.eclipse.mat.query.IResultTable;
 import org.eclipse.mat.query.IResultTree;
 import org.eclipse.mat.query.ResultMetaData;
@@ -169,7 +172,7 @@ public class ResultSerializerTest
     public void serializesCompositeResultToJson() throws Exception
     {
         SpecResultSerializer serializer = new SpecResultSerializer(new TableResultSerializer(), new TreeResultSerializer(),
-                        new TextResultSerializer());
+                        new TextResultSerializer(), new PieResultSerializer());
         JsonWriter writer = new JsonWriter();
         writer.beginObject();
         boolean truncated = serializer.writeJson(writer, sampleSection(), new SerializationOptions(10, 8));
@@ -185,6 +188,58 @@ public class ResultSerializerTest
         assertTrue(json.contains("\"resultType\":\"tree\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"Overview\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"resultType\":\"text\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesPieResultInsideSection() throws Exception
+    {
+        SpecResultSerializer serializer = new SpecResultSerializer(new TableResultSerializer(), new TreeResultSerializer(),
+                        new TextResultSerializer(), new PieResultSerializer());
+        SectionSpec section = new SectionSpec("LeakHunter"); //$NON-NLS-1$
+        section.add(new QuerySpec("Overview", new SamplePie())); //$NON-NLS-1$
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeJson(writer, section, new SerializationOptions(10, 8));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"resultType\":\"pie\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"label\":\"Suspect 1\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"color\":\"#ff0000\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"context\":{\"objectId\":101}")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void marksTreeCyclesInAgentJson()
+    {
+        TreeResultSerializer serializer = new TreeResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeAgentJson(writer, new CyclicTree(), new SerializationOptions(10, 8));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"_cycle\":true")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"Repeat\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void marksTreeCyclesInJson()
+    {
+        TreeResultSerializer serializer = new TreeResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeJson(writer, new CyclicTree(), new SerializationOptions(10, 8));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"_cycle\":true")); //$NON-NLS-1$
     }
 
     @Test
@@ -269,7 +324,7 @@ public class ResultSerializerTest
     public void marksUnsupportedNestedCompositeResult() throws Exception
     {
         SpecResultSerializer serializer = new SpecResultSerializer(new TableResultSerializer(), new TreeResultSerializer(),
-                        new TextResultSerializer());
+                        new TextResultSerializer(), new PieResultSerializer());
         QuerySpec query = new QuerySpec("Unsupported", new UnsupportedResult()); //$NON-NLS-1$
         JsonWriter writer = new JsonWriter();
         writer.beginObject();
@@ -305,6 +360,24 @@ public class ResultSerializerTest
         assertTrue(json.contains("\"rootCauseMessage\":\"reader is closed\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"kind\":\"snapshot_lifecycle\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"retryable\":false")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void classifiesProblemReportedOqlErrors() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        CliArguments arguments = new CliArgumentParser()
+                        .parse(new String[] { "--agent", "oql", "sample.hprof", "--query", "SELECT * FROM java.lang.String" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serializeError(arguments, CliArguments.OutputProfile.AGENT, 3,
+                            new IllegalStateException("Problem reported: boom"), stream); //$NON-NLS-1$
+        }
+
+        String json = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(json.contains("\"kind\":\"query_error\"")); //$NON-NLS-1$
     }
 
     @Test
@@ -752,6 +825,119 @@ public class ResultSerializerTest
         public ResultMetaData getResultMetaData()
         {
             return null;
+        }
+    }
+
+    private static final class CyclicTree implements IResultTree
+    {
+        private final Node root = new Node("Root", Integer.valueOf(0), 90, //$NON-NLS-1$
+                        Collections.singletonList(new Node("Repeat", Integer.valueOf(1), 90, Collections.emptyList()))); //$NON-NLS-1$
+        private final Column[] columns = new Column[] { new Column("Name", String.class), new Column("Depth", int.class) }; //$NON-NLS-1$ //$NON-NLS-2$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            Node value = (Node) row;
+            return columnIndex == 0 ? value.name : value.depth;
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            final Node value = (Node) row;
+            return new IContextObject()
+            {
+                public int getObjectId()
+                {
+                    return value.objectId;
+                }
+            };
+        }
+
+        public List<?> getElements()
+        {
+            return Collections.singletonList(root);
+        }
+
+        public boolean hasChildren(Object element)
+        {
+            return !((Node) element).children.isEmpty();
+        }
+
+        public List<?> getChildren(Object parent)
+        {
+            return ((Node) parent).children;
+        }
+    }
+
+    private static final class SamplePie implements IResultPie
+    {
+        private final List<Slice> slices = Arrays.<Slice>asList(new SampleSlice("Suspect 1", 42d, 101, Color.RED), //$NON-NLS-1$
+                        new SampleSlice("Suspect 2", 21d, 102, null)); //$NON-NLS-1$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public List<? extends Slice> getSlices()
+        {
+            return slices;
+        }
+    }
+
+    private static final class SampleSlice implements IResultPie.ColoredSlice
+    {
+        private final String label;
+        private final double value;
+        private final int objectId;
+        private final Color color;
+
+        private SampleSlice(String label, double value, int objectId, Color color)
+        {
+            this.label = label;
+            this.value = value;
+            this.objectId = objectId;
+            this.color = color;
+        }
+
+        public String getLabel()
+        {
+            return label;
+        }
+
+        public double getValue()
+        {
+            return value;
+        }
+
+        public String getDescription()
+        {
+            return label + " details"; //$NON-NLS-1$
+        }
+
+        public IContextObject getContext()
+        {
+            return new IContextObject()
+            {
+                public int getObjectId()
+                {
+                    return objectId;
+                }
+            };
+        }
+
+        public Color getColor()
+        {
+            return color;
         }
     }
 }

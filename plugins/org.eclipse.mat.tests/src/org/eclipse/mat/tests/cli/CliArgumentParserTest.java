@@ -139,6 +139,26 @@ public class CliArgumentParserTest
     }
 
     @Test
+    public void capsExplicitLimitAtMaximum()
+                    throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "histogram", "sample.hprof", "--limit", "500000" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        assertEquals(10000, arguments.getLimit());
+    }
+
+    @Test
+    public void appliesQuerySpecificDefaultLimit()
+                    throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "query", "sample.hprof", "--command", "thread_overview" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        assertEquals(100, arguments.getLimit());
+    }
+
+    @Test
     public void parsesHelpWithoutCommand() throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();

@@ -16,7 +16,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.regex.Pattern;
 
-import org.eclipse.mat.SnapshotException;
 import org.eclipse.mat.collect.ArrayInt;
 import org.eclipse.mat.internal.Messages;
 import org.eclipse.mat.query.IQuery;
@@ -42,24 +41,8 @@ public class FindStringsQuery implements IQuery
     @Argument
     public ISnapshot snapshot;
 
-    // Experimental default heap argument
     @Argument(flag = Argument.UNFLAGGED, isMandatory = false)
-    public IHeapObjectArgument objects = new IHeapObjectArgument() {
-        public Iterator<int[]> iterator()
-        {
-            return null;
-        }
-
-        public int[] getIds(IProgressListener listener) throws SnapshotException
-        {
-            return null;
-        }
-
-        public String getLabel()
-        {
-            return "java.lang.String"; //$NON-NLS-1$
-        }
-    };
+    public IHeapObjectArgument objects;
 
     @Argument
     public Pattern pattern;
@@ -68,9 +51,10 @@ public class FindStringsQuery implements IQuery
     {
         boolean onlyStrings = false;
         ArrayInt result = new ArrayInt();
+        Iterator<int[]> iterator = objects == null ? null : objects.iterator();
 
         Collection<IClass> classes = snapshot.getClassesByName("java.lang.String", false); //$NON-NLS-1$
-        if (objects == null)
+        if (iterator == null)
         {
             if (classes != null)
                 ClassesLoop: for (IClass clasz : classes)
@@ -103,7 +87,7 @@ public class FindStringsQuery implements IQuery
 
                 listener.beginTask(Messages.FindStringsQuery_SearchingStrings, hot.totalWork());
 
-                ObjectsLoop: for (Iterator<int[]> it = objects.iterator(); it.hasNext();)
+                ObjectsLoop: for (Iterator<int[]> it = iterator; it.hasNext();)
                 {
                     int objectIds[] = it.next();
                     hot.beginBlock(objectIds, !it.hasNext());

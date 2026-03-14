@@ -11,12 +11,14 @@ package org.eclipse.mat.tests.cli;
 
 import junit.framework.JUnit4TestAdapter;
 
+import org.eclipse.mat.cli.internal.CliApplicationErrorContextTest;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
 
 @RunWith(Suite.class)
-@SuiteClasses( { CliArgumentParserTest.class, ResultSerializerTest.class, CliCommandExecutorTest.class })
+@SuiteClasses( { CliArgumentParserTest.class, ResultSerializerTest.class, CliCommandExecutorTest.class,
+                CliApplicationErrorContextTest.class })
 public class CliTests
 {
     public static junit.framework.Test suite()

@@ -9,9 +9,12 @@
  *******************************************************************************/
 package org.eclipse.mat.cli.internal.serialization;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.eclipse.mat.query.Column;
+import org.eclipse.mat.query.IContextObject;
 import org.eclipse.mat.query.IResultTree;
 
 public class TreeResultSerializer extends StructuredResultSerializer
@@ -21,7 +24,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
         writeColumns(writer, tree.getColumns());
         writer.name("rows").beginArray(); //$NON-NLS-1$
         TruncationState state = new TruncationState(options.getTreeNodeLimit());
-        writeNodes(writer, tree, tree.getColumns(), tree.getElements(), 0, options, state);
+        writeNodes(writer, tree, tree.getColumns(), tree.getElements(), 0, options, state, new PathState());
         writer.endArray();
         return state.truncated;
     }
@@ -32,7 +35,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
         writeAgentSchema(writer, schema);
         writer.name("items").beginArray(); //$NON-NLS-1$
         TruncationState state = new TruncationState(options.getTreeNodeLimit());
-        writeAgentNodes(writer, tree, schema, tree.getElements(), 0, options, state);
+        writeAgentNodes(writer, tree, schema, tree.getElements(), 0, options, state, new PathState());
         writer.endArray();
         return state.truncated;
     }
@@ -41,12 +44,12 @@ public class TreeResultSerializer extends StructuredResultSerializer
     {
         StringBuilder builder = new StringBuilder();
         TruncationState state = new TruncationState(Integer.MAX_VALUE);
-        appendNodes(builder, tree, tree.getColumns(), tree.getElements(), 0, options, state);
+        appendNodes(builder, tree, tree.getColumns(), tree.getElements(), 0, options, state, new PathState());
         return builder.toString();
     }
 
     private void writeNodes(JsonWriter writer, IResultTree tree, Column[] columns, List<?> rows, int depth,
-                    SerializationOptions options, TruncationState state)
+                    SerializationOptions options, TruncationState state, PathState path)
     {
         int limit = Math.min(rows.size(), options.getLimit());
         if (rows.size() > limit)
@@ -65,7 +68,14 @@ public class TreeResultSerializer extends StructuredResultSerializer
             writer.beginObject();
             writeRowValues(writer, tree, columns, row);
             writeContext(writer, tree, row);
-            if (depth + 1 >= options.getTreeDepthLimit())
+            Integer objectId = contextObjectId(tree, row);
+            boolean cycle = path.isCycle(objectId);
+            writer.name("_cycle").value(cycle); //$NON-NLS-1$
+            if (cycle)
+            {
+                writer.name("children").beginArray().endArray(); //$NON-NLS-1$
+            }
+            else if (depth + 1 >= options.getTreeDepthLimit())
             {
                 if (tree.hasChildren(row))
                     state.truncated = true;
@@ -75,13 +85,15 @@ public class TreeResultSerializer extends StructuredResultSerializer
             {
                 writer.name("children").beginArray(); //$NON-NLS-1$
                 List<?> children = tree.hasChildren(row) ? tree.getChildren(row) : null;
+                path.push(objectId);
                 if (children != null)
                 {
                     if (state.remainingNodes > 0)
-                        writeNodes(writer, tree, columns, children, depth + 1, options, state);
+                        writeNodes(writer, tree, columns, children, depth + 1, options, state, path);
                     else
                         state.truncated = true;
                 }
+                path.pop(objectId);
                 writer.endArray();
             }
             writer.endObject();
@@ -89,7 +101,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
     }
 
     private void writeAgentNodes(JsonWriter writer, IResultTree tree, ColumnSchema[] columns, List<?> rows, int depth,
-                    SerializationOptions options, TruncationState state)
+                    SerializationOptions options, TruncationState state, PathState path)
     {
         int limit = Math.min(rows.size(), options.getLimit());
         if (rows.size() > limit)
@@ -110,10 +122,13 @@ public class TreeResultSerializer extends StructuredResultSerializer
             writer.beginObject();
             writeAgentRow(writer, tree, columns, row);
             writer.name("_hasChildren").value(hasChildren); //$NON-NLS-1$
+            Integer objectId = contextObjectId(tree, row);
+            boolean cycle = path.isCycle(objectId);
+            writer.name("_cycle").value(cycle); //$NON-NLS-1$
 
             boolean childrenTruncated = false;
             writer.name("_children").beginArray(); //$NON-NLS-1$
-            if (hasChildren)
+            if (hasChildren && !cycle)
             {
                 if (depth + 1 >= options.getTreeDepthLimit())
                 {
@@ -138,8 +153,10 @@ public class TreeResultSerializer extends StructuredResultSerializer
                             state.truncated = true;
                             break;
                         }
+                        path.push(objectId);
                         writeAgentNodes(writer, tree, columns, children.subList(childIndex, childIndex + 1), depth + 1,
-                                        options, state);
+                                        options, state, path);
+                        path.pop(objectId);
                     }
                 }
             }
@@ -151,7 +168,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
     }
 
     private void appendNodes(StringBuilder builder, IResultTree tree, Column[] columns, List<?> rows, int depth,
-                    SerializationOptions options, TruncationState state)
+                    SerializationOptions options, TruncationState state, PathState path)
     {
         int limit = Math.min(rows.size(), options.getLimit());
         if (rows.size() > limit)
@@ -164,9 +181,18 @@ public class TreeResultSerializer extends StructuredResultSerializer
                 builder.append("  "); //$NON-NLS-1$
             builder.append("- "); //$NON-NLS-1$
             builder.append(formatRow(columns, tree, row)).append('\n');
-            if (depth + 1 < options.getTreeDepthLimit() && tree.hasChildren(row))
+            Integer objectId = contextObjectId(tree, row);
+            if (path.isCycle(objectId))
             {
-                appendNodes(builder, tree, columns, tree.getChildren(row), depth + 1, options, state);
+                for (int pad = 0; pad < depth + 1; pad++)
+                    builder.append("  "); //$NON-NLS-1$
+                builder.append("[cycle]\n"); //$NON-NLS-1$
+            }
+            else if (depth + 1 < options.getTreeDepthLimit() && tree.hasChildren(row))
+            {
+                path.push(objectId);
+                appendNodes(builder, tree, columns, tree.getChildren(row), depth + 1, options, state, path);
+                path.pop(objectId);
             }
             else if (tree.hasChildren(row))
             {
@@ -203,6 +229,34 @@ public class TreeResultSerializer extends StructuredResultSerializer
         private TruncationState(int remainingNodes)
         {
             this.remainingNodes = remainingNodes;
+        }
+    }
+
+    private Integer contextObjectId(IResultTree tree, Object row)
+    {
+        IContextObject context = safeContext(tree, row);
+        return context == null || context.getObjectId() < 0 ? null : Integer.valueOf(context.getObjectId());
+    }
+
+    private static final class PathState
+    {
+        private final Set<Integer> ancestors = new HashSet<Integer>();
+
+        private boolean isCycle(Integer objectId)
+        {
+            return objectId != null && ancestors.contains(objectId);
+        }
+
+        private void push(Integer objectId)
+        {
+            if (objectId != null)
+                ancestors.add(objectId);
+        }
+
+        private void pop(Integer objectId)
+        {
+            if (objectId != null)
+                ancestors.remove(objectId);
         }
     }
 }

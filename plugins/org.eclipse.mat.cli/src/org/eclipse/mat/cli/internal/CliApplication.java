@@ -70,14 +70,20 @@ public class CliApplication implements IApplication
         }
         catch (CliException e)
         {
+            if (parsed == null)
+                parsed = parser.partialParse(args, requestedProfile, requestedFormat);
             return exit(e.getExitCode(), parsed, requestedProfile, requestedFormat, e, System.err, System.out);
         }
         catch (OutOfMemoryError e)
         {
+            if (parsed == null)
+                parsed = parser.partialParse(args, requestedProfile, requestedFormat);
             return exit(CliExitCodes.OUT_OF_MEMORY, parsed, requestedProfile, requestedFormat, e, System.err, System.out);
         }
         catch (Exception e)
         {
+            if (parsed == null)
+                parsed = parser.partialParse(args, requestedProfile, requestedFormat);
             return exit(CliExitCodes.EXECUTION_ERROR, parsed, requestedProfile, requestedFormat, e, System.err, System.out);
         }
     }

@@ -11,9 +11,11 @@ package org.eclipse.mat.cli.internal.serialization;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.Arrays;
 import java.util.List;
 
 import org.eclipse.mat.cli.internal.CliArguments;
+import org.eclipse.mat.cli.internal.CliCommand;
 import org.eclipse.mat.cli.internal.CliCommandCatalog;
 import org.eclipse.mat.cli.internal.CliExecution;
 import org.eclipse.mat.cli.internal.CliException;
@@ -23,8 +25,10 @@ import org.eclipse.mat.cli.internal.QueryMetadataResult;
 import org.eclipse.mat.cli.internal.SnapshotSummary;
 import org.eclipse.mat.cli.internal.TopConsumersResult;
 import org.eclipse.mat.query.IResult;
+import org.eclipse.mat.query.IResultPie;
 import org.eclipse.mat.query.IResultTable;
 import org.eclipse.mat.query.IResultTree;
+import org.eclipse.mat.query.results.CompositeResult;
 import org.eclipse.mat.query.results.TextResult;
 import org.eclipse.mat.report.Spec;
 
@@ -35,8 +39,9 @@ public class ResultSerializer
     private final TableResultSerializer tableSerializer = new TableResultSerializer();
     private final TreeResultSerializer treeSerializer = new TreeResultSerializer();
     private final TextResultSerializer textSerializer = new TextResultSerializer();
+    private final PieResultSerializer pieSerializer = new PieResultSerializer();
     private final SpecResultSerializer specSerializer = new SpecResultSerializer(tableSerializer, treeSerializer,
-                    textSerializer);
+                    textSerializer, pieSerializer);
     private final TopConsumersResultSerializer topConsumersSerializer = new TopConsumersResultSerializer();
     private final CommandMetadataSerializer metadataSerializer = new CommandMetadataSerializer();
     private final QueryMetadataSerializer queryMetadataSerializer = new QueryMetadataSerializer();
@@ -123,6 +128,14 @@ public class ResultSerializer
         {
             out.print(treeSerializer.toText((IResultTree) result, options));
         }
+        else if (result instanceof IResultPie)
+        {
+            out.print(pieSerializer.toText((IResultPie) result, options));
+        }
+        else if (result instanceof CompositeResult)
+        {
+            out.print(specSerializer.compositeToText((CompositeResult) result, options));
+        }
         else if (result instanceof Spec)
         {
             out.print(specSerializer.toText((Spec) result, options));
@@ -180,6 +193,16 @@ public class ResultSerializer
                 writer.name("resultType").value("tree"); //$NON-NLS-1$ //$NON-NLS-2$
                 truncated = treeSerializer.writeJson(writer, (IResultTree) result, options);
             }
+            else if (result instanceof IResultPie)
+            {
+                writer.name("resultType").value("pie"); //$NON-NLS-1$ //$NON-NLS-2$
+                truncated = pieSerializer.writeJson(writer, (IResultPie) result, options);
+            }
+            else if (result instanceof CompositeResult)
+            {
+                writer.name("resultType").value("section"); //$NON-NLS-1$ //$NON-NLS-2$
+                truncated = specSerializer.writeCompositeResult(writer, (CompositeResult) result, options);
+            }
             else if (result instanceof Spec)
             {
                 writer.name("resultType").value(specSerializer.rootResultType((Spec) result)); //$NON-NLS-1$
@@ -209,6 +232,8 @@ public class ResultSerializer
             writer.name("heap").value(arguments.getHeapFile().getAbsolutePath()); //$NON-NLS-1$
         if (arguments.getSubjectCommand() != null)
             writer.name("subject").value(arguments.getSubjectCommand().getToken()); //$NON-NLS-1$
+        else if (arguments.getSubjectName() != null)
+            writer.name("subject").value(arguments.getSubjectName()); //$NON-NLS-1$
 
         boolean truncated;
         if (execution.isSummary())
@@ -253,6 +278,16 @@ public class ResultSerializer
                 writer.name("resultKind").value("tree"); //$NON-NLS-1$ //$NON-NLS-2$
                 truncated = treeSerializer.writeAgentJson(writer, (IResultTree) result, options);
             }
+            else if (result instanceof IResultPie)
+            {
+                writer.name("resultKind").value("pie"); //$NON-NLS-1$ //$NON-NLS-2$
+                truncated = pieSerializer.writeAgentJson(writer, (IResultPie) result, options);
+            }
+            else if (result instanceof CompositeResult)
+            {
+                writer.name("resultKind").value("section"); //$NON-NLS-1$ //$NON-NLS-2$
+                truncated = specSerializer.writeCompositeResult(writer, (CompositeResult) result, options);
+            }
             else if (result instanceof Spec)
             {
                 writer.name("resultKind").value(specSerializer.rootResultType((Spec) result)); //$NON-NLS-1$
@@ -265,6 +300,8 @@ public class ResultSerializer
         }
 
         writer.name("truncated").value(truncated); //$NON-NLS-1$
+        if (execution != null && execution.getNote() != null)
+            writer.name("note").value(execution.getNote()); //$NON-NLS-1$
         writeSuggestedNextCommands(writer, suggestedNextCommands(arguments, execution));
         writer.endObject();
         out.println(writer.toString());
@@ -340,7 +377,17 @@ public class ResultSerializer
         if (execution != null && execution.getResult() instanceof CommandMetadataResult)
         {
             return renderSuggestions(arguments,
-                            ((CommandMetadataResult) execution.getResult()).getDefinition().getSuggestedNextCommands());
+                            ((CommandMetadataResult) execution.getResult()).getDefinition().getSuggestedNextCommands(),
+                            null);
+        }
+
+        if (arguments != null && arguments.getCommand() == CliCommand.QUERY && execution != null
+                        && execution.getPrimaryObjectAddress() != null)
+        {
+            return renderSuggestions(arguments,
+                            Arrays.asList("path2gc <heap> --object 0x... --agent", //$NON-NLS-1$
+                                            "query <heap> --command \"dominator_tree 0x...\" --agent"), //$NON-NLS-1$
+                            execution.getPrimaryObjectAddress());
         }
 
         CliCommandCatalog.CommandDefinition definition = null;
@@ -351,21 +398,23 @@ public class ResultSerializer
                             : arguments.getCommand());
         }
         if (definition == null)
-            return renderSuggestions(arguments, java.util.Arrays.asList("mat-cli --help", "mat-cli describe summary --agent")); //$NON-NLS-1$ //$NON-NLS-2$
-        return renderSuggestions(arguments, definition.getSuggestedNextCommands());
+            return renderSuggestions(arguments, Arrays.asList("mat-cli --help", "mat-cli describe summary --agent"), //$NON-NLS-1$ //$NON-NLS-2$
+                            execution == null ? null : execution.getPrimaryObjectAddress());
+        return renderSuggestions(arguments, definition.getSuggestedNextCommands(),
+                        execution == null ? null : execution.getPrimaryObjectAddress());
     }
 
-    private List<String> renderSuggestions(CliArguments arguments, List<String> suggestions)
+    private List<String> renderSuggestions(CliArguments arguments, List<String> suggestions, String objectAddress)
     {
         java.util.ArrayList<String> rendered = new java.util.ArrayList<String>(suggestions.size());
         for (String suggestion : suggestions)
         {
-            rendered.add(renderSuggestion(arguments, suggestion));
+            rendered.add(renderSuggestion(arguments, suggestion, objectAddress));
         }
         return rendered;
     }
 
-    private String renderSuggestion(CliArguments arguments, String suggestion)
+    private String renderSuggestion(CliArguments arguments, String suggestion, String objectAddress)
     {
         String rendered = suggestion.startsWith("mat-cli ") ? suggestion : "mat-cli " + suggestion; //$NON-NLS-1$ //$NON-NLS-2$
         if (arguments == null)
@@ -381,8 +430,9 @@ public class ResultSerializer
             rendered = rendered.replace("<query>", arguments.getSubjectName()); //$NON-NLS-1$
             rendered = rendered.replace("<subject>", arguments.getSubjectName()); //$NON-NLS-1$
         }
-        if (arguments.getObjectAddress() != null)
-            rendered = rendered.replace("0x...", arguments.getObjectAddress()); //$NON-NLS-1$
+        String resolvedObjectAddress = arguments.getObjectAddress() != null ? arguments.getObjectAddress() : objectAddress;
+        if (resolvedObjectAddress != null)
+            rendered = rendered.replace("0x...", resolvedObjectAddress); //$NON-NLS-1$
         return rendered;
     }
 
@@ -403,8 +453,12 @@ public class ResultSerializer
         if (root instanceof java.nio.file.AccessDeniedException || lower.contains("not writable") //$NON-NLS-1$
                         || lower.contains("permission denied") || lower.contains("could not be written")) //$NON-NLS-1$ //$NON-NLS-2$
             return "permission"; //$NON-NLS-1$
+        if (lower.contains("no object found at address") || lower.contains("invalid object address")) //$NON-NLS-1$ //$NON-NLS-2$
+            return "invalid_argument"; //$NON-NLS-1$
         if (rootClass.endsWith("ParseException") || lower.contains("encountered ") || lower.contains("syntax")) //$NON-NLS-1$ //$NON-NLS-2$
             return "query_syntax"; //$NON-NLS-1$
+        if (arguments != null && arguments.getCommand() == CliCommand.OQL && lower.contains("problem reported:")) //$NON-NLS-1$
+            return "query_error"; //$NON-NLS-1$
         if (lower.contains("o2address() is null") || lower.contains("outbound() is null") //$NON-NLS-1$ //$NON-NLS-2$
                         || lower.contains("this.in is null") || lower.contains("snapshot has been disposed") //$NON-NLS-1$ //$NON-NLS-2$
                         || lower.contains("reader is closed")) //$NON-NLS-1$
@@ -425,11 +479,17 @@ public class ResultSerializer
             return "Verify that the heap path exists and is readable."; //$NON-NLS-1$
         if ("permission".equals(kind)) //$NON-NLS-1$
             return "Use writable runtime directories, for example MAT_CLI_CONFIG_DIR=/tmp/mat-cli/config and MAT_CLI_DATA_DIR=/tmp/mat-cli/workspace."; //$NON-NLS-1$
+        if ("invalid_argument".equals(kind) && arguments != null && arguments.getCommand() == CliCommand.PATH2GC) //$NON-NLS-1$
+            return "Use `mat-cli oql <heap> --query \"SELECT * FROM OBJECTS " //$NON-NLS-1$
+                            + (arguments.getObjectAddress() == null ? "0x..." : arguments.getObjectAddress()) //$NON-NLS-1$
+                            + "\" --agent` to verify the address before retrying path2gc."; //$NON-NLS-1$
         if ("snapshot_lifecycle".equals(kind)) //$NON-NLS-1$
             return "The snapshot or its index files were closed before result materialization finished; rerun with a fixed CLI build or use --verbose for diagnostics."; //$NON-NLS-1$
         if ("query_syntax".equals(kind) && arguments != null
                         && arguments.getCommand() == org.eclipse.mat.cli.internal.CliCommand.OQL)
             return "Check the OQL query syntax, or use --query-file/--query-stdin for complex expressions."; //$NON-NLS-1$
+        if ("query_error".equals(kind) && arguments != null && arguments.getCommand() == CliCommand.OQL)
+            return "The OQL query was parsed, but MAT reported an execution error; inspect the reported query and narrow the expression."; //$NON-NLS-1$
         if ("query_syntax".equals(kind) && arguments != null
                         && arguments.getCommand() == org.eclipse.mat.cli.internal.CliCommand.QUERY)
             return "Check the MAT query command syntax, or use list-queries/describe-query to inspect registered queries first."; //$NON-NLS-1$

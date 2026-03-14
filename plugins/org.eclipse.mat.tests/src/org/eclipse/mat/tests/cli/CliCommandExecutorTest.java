@@ -9,21 +9,26 @@
  *******************************************************************************/
 package org.eclipse.mat.tests.cli;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.StandardCopyOption;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 
 import org.eclipse.mat.cli.internal.CliArgumentParser;
 import org.eclipse.mat.cli.internal.CliArguments;
 import org.eclipse.mat.cli.internal.CliCommandExecutor;
+import org.eclipse.mat.cli.internal.CliException;
 import org.eclipse.mat.cli.internal.CliExecution;
 import org.eclipse.mat.cli.internal.SnapshotSession;
 import org.eclipse.mat.cli.internal.serialization.ResultSerializer;
+import org.eclipse.mat.snapshot.ISnapshot;
 import org.eclipse.mat.tests.TestSnapshots;
 import org.junit.Test;
 
@@ -197,6 +202,106 @@ public class CliCommandExecutorTest
 
         assertTrue(json.contains("\"resultType\":\"section\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"sections\":")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void failsInvalidOqlWithExecutionError() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        CliArguments parsed = new CliArgumentParser().parse(
+                        new String[] { "oql", heap.getAbsolutePath(), "--query", "INVALID SYNTAX HERE @@@" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+        CliCommandExecutor executor = new CliCommandExecutor();
+
+        try (SnapshotSession session = executor.openSnapshot(parsed))
+        {
+            try
+            {
+                executor.execute(parsed, session);
+                fail("Expected OQL syntax failure"); //$NON-NLS-1$
+            }
+            catch (CliException e)
+            {
+                assertEquals(3, e.getExitCode());
+                assertTrue(e.getMessage().contains("Encountered \"INVALID\"")); //$NON-NLS-1$
+            }
+        }
+    }
+
+    @Test
+    public void executesFindStringsWithoutSubjectArgument() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String json = executeJson(new String[] { "query", heap.getAbsolutePath(), "--format", "json", "--command",
+                        "find_strings -pattern p0", "--limit", "5" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+
+        assertTrue(json.contains("\"resultType\":\"tree\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"rows\":")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void rewritesInvalidPath2GcAddressAsAgentError() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        CliArguments parsed = new CliArgumentParser().parse(
+                        new String[] { "path2gc", heap.getAbsolutePath(), "--agent", "--object", "0xdeadbeef" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+        CliCommandExecutor executor = new CliCommandExecutor();
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        try (SnapshotSession session = executor.openSnapshot(parsed);
+                        PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            try
+            {
+                executor.execute(parsed, session);
+                fail("Expected invalid path2gc address"); //$NON-NLS-1$
+            }
+            catch (CliException e)
+            {
+                serializer.serializeError(parsed, parsed.getProfile(), e.getExitCode(), e, stream);
+            }
+        }
+
+        String json = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(json.contains("\"command\":\"path2gc\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"kind\":\"invalid_argument\"")); //$NON-NLS-1$
+        assertTrue(json.contains("No object found at address 0xdeadbeef")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void suggestsNextStepsFromQueryContext() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String json = executeJson(new String[] { "query", heap.getAbsolutePath(), "--agent", "--command", "histogram" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        assertTrue(json.contains("mat-cli path2gc")); //$NON-NLS-1$
+        assertTrue(json.contains("dominator_tree 0x")); //$NON-NLS-1$
+        assertFalse(json.contains("describe top-consumers")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void addsPath2GcNoteForGcRootObjects() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        CliCommandExecutor executor = new CliCommandExecutor();
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        try (SnapshotSession session = executor.openSnapshot(
+                        new CliArgumentParser().parse(new String[] { "summary", heap.getAbsolutePath() })); //$NON-NLS-1$ //$NON-NLS-2$
+                        PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            ISnapshot snapshot = session.getSnapshot();
+            int gcRootId = snapshot.getGCRoots()[0];
+            String address = "0x" + Long.toHexString(snapshot.mapIdToAddress(gcRootId)); //$NON-NLS-1$
+            CliArguments parsed = new CliArgumentParser()
+                            .parse(new String[] { "path2gc", heap.getAbsolutePath(), "--agent", "--object", address }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+            CliExecution execution = executor.execute(parsed, session);
+            serializer.serialize(parsed, execution, stream);
+        }
+
+        String json = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(json.contains("\"note\":\"Object is already a GC root")); //$NON-NLS-1$
     }
 
     private String executeJson(String[] args) throws Exception
