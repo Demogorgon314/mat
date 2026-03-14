@@ -21,6 +21,8 @@ public final class CliHelp
         help.append("  mat-cli <command> <heap> [options]\n"); //$NON-NLS-1$
         help.append("  mat-cli describe <command> [options]\n"); //$NON-NLS-1$
         help.append("  mat-cli schema <command> [options]\n"); //$NON-NLS-1$
+        help.append("  mat-cli list-queries [options]\n"); //$NON-NLS-1$
+        help.append("  mat-cli describe-query <query-id> [options]\n"); //$NON-NLS-1$
         help.append("  mat-cli --help\n\n"); //$NON-NLS-1$
         help.append("Commands:\n"); //$NON-NLS-1$
         help.append("  summary <heap>\n"); //$NON-NLS-1$
@@ -30,14 +32,24 @@ public final class CliHelp
         help.append("  oql <heap> --query \"...\" [--format text|json]\n"); //$NON-NLS-1$
         help.append("  query <heap> --command \"...\" [--format text|json]\n"); //$NON-NLS-1$
         help.append("  describe <command> [--format text|json]\n"); //$NON-NLS-1$
-        help.append("  schema <command> [--format text|json]\n\n"); //$NON-NLS-1$
+        help.append("  schema <command> [--format text|json]\n"); //$NON-NLS-1$
+        help.append("  list-queries [--format text|json]\n"); //$NON-NLS-1$
+        help.append("  describe-query <query-id> [--format text|json]\n\n"); //$NON-NLS-1$
         help.append("Global options:\n"); //$NON-NLS-1$
         help.append("  --format text|json   Output format (default: text, agent profile: json)\n"); //$NON-NLS-1$
         help.append("  --limit N            Maximum rows or children per level (default: 20)\n"); //$NON-NLS-1$
         help.append("  --profile default|agent  Output profile (default: default)\n"); //$NON-NLS-1$
         help.append("  --agent              Shortcut for --profile agent\n"); //$NON-NLS-1$
         help.append("  --verbose            Print detailed diagnostics on failure\n"); //$NON-NLS-1$
-        help.append("  --help               Show this help\n"); //$NON-NLS-1$
+        help.append("  --help               Show this help\n\n"); //$NON-NLS-1$
+        help.append("Input options:\n"); //$NON-NLS-1$
+        help.append("  --query-file PATH    Read OQL text from a UTF-8 file\n"); //$NON-NLS-1$
+        help.append("  --query-stdin        Read OQL text from stdin\n"); //$NON-NLS-1$
+        help.append("  --command-file PATH  Read MAT query text from a UTF-8 file\n"); //$NON-NLS-1$
+        help.append("  --command-stdin      Read MAT query text from stdin\n\n"); //$NON-NLS-1$
+        help.append("Eclipse runtime options:\n"); //$NON-NLS-1$
+        help.append("  Pass -configuration DIR and -data DIR through the launcher if needed.\n"); //$NON-NLS-1$
+        help.append("  Wrapper env vars: MAT_CLI_VMARGS, MAT_CLI_CONFIG_DIR, MAT_CLI_DATA_DIR\n"); //$NON-NLS-1$
         return help.toString();
     }
 }

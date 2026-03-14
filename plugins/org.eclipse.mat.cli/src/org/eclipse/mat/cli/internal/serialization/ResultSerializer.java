@@ -19,6 +19,7 @@ import org.eclipse.mat.cli.internal.CliExecution;
 import org.eclipse.mat.cli.internal.CliException;
 import org.eclipse.mat.cli.internal.CliExitCodes;
 import org.eclipse.mat.cli.internal.CommandMetadataResult;
+import org.eclipse.mat.cli.internal.QueryMetadataResult;
 import org.eclipse.mat.cli.internal.SnapshotSummary;
 import org.eclipse.mat.cli.internal.TopConsumersResult;
 import org.eclipse.mat.query.IResult;
@@ -38,6 +39,7 @@ public class ResultSerializer
                     textSerializer);
     private final TopConsumersResultSerializer topConsumersSerializer = new TopConsumersResultSerializer();
     private final CommandMetadataSerializer metadataSerializer = new CommandMetadataSerializer();
+    private final QueryMetadataSerializer queryMetadataSerializer = new QueryMetadataSerializer();
 
     public void serialize(CliArguments arguments, CliExecution execution, PrintStream out) throws IOException, CliException
     {
@@ -105,6 +107,10 @@ public class ResultSerializer
         {
             out.print(metadataSerializer.toText((CommandMetadataResult) result));
         }
+        else if (result instanceof QueryMetadataResult)
+        {
+            out.print(queryMetadataSerializer.toText((QueryMetadataResult) result));
+        }
         else if (result instanceof TopConsumersResult)
         {
             out.print(topConsumersSerializer.toText((TopConsumersResult) result, options));
@@ -153,6 +159,11 @@ public class ResultSerializer
             else if (result instanceof CommandMetadataResult)
             {
                 truncated = metadataSerializer.writeJson(writer, (CommandMetadataResult) result, false);
+            }
+            else if (result instanceof QueryMetadataResult)
+            {
+                writer.name("resultType").value(queryMetadataSerializer.resultKind((QueryMetadataResult) result)); //$NON-NLS-1$
+                truncated = queryMetadataSerializer.writeJson(writer, (QueryMetadataResult) result);
             }
             else if (result instanceof TopConsumersResult)
             {
@@ -222,6 +233,11 @@ public class ResultSerializer
                 writer.name("resultKind").value(metadataSerializer.resultKind((CommandMetadataResult) result)); //$NON-NLS-1$
                 truncated = metadataSerializer.writeJson(writer, (CommandMetadataResult) result, true);
             }
+            else if (result instanceof QueryMetadataResult)
+            {
+                writer.name("resultKind").value(queryMetadataSerializer.resultKind((QueryMetadataResult) result)); //$NON-NLS-1$
+                truncated = queryMetadataSerializer.writeJson(writer, (QueryMetadataResult) result);
+            }
             else if (result instanceof TopConsumersResult)
             {
                 writer.name("resultKind").value("top-consumers"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -266,12 +282,20 @@ public class ResultSerializer
             writer.name("heap").value(arguments.getHeapFile().getAbsolutePath()); //$NON-NLS-1$
         if (arguments != null && arguments.getSubjectCommand() != null)
             writer.name("subject").value(arguments.getSubjectCommand().getToken()); //$NON-NLS-1$
+        else if (arguments != null && arguments.getSubjectName() != null)
+            writer.name("subject").value(arguments.getSubjectName()); //$NON-NLS-1$
         writer.name("resultKind").value("error"); //$NON-NLS-1$ //$NON-NLS-2$
         writer.name("error").beginObject(); //$NON-NLS-1$
         writer.name("code").value(exitCode); //$NON-NLS-1$
         writer.name("message").value(error.getMessage() == null ? error.getClass().getName() : error.getMessage()); //$NON-NLS-1$
+        writer.name("exceptionClass").value(error == null ? null : error.getClass().getName()); //$NON-NLS-1$
+        writer.name("rootCauseClass").value(rootCause(error).getClass().getName()); //$NON-NLS-1$
+        writer.name("rootCauseMessage").value(rootCauseMessage(error)); //$NON-NLS-1$
+        writer.name("kind").value(errorKind(arguments, exitCode, error)); //$NON-NLS-1$
         writer.name("hint").value(errorHint(arguments, exitCode, error)); //$NON-NLS-1$
-        writer.name("retryable").value(isRetryable(exitCode)); //$NON-NLS-1$
+        writer.name("retryable").value(isRetryable(arguments, exitCode, error)); //$NON-NLS-1$
+        if (arguments != null && arguments.isVerbose())
+            writer.name("stackTrace").value(stackTrace(error)); //$NON-NLS-1$
         writer.endObject();
         writer.name("truncated").value(false); //$NON-NLS-1$
         writeSuggestedNextCommands(writer, suggestedNextCommands(arguments, null));
@@ -351,29 +375,97 @@ public class ResultSerializer
             rendered = rendered.replace("<heap>", "\"" + arguments.getHeapFile().getAbsolutePath() + "\""); //$NON-NLS-1$ //$NON-NLS-2$
         if (arguments.getSubjectCommand() != null)
             rendered = rendered.replace("<command>", arguments.getSubjectCommand().getToken()); //$NON-NLS-1$
+        if (arguments.getSubjectName() != null)
+        {
+            rendered = rendered.replace("<command>", arguments.getSubjectName()); //$NON-NLS-1$
+            rendered = rendered.replace("<query>", arguments.getSubjectName()); //$NON-NLS-1$
+            rendered = rendered.replace("<subject>", arguments.getSubjectName()); //$NON-NLS-1$
+        }
         if (arguments.getObjectAddress() != null)
             rendered = rendered.replace("0x...", arguments.getObjectAddress()); //$NON-NLS-1$
         return rendered;
     }
 
+    private String errorKind(CliArguments arguments, int exitCode, Throwable error)
+    {
+        if (exitCode == CliExitCodes.USAGE)
+            return "usage"; //$NON-NLS-1$
+        if (exitCode == CliExitCodes.OUT_OF_MEMORY)
+            return "out_of_memory"; //$NON-NLS-1$
+
+        Throwable root = rootCause(error);
+        String rootClass = root.getClass().getName();
+        String message = rootCauseMessage(error);
+        String lower = message == null ? "" : message.toLowerCase(java.util.Locale.ENGLISH); //$NON-NLS-1$
+
+        if (root instanceof java.io.FileNotFoundException || lower.contains("heap dump not found")) //$NON-NLS-1$
+            return "missing_file"; //$NON-NLS-1$
+        if (root instanceof java.nio.file.AccessDeniedException || lower.contains("not writable") //$NON-NLS-1$
+                        || lower.contains("permission denied") || lower.contains("could not be written")) //$NON-NLS-1$ //$NON-NLS-2$
+            return "permission"; //$NON-NLS-1$
+        if (rootClass.endsWith("ParseException") || lower.contains("encountered ") || lower.contains("syntax")) //$NON-NLS-1$ //$NON-NLS-2$
+            return "query_syntax"; //$NON-NLS-1$
+        if (lower.contains("o2address() is null") || lower.contains("outbound() is null") //$NON-NLS-1$ //$NON-NLS-2$
+                        || lower.contains("this.in is null") || lower.contains("snapshot has been disposed") //$NON-NLS-1$ //$NON-NLS-2$
+                        || lower.contains("reader is closed")) //$NON-NLS-1$
+            return "snapshot_lifecycle"; //$NON-NLS-1$
+        if (root instanceof java.io.IOException)
+            return "io"; //$NON-NLS-1$
+        return "internal"; //$NON-NLS-1$
+    }
+
     private String errorHint(CliArguments arguments, int exitCode, Throwable error)
     {
+        String kind = errorKind(arguments, exitCode, error);
         if (exitCode == CliExitCodes.OUT_OF_MEMORY)
             return "Retry with a larger heap, for example MAT_CLI_VMARGS=\"-Xmx2g\"."; //$NON-NLS-1$
         if (exitCode == CliExitCodes.USAGE)
             return "Run `mat-cli --help` or `mat-cli describe <command> --agent` for the expected arguments."; //$NON-NLS-1$
-        String message = error == null || error.getMessage() == null ? "" : error.getMessage(); //$NON-NLS-1$
-        if (message.contains("Heap dump not found")) //$NON-NLS-1$
+        if ("missing_file".equals(kind)) //$NON-NLS-1$
             return "Verify that the heap path exists and is readable."; //$NON-NLS-1$
-        if (arguments != null && arguments.getCommand() == org.eclipse.mat.cli.internal.CliCommand.OQL)
-            return "Check the OQL query syntax and try a smaller LIMIT or narrower SELECT."; //$NON-NLS-1$
-        if (arguments != null && arguments.getCommand() == org.eclipse.mat.cli.internal.CliCommand.QUERY)
-            return "Check the MAT query command syntax or try `describe`/`schema` on a built-in command first."; //$NON-NLS-1$
+        if ("permission".equals(kind)) //$NON-NLS-1$
+            return "Use writable runtime directories, for example MAT_CLI_CONFIG_DIR=/tmp/mat-cli/config and MAT_CLI_DATA_DIR=/tmp/mat-cli/workspace."; //$NON-NLS-1$
+        if ("snapshot_lifecycle".equals(kind)) //$NON-NLS-1$
+            return "The snapshot or its index files were closed before result materialization finished; rerun with a fixed CLI build or use --verbose for diagnostics."; //$NON-NLS-1$
+        if ("query_syntax".equals(kind) && arguments != null
+                        && arguments.getCommand() == org.eclipse.mat.cli.internal.CliCommand.OQL)
+            return "Check the OQL query syntax, or use --query-file/--query-stdin for complex expressions."; //$NON-NLS-1$
+        if ("query_syntax".equals(kind) && arguments != null
+                        && arguments.getCommand() == org.eclipse.mat.cli.internal.CliCommand.QUERY)
+            return "Check the MAT query command syntax, or use list-queries/describe-query to inspect registered queries first."; //$NON-NLS-1$
+        if (arguments != null && arguments.getCommand() == org.eclipse.mat.cli.internal.CliCommand.DESCRIBE_QUERY)
+            return "Run `mat-cli list-queries --agent` to discover valid MAT query identifiers."; //$NON-NLS-1$
         return "Retry with --verbose for diagnostics or narrow the query scope."; //$NON-NLS-1$
     }
 
-    private boolean isRetryable(int exitCode)
+    private boolean isRetryable(CliArguments arguments, int exitCode, Throwable error)
     {
-        return exitCode == CliExitCodes.OUT_OF_MEMORY || exitCode == CliExitCodes.EXECUTION_ERROR;
+        String kind = errorKind(arguments, exitCode, error);
+        return exitCode == CliExitCodes.OUT_OF_MEMORY || "io".equals(kind) || "permission".equals(kind); //$NON-NLS-1$ //$NON-NLS-2$
+    }
+
+    private Throwable rootCause(Throwable error)
+    {
+        Throwable current = error == null ? new IllegalStateException("Unknown error") : error; //$NON-NLS-1$
+        while (current.getCause() != null && current.getCause() != current)
+        {
+            current = current.getCause();
+        }
+        return current;
+    }
+
+    private String rootCauseMessage(Throwable error)
+    {
+        Throwable root = rootCause(error);
+        return root.getMessage() == null ? root.getClass().getName() : root.getMessage();
+    }
+
+    private String stackTrace(Throwable error)
+    {
+        java.io.StringWriter writer = new java.io.StringWriter();
+        java.io.PrintWriter printWriter = new java.io.PrintWriter(writer);
+        error.printStackTrace(printWriter);
+        printWriter.flush();
+        return writer.toString();
     }
 }

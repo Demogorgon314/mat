@@ -50,21 +50,22 @@ public class CliApplication implements IApplication
                 return IApplication.EXIT_OK;
             }
 
-            CliExecution execution;
+            if (parsed.getCommand().requiresRuntimeServices())
+                ensurePlatformServices();
+
             if (parsed.getCommand().requiresSnapshot())
             {
-                ensurePlatformServices();
                 try (SnapshotSession session = executor.openSnapshot(parsed))
                 {
-                    execution = executor.execute(parsed, session);
+                    CliExecution execution = executor.execute(parsed, session);
+                    serializer.serialize(parsed, execution, System.out);
                 }
             }
             else
             {
-                execution = executor.execute(parsed);
+                CliExecution execution = executor.execute(parsed);
+                serializer.serialize(parsed, execution, System.out);
             }
-
-            serializer.serialize(parsed, execution, System.out);
             return IApplication.EXIT_OK;
         }
         catch (CliException e)

@@ -22,6 +22,30 @@ import org.eclipse.mat.query.IStructuredResult;
 
 abstract class StructuredResultSerializer
 {
+    protected static final class CellError
+    {
+        private final String className;
+        private final String message;
+
+        private CellError(String className, String message)
+        {
+            this.className = className;
+            this.message = message;
+        }
+    }
+
+    protected static final class CellValue
+    {
+        private final Object value;
+        private final CellError error;
+
+        private CellValue(Object value, CellError error)
+        {
+            this.value = value;
+            this.error = error;
+        }
+    }
+
     protected static final class ColumnSchema
     {
         private final Column column;
@@ -87,12 +111,14 @@ abstract class StructuredResultSerializer
 
     protected void writeAgentRow(JsonWriter writer, IStructuredResult result, ColumnSchema[] columns, Object row)
     {
+        CellValue[] cells = readCells(result, columns, row);
         for (int ii = 0; ii < columns.length; ii++)
         {
             writer.name(columns[ii].id);
-            writer.rawValue(rawValue(safeColumnValue(result, row, ii)));
+            writer.rawValue(rawValue(cells[ii].value));
         }
         writeAgentContext(writer, result, row);
+        writeAgentCellErrors(writer, columns, cells);
     }
 
     protected Object rawValue(Object value)
@@ -167,34 +193,27 @@ abstract class StructuredResultSerializer
 
     protected void writeRowValues(JsonWriter writer, IStructuredResult result, Column[] columns, Object row)
     {
+        CellValue[] cells = readCells(result, columns, row);
         writer.name("values").beginArray(); //$NON-NLS-1$
         for (int ii = 0; ii < columns.length; ii++)
         {
-            writer.rawValue(rawValue(safeColumnValue(result, row, ii)));
+            writer.rawValue(rawValue(cells[ii].value));
         }
         writer.endArray();
 
         writer.name("displayValues").beginArray(); //$NON-NLS-1$
         for (int ii = 0; ii < columns.length; ii++)
         {
-            writer.value(displayValue(columns[ii], row, safeColumnValue(result, row, ii)));
+            writer.value(cells[ii].error == null ? displayValue(columns[ii], row, cells[ii].value) : null);
         }
         writer.endArray();
+        writeCellErrors(writer, columns, cells);
     }
 
     protected Object safeColumnValue(IStructuredResult result, Object row, int columnIndex)
     {
-        try
-        {
-            return result.getColumnValue(row, columnIndex);
-        }
-        catch (RuntimeException e)
-        {
-            String message = e.getMessage();
-            if (message == null || message.length() == 0)
-                message = e.getClass().getSimpleName();
-            return "<error: " + message + ">"; //$NON-NLS-1$ //$NON-NLS-2$
-        }
+        CellValue cell = readCell(result, row, columnIndex);
+        return cell.error == null ? cell.value : formatCellError(cell.error);
     }
 
     protected IContextObject safeContext(IStructuredResult result, Object row)
@@ -207,6 +226,106 @@ abstract class StructuredResultSerializer
         {
             return null;
         }
+    }
+
+    protected CellValue[] readCells(IStructuredResult result, ColumnSchema[] columns, Object row)
+    {
+        CellValue[] cells = new CellValue[columns.length];
+        for (int ii = 0; ii < columns.length; ii++)
+        {
+            cells[ii] = readCell(result, row, ii);
+        }
+        return cells;
+    }
+
+    protected CellValue[] readCells(IStructuredResult result, Column[] columns, Object row)
+    {
+        CellValue[] cells = new CellValue[columns.length];
+        for (int ii = 0; ii < columns.length; ii++)
+        {
+            cells[ii] = readCell(result, row, ii);
+        }
+        return cells;
+    }
+
+    protected CellValue readCell(IStructuredResult result, Object row, int columnIndex)
+    {
+        try
+        {
+            return new CellValue(result.getColumnValue(row, columnIndex), null);
+        }
+        catch (RuntimeException e)
+        {
+            String message = e.getMessage();
+            if (message == null || message.length() == 0)
+                message = e.getClass().getSimpleName();
+            return new CellValue(null, new CellError(e.getClass().getName(), message));
+        }
+    }
+
+    protected void writeCellErrors(JsonWriter writer, Column[] columns, CellValue[] cells)
+    {
+        boolean hasErrors = false;
+        for (CellValue cell : cells)
+        {
+            if (cell.error != null)
+            {
+                hasErrors = true;
+                break;
+            }
+        }
+        if (!hasErrors)
+            return;
+
+        writer.name("cellErrors").beginArray(); //$NON-NLS-1$
+        for (int ii = 0; ii < cells.length; ii++)
+        {
+            if (cells[ii].error == null)
+                continue;
+            writer.beginObject();
+            writer.name("columnIndex").value(ii); //$NON-NLS-1$
+            writer.name("columnLabel").value(columns[ii].getLabel()); //$NON-NLS-1$
+            writeCellError(writer, cells[ii].error);
+            writer.endObject();
+        }
+        writer.endArray();
+    }
+
+    protected void writeAgentCellErrors(JsonWriter writer, ColumnSchema[] columns, CellValue[] cells)
+    {
+        boolean hasErrors = false;
+        for (CellValue cell : cells)
+        {
+            if (cell.error != null)
+            {
+                hasErrors = true;
+                break;
+            }
+        }
+        if (!hasErrors)
+            return;
+
+        writer.name("_errors").beginObject(); //$NON-NLS-1$
+        for (int ii = 0; ii < cells.length; ii++)
+        {
+            if (cells[ii].error == null)
+                continue;
+            writer.name(columns[ii].id).beginObject();
+            writeCellError(writer, cells[ii].error);
+            writer.endObject();
+        }
+        writer.endObject();
+    }
+
+    protected void writeCellError(JsonWriter writer, CellError error)
+    {
+        writer.name("class").value(error.className); //$NON-NLS-1$
+        writer.name("message").value(error.message); //$NON-NLS-1$
+    }
+
+    protected String formatCellError(CellError error)
+    {
+        return "<error: " + error.message + ">"; //$NON-NLS-1$ //$NON-NLS-2$
     }
 
     private String normalizeColumnId(String label, int index)

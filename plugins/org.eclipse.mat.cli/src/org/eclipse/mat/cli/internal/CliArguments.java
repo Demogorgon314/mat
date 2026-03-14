@@ -43,6 +43,7 @@ public final class CliArguments
 
     private final CliCommand command;
     private final CliCommand subjectCommand;
+    private final String subjectName;
     private final File heapFile;
     private final OutputProfile profile;
     private final OutputFormat format;
@@ -54,12 +55,13 @@ public final class CliArguments
     private final String oqlQuery;
     private final String queryCommand;
 
-    CliArguments(CliCommand command, CliCommand subjectCommand, File heapFile, OutputProfile profile,
+    CliArguments(CliCommand command, CliCommand subjectCommand, String subjectName, File heapFile, OutputProfile profile,
                     OutputFormat format, boolean verbose, boolean help, int limit, int treeDepthLimit,
                     String objectAddress, String oqlQuery, String queryCommand)
     {
         this.command = command;
         this.subjectCommand = subjectCommand;
+        this.subjectName = subjectName;
         this.heapFile = heapFile;
         this.profile = profile;
         this.format = format;
@@ -80,6 +82,11 @@ public final class CliArguments
     public CliCommand getSubjectCommand()
     {
         return subjectCommand;
+    }
+
+    public String getSubjectName()
+    {
+        return subjectName;
     }
 
     public File getHeapFile()

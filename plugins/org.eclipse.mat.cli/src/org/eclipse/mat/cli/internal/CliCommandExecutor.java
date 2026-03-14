@@ -37,6 +37,10 @@ public class CliCommandExecutor
             case SCHEMA:
                 return CliExecution.result(new CommandMetadataResult(CommandMetadataResult.Kind.SCHEMA,
                                 lookupDefinition(arguments.getSubjectCommand())));
+            case LIST_QUERIES:
+                return CliExecution.result(new QueryMetadataCollector().listQueries());
+            case DESCRIBE_QUERY:
+                return CliExecution.result(new QueryMetadataCollector().describeQuery(arguments.getSubjectName()));
             default:
                 throw CliException.execution("Command requires a snapshot session: " + arguments.getCommand().getToken(), //$NON-NLS-1$
                                 null);
@@ -94,11 +98,15 @@ public class CliCommandExecutor
                 return CliExecution.result(SnapshotQuery.lookup("oql", snapshot) //$NON-NLS-1$
                                 .setArgument("queryString", arguments.getOqlQuery()).execute(listener)); //$NON-NLS-1$
             case QUERY:
+                if ("help".equalsIgnoreCase(arguments.getQueryCommand().trim())) //$NON-NLS-1$
+                    return CliExecution.result(new QueryMetadataCollector().listQueries());
                 IResult result = SnapshotQuery.parse(arguments.getQueryCommand(), snapshot).execute(listener);
                 validateResult(result);
                 return CliExecution.result(result);
             case DESCRIBE:
             case SCHEMA:
+            case LIST_QUERIES:
+            case DESCRIBE_QUERY:
                 return execute(arguments);
             default:
                 throw CliException.usage("Unsupported command: " + arguments.getCommand().getToken()); //$NON-NLS-1$

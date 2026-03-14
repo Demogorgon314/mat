@@ -21,9 +21,11 @@ import java.nio.charset.StandardCharsets;
 
 import org.eclipse.mat.cli.internal.CliArgumentParser;
 import org.eclipse.mat.cli.internal.CliArguments;
+import org.eclipse.mat.cli.internal.QueryMetadataResult;
 import org.eclipse.mat.cli.internal.TopConsumersResult;
 import org.eclipse.mat.cli.internal.serialization.ResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.JsonWriter;
+import org.eclipse.mat.cli.internal.serialization.QueryMetadataSerializer;
 import org.eclipse.mat.cli.internal.serialization.SerializationOptions;
 import org.eclipse.mat.cli.internal.serialization.SpecResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.TableResultSerializer;
@@ -76,6 +78,39 @@ public class ResultSerializerTest
         assertTrue(json.contains("\"schema\":{\"columns\":[{\"id\":\"name\",\"label\":\"Name\",\"jsonType\":\"string\",\"sourceType\":\"java.lang.String\"},{\"id\":\"count\",\"label\":\"Count\",\"jsonType\":\"integer\",\"sourceType\":\"int\"}]}")); //$NON-NLS-1$
         assertTrue(json.contains("\"items\":[{\"name\":\"Alpha\",\"count\":7,\"_context\":{\"objectId\":42}}]")); //$NON-NLS-1$
         assertFalse(json.contains("displayValues")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesStructuredCellErrorsWithoutInliningFakeStrings() throws Exception
+    {
+        TableResultSerializer serializer = new TableResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeJson(writer, new ErrorTable(), new SerializationOptions(10, 8));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"values\":[\"Alpha\",null]")); //$NON-NLS-1$
+        assertTrue(json.contains("\"displayValues\":[\"Alpha\",null]")); //$NON-NLS-1$
+        assertTrue(json.contains("\"cellErrors\":[{\"columnIndex\":1,\"columnLabel\":\"Count\",\"class\":\"java.lang.IllegalStateException\",\"message\":\"boom\"}]")); //$NON-NLS-1$
+        assertFalse(json.contains("<error:")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesAgentStructuredCellErrorsAsMetadata() throws Exception
+    {
+        TableResultSerializer serializer = new TableResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeAgentJson(writer, new ErrorTable(), new SerializationOptions(10, 8));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"items\":[{\"name\":\"Alpha\",\"count\":null,\"_context\":{\"objectId\":42},\"_errors\":{\"count\":{\"class\":\"java.lang.IllegalStateException\",\"message\":\"boom\"}}}]")); //$NON-NLS-1$
     }
 
     @Test
@@ -254,19 +289,46 @@ public class ResultSerializerTest
         ResultSerializer serializer = new ResultSerializer();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         CliArguments arguments = new CliArgumentParser()
-                        .parse(new String[] { "--agent", "histogram", "sample.hprof" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                        .parse(new String[] { "--agent", "oql", "sample.hprof", "--query", "SELECT * FROM java.lang.String" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
 
         try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
         {
-            serializer.serializeError(arguments, CliArguments.OutputProfile.AGENT, 3,
-                            new IllegalArgumentException("boom"), stream); //$NON-NLS-1$
+            serializer.serializeError(arguments, CliArguments.OutputProfile.AGENT, 3, new IllegalStateException( //$NON-NLS-1$
+                            "wrapper", new NullPointerException("reader is closed")), stream); //$NON-NLS-1$ //$NON-NLS-2$
         }
 
         String json = output.toString(StandardCharsets.UTF_8.name());
         assertTrue(json.contains("\"schemaVersion\":\"mat-cli/v1\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"resultKind\":\"error\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"hint\":")); //$NON-NLS-1$
-        assertTrue(json.contains("\"retryable\":true")); //$NON-NLS-1$
+        assertTrue(json.contains("\"exceptionClass\":\"java.lang.IllegalStateException\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"rootCauseClass\":\"java.lang.NullPointerException\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"rootCauseMessage\":\"reader is closed\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"kind\":\"snapshot_lifecycle\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"retryable\":false")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesQueryMetadataList() throws Exception
+    {
+        QueryMetadataSerializer serializer = new QueryMetadataSerializer();
+        QueryMetadataResult result = new QueryMetadataResult(QueryMetadataResult.Kind.LIST, null,
+                        Collections.singletonList(new QueryMetadataResult.QueryDefinition("hash_entries", //$NON-NLS-1$
+                                        "Hash Entries", "Collections", "hash_entries <subject>", "Inspect map entries", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+                                        "Reads the key/value entries from a hash collection.", null, "example.Query", //$NON-NLS-1$ //$NON-NLS-2$
+                                        false, Collections.singletonList("java.util.AbstractMap"), //$NON-NLS-1$
+                                        Collections.singletonList(new QueryMetadataResult.QueryArgument("subject", null, //$NON-NLS-1$
+                                                        "int", "HEAP_OBJECT", true, false, false, false, null, //$NON-NLS-1$ //$NON-NLS-2$
+                                                        "Heap object or class name"))))); //$NON-NLS-1$
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        writer.name("resultType").value(serializer.resultKind(result)); //$NON-NLS-1$
+        serializer.writeJson(writer, result);
+        writer.endObject();
+
+        String json = writer.toString();
+        assertTrue(json.contains("\"resultType\":\"query-list\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"queries\":[{\"identifier\":\"hash_entries\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"arguments\":[{\"name\":\"subject\"")); //$NON-NLS-1$
     }
 
     private SectionSpec sampleSection()
@@ -580,6 +642,52 @@ public class ResultSerializerTest
             this.name = name;
             this.count = count;
             this.objectId = objectId;
+        }
+    }
+
+    private static final class ErrorTable implements IResultTable
+    {
+        private final List<Row> rows = Collections.singletonList(new Row("Alpha", Integer.valueOf(7), 42)); //$NON-NLS-1$
+        private final Column[] columns = new Column[] { new Column("Name", String.class), new Column("Count", int.class) }; //$NON-NLS-1$ //$NON-NLS-2$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            Row value = (Row) row;
+            if (columnIndex == 0)
+                return value.name;
+            throw new IllegalStateException("boom"); //$NON-NLS-1$
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            final Row value = (Row) row;
+            return new IContextObject()
+            {
+                public int getObjectId()
+                {
+                    return value.objectId;
+                }
+            };
+        }
+
+        public int getRowCount()
+        {
+            return rows.size();
+        }
+
+        public Object getRow(int rowId)
+        {
+            return rows.get(rowId);
         }
     }
 

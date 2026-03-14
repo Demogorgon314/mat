@@ -144,6 +144,51 @@ public class CliCommandExecutorTest
     }
 
     @Test
+    public void executesOqlCommandAgainstHprofSnapshotInsideLiveSession() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String json = executeJson(new String[] { "oql", heap.getAbsolutePath(), "--format", "json", "--query",
+                        "select s.@objectAddress as ADDRESS, toString(s) as VALUE from java.lang.String s", "--limit",
+                        "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertTrue(json.contains("\"resultType\":\"table\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"rows\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"VALUE\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesHashEntriesQueryAgainstHprofSnapshotInsideLiveSession() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String json = executeJson(new String[] { "query", heap.getAbsolutePath(), "--format", "json", "--command",
+                        "hash_entries java.util.AbstractMap -include_subclasses", "--limit", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertTrue(json.contains("\"resultType\":\"table\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"rows\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"columns\":")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesListQueriesCommandInAgentProfile() throws Exception
+    {
+        String json = executeJson(new String[] { "list-queries", "--agent" }); //$NON-NLS-1$ //$NON-NLS-2$
+
+        assertTrue(json.contains("\"resultKind\":\"query-list\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"queries\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"identifier\":\"histogram\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesDescribeQueryCommandInAgentProfile() throws Exception
+    {
+        String json = executeJson(new String[] { "describe-query", "hash_entries", "--agent" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+
+        assertTrue(json.contains("\"resultKind\":\"query-description\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"subject\":\"hash_entries\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"query\":{\"identifier\":\"hash_entries\"")); //$NON-NLS-1$
+    }
+
+    @Test
     public void executesTopConsumersHtmlThroughQueryCommandAsRawSectionJson() throws Exception
     {
         File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
@@ -169,19 +214,19 @@ public class CliCommandExecutorTest
 
         try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
         {
-            CliExecution execution;
             if (parsed.getCommand().requiresSnapshot())
             {
                 try (SnapshotSession session = executor.openSnapshot(parsed))
                 {
-                    execution = executor.execute(parsed, session);
+                    CliExecution execution = executor.execute(parsed, session);
+                    serializer.serialize(parsed, execution, stream);
                 }
             }
             else
             {
-                execution = executor.execute(parsed);
+                CliExecution execution = executor.execute(parsed);
+                serializer.serialize(parsed, execution, stream);
             }
-            serializer.serialize(parsed, execution, stream);
         }
 
         return output.toString(StandardCharsets.UTF_8.name());

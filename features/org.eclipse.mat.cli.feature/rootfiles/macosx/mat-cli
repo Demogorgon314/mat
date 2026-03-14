@@ -29,8 +29,51 @@ if ! CDPATH= cd -- "$DIR"; then
     exit 1
 fi
 
-if [ -n "$MAT_CLI_VMARGS" ]; then
-    exec "$JAVA_CMD" $MAT_CLI_VMARGS -jar "$LAUNCHER_JAR" -configuration "$DIR/configuration" -nosplash -product org.eclipse.mat.cli.product -application org.eclipse.mat.cli.app "$@"
+if [ -n "$MAT_CLI_CONFIG_DIR" ]; then
+    CONFIG_DIR="$MAT_CLI_CONFIG_DIR"
+    CONFIG_DIR_EXPLICIT=1
+elif [ -n "$XDG_CACHE_HOME" ]; then
+    CONFIG_DIR="$XDG_CACHE_HOME/mat-cli/configuration"
+    CONFIG_DIR_EXPLICIT=0
+elif [ -n "$HOME" ]; then
+    CONFIG_DIR="$HOME/.cache/mat-cli/configuration"
+    CONFIG_DIR_EXPLICIT=0
+else
+    CONFIG_DIR="${TMPDIR:-/tmp}/mat-cli-${USER:-user}/configuration"
+    CONFIG_DIR_EXPLICIT=0
 fi
 
-exec "$JAVA_CMD" -Xmx1024m -jar "$LAUNCHER_JAR" -configuration "$DIR/configuration" -nosplash -product org.eclipse.mat.cli.product -application org.eclipse.mat.cli.app "$@"
+if [ -n "$MAT_CLI_DATA_DIR" ]; then
+    DATA_DIR="$MAT_CLI_DATA_DIR"
+    DATA_DIR_EXPLICIT=1
+elif [ -n "$XDG_STATE_HOME" ]; then
+    DATA_DIR="$XDG_STATE_HOME/mat-cli/workspace"
+    DATA_DIR_EXPLICIT=0
+elif [ -n "$HOME" ]; then
+    DATA_DIR="$HOME/.local/state/mat-cli/workspace"
+    DATA_DIR_EXPLICIT=0
+else
+    DATA_DIR="${TMPDIR:-/tmp}/mat-cli-${USER:-user}/workspace"
+    DATA_DIR_EXPLICIT=0
+fi
+
+if ! mkdir -p "$CONFIG_DIR" "$DATA_DIR" 2>/dev/null; then
+    if [ "$CONFIG_DIR_EXPLICIT" -ne 0 ] || [ "$DATA_DIR_EXPLICIT" -ne 0 ]; then
+        echo "Unable to create writable runtime directories: $CONFIG_DIR and $DATA_DIR" >&2
+        exit 1
+    fi
+
+    CONFIG_DIR="${TMPDIR:-/tmp}/mat-cli-${USER:-user}/configuration"
+    DATA_DIR="${TMPDIR:-/tmp}/mat-cli-${USER:-user}/workspace"
+fi
+
+if ! mkdir -p "$CONFIG_DIR" "$DATA_DIR"; then
+    echo "Unable to create writable runtime directories: $CONFIG_DIR and $DATA_DIR" >&2
+    exit 1
+fi
+
+if [ -n "$MAT_CLI_VMARGS" ]; then
+    exec "$JAVA_CMD" $MAT_CLI_VMARGS -jar "$LAUNCHER_JAR" -configuration "$CONFIG_DIR" -data "$DATA_DIR" -nosplash -product org.eclipse.mat.cli.product -application org.eclipse.mat.cli.app "$@"
+fi
+
+exec "$JAVA_CMD" -Xmx1024m -jar "$LAUNCHER_JAR" -configuration "$CONFIG_DIR" -data "$DATA_DIR" -nosplash -product org.eclipse.mat.cli.product -application org.eclipse.mat.cli.app "$@"

@@ -11,24 +11,31 @@ package org.eclipse.mat.cli.internal;
 
 public enum CliCommand
 {
-    SUMMARY("summary", true, false), //$NON-NLS-1$
-    HISTOGRAM("histogram", true, false), //$NON-NLS-1$
-    TOP_CONSUMERS("top-consumers", true, false), //$NON-NLS-1$
-    PATH2GC("path2gc", true, false), //$NON-NLS-1$
-    OQL("oql", true, false), //$NON-NLS-1$
-    QUERY("query", true, false), //$NON-NLS-1$
-    DESCRIBE("describe", false, true), //$NON-NLS-1$
-    SCHEMA("schema", false, true); //$NON-NLS-1$
+    SUMMARY("summary", true, false, false, false), //$NON-NLS-1$
+    HISTOGRAM("histogram", true, false, false, false), //$NON-NLS-1$
+    TOP_CONSUMERS("top-consumers", true, false, false, false), //$NON-NLS-1$
+    PATH2GC("path2gc", true, false, false, false), //$NON-NLS-1$
+    OQL("oql", true, false, false, false), //$NON-NLS-1$
+    QUERY("query", true, false, false, false), //$NON-NLS-1$
+    DESCRIBE("describe", false, true, false, false), //$NON-NLS-1$
+    SCHEMA("schema", false, true, false, false), //$NON-NLS-1$
+    LIST_QUERIES("list-queries", false, false, true, false), //$NON-NLS-1$
+    DESCRIBE_QUERY("describe-query", false, false, true, true); //$NON-NLS-1$
 
     private final String token;
     private final boolean requiresSnapshot;
     private final boolean requiresSubjectCommand;
+    private final boolean requiresQueryRegistry;
+    private final boolean requiresQueryIdentifier;
 
-    private CliCommand(String token, boolean requiresSnapshot, boolean requiresSubjectCommand)
+    private CliCommand(String token, boolean requiresSnapshot, boolean requiresSubjectCommand,
+                    boolean requiresQueryRegistry, boolean requiresQueryIdentifier)
     {
         this.token = token;
         this.requiresSnapshot = requiresSnapshot;
         this.requiresSubjectCommand = requiresSubjectCommand;
+        this.requiresQueryRegistry = requiresQueryRegistry;
+        this.requiresQueryIdentifier = requiresQueryIdentifier;
     }
 
     public String getToken()
@@ -44,6 +51,21 @@ public enum CliCommand
     public boolean requiresSubjectCommand()
     {
         return requiresSubjectCommand;
+    }
+
+    public boolean requiresQueryRegistry()
+    {
+        return requiresQueryRegistry;
+    }
+
+    public boolean requiresQueryIdentifier()
+    {
+        return requiresQueryIdentifier;
+    }
+
+    public boolean requiresRuntimeServices()
+    {
+        return requiresSnapshot || requiresQueryRegistry;
     }
 
     public static CliCommand parse(String token) throws CliException

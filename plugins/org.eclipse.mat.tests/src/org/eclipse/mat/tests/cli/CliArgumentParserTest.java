@@ -12,6 +12,12 @@ package org.eclipse.mat.tests.cli;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import org.eclipse.mat.cli.internal.CliArgumentParser;
 import org.eclipse.mat.cli.internal.CliArguments;
 import org.eclipse.mat.cli.internal.CliCommand;
@@ -63,6 +69,61 @@ public class CliArgumentParserTest
         assertEquals(CliCommand.HISTOGRAM, arguments.getSubjectCommand());
         assertEquals(CliArguments.OutputProfile.AGENT, arguments.getProfile());
         assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
+    }
+
+    @Test
+    public void parsesDescribeQueryCommandWithoutHeap() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "describe-query", "hash_entries", "--agent" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+
+        assertEquals(CliCommand.DESCRIBE_QUERY, arguments.getCommand());
+        assertEquals("hash_entries", arguments.getSubjectName()); //$NON-NLS-1$
+        assertEquals(CliArguments.OutputProfile.AGENT, arguments.getProfile());
+        assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
+    }
+
+    @Test
+    public void parsesListQueriesCommandWithoutHeap() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "list-queries", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+
+        assertEquals(CliCommand.LIST_QUERIES, arguments.getCommand());
+        assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
+    }
+
+    @Test
+    public void readsOqlFromFile() throws Exception
+    {
+        Path queryFile = Files.createTempFile("mat-cli-oql-", ".txt"); //$NON-NLS-1$ //$NON-NLS-2$
+        Files.write(queryFile, "SELECT * FROM java.lang.String".getBytes(StandardCharsets.UTF_8)); //$NON-NLS-1$
+
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(
+                        new String[] { "oql", "sample.hprof", "--query-file", queryFile.toString() }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+
+        assertEquals("SELECT * FROM java.lang.String", arguments.getOqlQuery()); //$NON-NLS-1$
+    }
+
+    @Test
+    public void readsQueryCommandFromStandardInput() throws Exception
+    {
+        InputStream original = System.in;
+        try
+        {
+            System.setIn(new ByteArrayInputStream("hash_entries java.util.AbstractMap -include_subclasses" //$NON-NLS-1$
+                            .getBytes(StandardCharsets.UTF_8)));
+            CliArgumentParser parser = new CliArgumentParser();
+            CliArguments arguments = parser.parse(
+                            new String[] { "query", "sample.hprof", "--command-stdin" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+
+            assertEquals("hash_entries java.util.AbstractMap -include_subclasses", arguments.getQueryCommand()); //$NON-NLS-1$
+        }
+        finally
+        {
+            System.setIn(original);
+        }
     }
 
     @Test

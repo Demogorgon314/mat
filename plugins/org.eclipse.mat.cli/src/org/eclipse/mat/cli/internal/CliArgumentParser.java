@@ -10,6 +10,9 @@
 package org.eclipse.mat.cli.internal;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 
 public final class CliArgumentParser
 {
@@ -19,11 +22,13 @@ public final class CliArgumentParser
     public CliArguments parse(String[] args) throws CliException
     {
         if (args == null || args.length == 0)
-            return new CliArguments(null, null, null, CliArguments.OutputProfile.DEFAULT, CliArguments.OutputFormat.TEXT,
-                            false, true, DEFAULT_LIMIT, DEFAULT_TREE_DEPTH, null, null, null);
+            return new CliArguments(null, null, null, null, CliArguments.OutputProfile.DEFAULT,
+                            CliArguments.OutputFormat.TEXT, false, true, DEFAULT_LIMIT, DEFAULT_TREE_DEPTH, null, null,
+                            null);
 
         CliCommand command = null;
         CliCommand subjectCommand = null;
+        String subjectName = null;
         File heapFile = null;
         CliArguments.OutputProfile profile = CliArguments.OutputProfile.DEFAULT;
         CliArguments.OutputFormat format = CliArguments.OutputFormat.TEXT;
@@ -33,7 +38,11 @@ public final class CliArgumentParser
         int limit = DEFAULT_LIMIT;
         String objectAddress = null;
         String oqlQuery = null;
+        String oqlQueryFile = null;
+        boolean oqlQueryStdin = false;
         String queryCommand = null;
+        String queryCommandFile = null;
+        boolean queryCommandStdin = false;
 
         for (int ii = 0; ii < args.length; ii++)
         {
@@ -88,6 +97,18 @@ public final class CliArgumentParser
             {
                 oqlQuery = nextArg(args, ++ii, "--query"); //$NON-NLS-1$
             }
+            else if (arg.startsWith("--query-file=")) //$NON-NLS-1$
+            {
+                oqlQueryFile = arg.substring("--query-file=".length()); //$NON-NLS-1$
+            }
+            else if ("--query-file".equals(arg)) //$NON-NLS-1$
+            {
+                oqlQueryFile = nextArg(args, ++ii, "--query-file"); //$NON-NLS-1$
+            }
+            else if ("--query-stdin".equals(arg)) //$NON-NLS-1$
+            {
+                oqlQueryStdin = true;
+            }
             else if (arg.startsWith("--command=")) //$NON-NLS-1$
             {
                 queryCommand = arg.substring("--command=".length()); //$NON-NLS-1$
@@ -95,6 +116,18 @@ public final class CliArgumentParser
             else if ("--command".equals(arg)) //$NON-NLS-1$
             {
                 queryCommand = nextArg(args, ++ii, "--command"); //$NON-NLS-1$
+            }
+            else if (arg.startsWith("--command-file=")) //$NON-NLS-1$
+            {
+                queryCommandFile = arg.substring("--command-file=".length()); //$NON-NLS-1$
+            }
+            else if ("--command-file".equals(arg)) //$NON-NLS-1$
+            {
+                queryCommandFile = nextArg(args, ++ii, "--command-file"); //$NON-NLS-1$
+            }
+            else if ("--command-stdin".equals(arg)) //$NON-NLS-1$
+            {
+                queryCommandStdin = true;
             }
             else if ("--verbose".equals(arg)) //$NON-NLS-1$
             {
@@ -110,7 +143,12 @@ public final class CliArgumentParser
             }
             else if (command.requiresSubjectCommand() && subjectCommand == null)
             {
+                subjectName = arg;
                 subjectCommand = CliCommand.parse(arg);
+            }
+            else if (command.requiresQueryIdentifier() && subjectName == null)
+            {
+                subjectName = arg;
             }
             else if (command.requiresSnapshot() && heapFile == null)
             {
@@ -129,14 +167,21 @@ public final class CliArgumentParser
         {
             if (help)
             {
-                return new CliArguments(null, null, null, profile, format, verbose, true, limit, DEFAULT_TREE_DEPTH,
-                                objectAddress, oqlQuery, queryCommand);
+                return new CliArguments(null, null, null, null, profile, format, verbose, true, limit,
+                                DEFAULT_TREE_DEPTH, objectAddress, oqlQuery, queryCommand);
             }
             throw CliException.usage("Missing command"); //$NON-NLS-1$
         }
 
-        CliArguments parsed = new CliArguments(command, subjectCommand, heapFile, profile, format, verbose, help,
-                        limit, DEFAULT_TREE_DEPTH, objectAddress, oqlQuery, queryCommand);
+        if (command == CliCommand.OQL)
+            oqlQuery = resolveExclusiveInput("oql", "--query", oqlQuery, "--query-file", oqlQueryFile, //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                            "--query-stdin", oqlQueryStdin); //$NON-NLS-1$
+        else if (command == CliCommand.QUERY)
+            queryCommand = resolveExclusiveInput("query", "--command", queryCommand, "--command-file", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                            queryCommandFile, "--command-stdin", queryCommandStdin); //$NON-NLS-1$
+
+        CliArguments parsed = new CliArguments(command, subjectCommand, subjectName, heapFile, profile, format, verbose,
+                        help, limit, DEFAULT_TREE_DEPTH, objectAddress, oqlQuery, queryCommand);
         validate(parsed);
         return parsed;
     }
@@ -222,6 +267,9 @@ public final class CliArgumentParser
         if (arguments.getCommand().requiresSubjectCommand() && arguments.getSubjectCommand() == null)
             throw CliException.usage(arguments.getCommand().getToken() + " requires a command name"); //$NON-NLS-1$
 
+        if (arguments.getCommand().requiresQueryIdentifier() && isEmpty(arguments.getSubjectName()))
+            throw CliException.usage(arguments.getCommand().getToken() + " requires a query identifier"); //$NON-NLS-1$
+
         if (arguments.getCommand().requiresSnapshot() && arguments.getHeapFile() == null)
             throw CliException.usage("Missing heap dump path"); //$NON-NLS-1$
 
@@ -249,6 +297,48 @@ public final class CliArgumentParser
     private boolean isEmpty(String value)
     {
         return value == null || value.length() == 0;
+    }
+
+    private String resolveExclusiveInput(String commandName, String inlineOption, String inlineValue, String fileOption,
+                    String fileValue, String stdinOption, boolean stdin) throws CliException
+    {
+        int sources = (isEmpty(inlineValue) ? 0 : 1) + (isEmpty(fileValue) ? 0 : 1) + (stdin ? 1 : 0);
+        if (sources == 0)
+            return inlineValue;
+        if (sources > 1)
+        {
+            throw CliException.usage(commandName + " accepts only one of " + inlineOption + ", " + fileOption + " or " //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                            + stdinOption);
+        }
+        if (!isEmpty(inlineValue))
+            return inlineValue;
+        if (!isEmpty(fileValue))
+            return readFile(fileValue, fileOption);
+        return readStandardInput(stdinOption);
+    }
+
+    private String readFile(String path, String optionName) throws CliException
+    {
+        try
+        {
+            return Files.readString(new File(path).toPath(), StandardCharsets.UTF_8);
+        }
+        catch (IOException e)
+        {
+            throw CliException.execution("Unable to read " + optionName + " from " + path + ": " + e.getMessage(), e); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+        }
+    }
+
+    private String readStandardInput(String optionName) throws CliException
+    {
+        try
+        {
+            return new String(System.in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        catch (IOException e)
+        {
+            throw CliException.execution("Unable to read " + optionName + " from stdin: " + e.getMessage(), e); //$NON-NLS-1$ //$NON-NLS-2$
+        }
     }
 
     private CliArguments.OutputFormat defaultFormat(CliArguments.OutputProfile profile)

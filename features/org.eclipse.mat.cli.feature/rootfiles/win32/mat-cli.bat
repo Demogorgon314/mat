@@ -29,10 +29,58 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if defined MAT_CLI_VMARGS (
-  "%_JAVA%" %MAT_CLI_VMARGS% -jar "%_LAUNCHER%" -configuration "%_DIRNAME%configuration" -nosplash -product org.eclipse.mat.cli.product -application org.eclipse.mat.cli.app %*
+if defined MAT_CLI_CONFIG_DIR (
+  set "_CONFIG_DIR=%MAT_CLI_CONFIG_DIR%"
+  set "_CONFIG_EXPLICIT=1"
 ) else (
-  "%_JAVA%" -Xmx1024m -jar "%_LAUNCHER%" -configuration "%_DIRNAME%configuration" -nosplash -product org.eclipse.mat.cli.product -application org.eclipse.mat.cli.app %*
+  set "_CONFIG_EXPLICIT=0"
+  set "_CONFIG_BASE="
+  if defined LOCALAPPDATA set "_CONFIG_BASE=%LOCALAPPDATA%"
+  if not defined _CONFIG_BASE if defined APPDATA set "_CONFIG_BASE=%APPDATA%"
+  if not defined _CONFIG_BASE if defined TEMP set "_CONFIG_BASE=%TEMP%"
+  if not defined _CONFIG_BASE set "_CONFIG_BASE=%_DIRNAME%runtime"
+  set "_CONFIG_DIR=%_CONFIG_BASE%\mat-cli\configuration"
+)
+
+if defined MAT_CLI_DATA_DIR (
+  set "_DATA_DIR=%MAT_CLI_DATA_DIR%"
+  set "_DATA_EXPLICIT=1"
+) else (
+  set "_DATA_EXPLICIT=0"
+  set "_DATA_BASE="
+  if defined LOCALAPPDATA set "_DATA_BASE=%LOCALAPPDATA%"
+  if not defined _DATA_BASE if defined APPDATA set "_DATA_BASE=%APPDATA%"
+  if not defined _DATA_BASE if defined TEMP set "_DATA_BASE=%TEMP%"
+  if not defined _DATA_BASE set "_DATA_BASE=%_DIRNAME%runtime"
+  set "_DATA_DIR=%_DATA_BASE%\mat-cli\workspace"
+)
+
+if not exist "%_CONFIG_DIR%" mkdir "%_CONFIG_DIR%" >nul 2>&1
+if not exist "%_CONFIG_DIR%" if "%_CONFIG_EXPLICIT%"=="0" (
+  set "_CONFIG_DIR=%TEMP%\mat-cli\configuration"
+  if not exist "%_CONFIG_DIR%" mkdir "%_CONFIG_DIR%" >nul 2>&1
+)
+if not exist "%_CONFIG_DIR%" (
+  >&2 echo Unable to create writable runtime directory "%_CONFIG_DIR%"
+  popd >nul 2>&1
+  exit /b 1
+)
+
+if not exist "%_DATA_DIR%" mkdir "%_DATA_DIR%" >nul 2>&1
+if not exist "%_DATA_DIR%" if "%_DATA_EXPLICIT%"=="0" (
+  set "_DATA_DIR=%TEMP%\mat-cli\workspace"
+  if not exist "%_DATA_DIR%" mkdir "%_DATA_DIR%" >nul 2>&1
+)
+if not exist "%_DATA_DIR%" (
+  >&2 echo Unable to create writable runtime directory "%_DATA_DIR%"
+  popd >nul 2>&1
+  exit /b 1
+)
+
+if defined MAT_CLI_VMARGS (
+  "%_JAVA%" %MAT_CLI_VMARGS% -jar "%_LAUNCHER%" -configuration "%_CONFIG_DIR%" -data "%_DATA_DIR%" -nosplash -product org.eclipse.mat.cli.product -application org.eclipse.mat.cli.app %*
+) else (
+  "%_JAVA%" -Xmx1024m -jar "%_LAUNCHER%" -configuration "%_CONFIG_DIR%" -data "%_DATA_DIR%" -nosplash -product org.eclipse.mat.cli.product -application org.eclipse.mat.cli.app %*
 )
 
 popd >nul 2>&1
