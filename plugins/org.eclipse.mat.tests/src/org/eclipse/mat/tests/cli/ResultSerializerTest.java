@@ -15,8 +15,14 @@ import static org.junit.Assert.assertTrue;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 
+import org.eclipse.mat.cli.internal.CliArgumentParser;
+import org.eclipse.mat.cli.internal.CliArguments;
 import org.eclipse.mat.cli.internal.TopConsumersResult;
+import org.eclipse.mat.cli.internal.serialization.ResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.JsonWriter;
 import org.eclipse.mat.cli.internal.serialization.SerializationOptions;
 import org.eclipse.mat.cli.internal.serialization.SpecResultSerializer;
@@ -56,6 +62,23 @@ public class ResultSerializerTest
     }
 
     @Test
+    public void serializesTableResultToAgentJson()
+    {
+        TableResultSerializer serializer = new TableResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeAgentJson(writer, new SampleTable(), new SerializationOptions(10, 8));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"schema\":{\"columns\":[{\"id\":\"name\",\"label\":\"Name\",\"jsonType\":\"string\",\"sourceType\":\"java.lang.String\"},{\"id\":\"count\",\"label\":\"Count\",\"jsonType\":\"integer\",\"sourceType\":\"int\"}]}")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{\"name\":\"Alpha\",\"count\":7,\"_context\":{\"objectId\":42}}]")); //$NON-NLS-1$
+        assertFalse(json.contains("displayValues")); //$NON-NLS-1$
+    }
+
+    @Test
     public void serializesTreeResultToJson()
     {
         TreeResultSerializer serializer = new TreeResultSerializer();
@@ -70,6 +93,24 @@ public class ResultSerializerTest
         assertTrue(json.contains("\"rows\":[{\"values\":[\"Root\",1]")); //$NON-NLS-1$
         assertTrue(json.contains("\"children\":[{\"values\":[\"Leaf\",2]")); //$NON-NLS-1$
         assertTrue(json.contains("\"context\":{\"objectId\":77}")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesTreeResultToAgentJson()
+    {
+        TreeResultSerializer serializer = new TreeResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeAgentJson(writer, new SampleTree(), new SerializationOptions(10, 8));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"schema\":{\"columns\":[{\"id\":\"name\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{\"name\":\"Root\",\"depth\":1,\"_context\":{\"objectId\":77},\"_hasChildren\":true")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_children\":[{\"name\":\"Leaf\",\"depth\":2,\"_context\":{\"objectId\":78},\"_hasChildren\":false")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_childrenTruncated\":false")); //$NON-NLS-1$
     }
 
     @Test
@@ -135,6 +176,26 @@ public class ResultSerializerTest
     }
 
     @Test
+    public void serializesTopConsumersSectionToAgentJson() throws Exception
+    {
+        TopConsumersResultSerializer serializer = new TopConsumersResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeAgentJson(writer, sampleTopConsumersResult(), new SerializationOptions(2, 8, 20));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertTrue(truncated);
+        assertTrue(json.contains("\"biggestObjects\":[{\"objectId\":91,\"label\":\"Largest\",\"retainedBytes\":500,\"retainedPercent\":0.5}]")
+                        || json.contains("\"biggestObjects\":[{\"objectId\":91,\"label\":\"Largest\",\"retainedBytes\":500,\"retainedPercent\":0.5},{\"objectId\":92")); //$NON-NLS-1$
+        assertTrue(json.contains("\"classes\":[{\"objectId\":41,\"label\":\"Alpha\",\"count\":4,\"retainedBytes\":600,\"retainedPercent\":0.6}")); //$NON-NLS-1$
+        assertTrue(json.contains("\"packages\":{\"name\":\"<all>\",\"retainedBytes\":1000,\"retainedPercent\":1.0,\"topDominators\":4")); //$NON-NLS-1$
+        assertFalse(json.contains("retainedBytesText")); //$NON-NLS-1$
+        assertFalse(json.contains("retainedPercentText")); //$NON-NLS-1$
+    }
+
+    @Test
     public void serializesTopConsumersJsonWithoutNullPackageNodes() throws Exception
     {
         TopConsumersResultSerializer serializer = new TopConsumersResultSerializer();
@@ -185,6 +246,27 @@ public class ResultSerializerTest
         assertFalse(truncated);
         assertTrue(json.contains("\"resultType\":\"unsupported\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"unsupportedType\":\"org.eclipse.mat.tests.cli.ResultSerializerTest$UnsupportedResult\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesAgentErrorEnvelope() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        CliArguments arguments = new CliArgumentParser()
+                        .parse(new String[] { "--agent", "histogram", "sample.hprof" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serializeError(arguments, CliArguments.OutputProfile.AGENT, 3,
+                            new IllegalArgumentException("boom"), stream); //$NON-NLS-1$
+        }
+
+        String json = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(json.contains("\"schemaVersion\":\"mat-cli/v1\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"resultKind\":\"error\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"hint\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"retryable\":true")); //$NON-NLS-1$
     }
 
     private SectionSpec sampleSection()

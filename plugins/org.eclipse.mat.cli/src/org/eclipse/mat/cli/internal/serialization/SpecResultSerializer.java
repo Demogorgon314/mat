@@ -99,16 +99,25 @@ public class SpecResultSerializer
         if (result instanceof TextResult)
         {
             writer.name("resultType").value("text"); //$NON-NLS-1$ //$NON-NLS-2$
+            if (options.isAgentProfile())
+            {
+                writer.name("content").value(textSerializer.toText((TextResult) result)); //$NON-NLS-1$
+                return false;
+            }
             return textSerializer.writeJson(writer, (TextResult) result);
         }
         if (result instanceof IResultTable)
         {
             writer.name("resultType").value("table"); //$NON-NLS-1$ //$NON-NLS-2$
+            if (options.isAgentProfile())
+                return tableSerializer.writeAgentJson(writer, (IResultTable) result, options);
             return tableSerializer.writeJson(writer, (IResultTable) result, options);
         }
         if (result instanceof IResultTree)
         {
             writer.name("resultType").value("tree"); //$NON-NLS-1$ //$NON-NLS-2$
+            if (options.isAgentProfile())
+                return treeSerializer.writeAgentJson(writer, (IResultTree) result, options);
             return treeSerializer.writeJson(writer, (IResultTree) result, options);
         }
         if (result instanceof Spec)

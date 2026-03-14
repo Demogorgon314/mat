@@ -19,16 +19,15 @@ public final class CliArgumentParser
     public CliArguments parse(String[] args) throws CliException
     {
         if (args == null || args.length == 0)
-            return new CliArguments(null, null, CliArguments.OutputFormat.TEXT, false, true, DEFAULT_LIMIT,
-                            DEFAULT_TREE_DEPTH, null, null, null);
+            return new CliArguments(null, null, null, CliArguments.OutputProfile.DEFAULT, CliArguments.OutputFormat.TEXT,
+                            false, true, DEFAULT_LIMIT, DEFAULT_TREE_DEPTH, null, null, null);
 
-        if (isHelpToken(args[0]))
-            return new CliArguments(null, null, CliArguments.OutputFormat.TEXT, false, true, DEFAULT_LIMIT,
-                            DEFAULT_TREE_DEPTH, null, null, null);
-
-        CliCommand command = CliCommand.parse(args[0]);
+        CliCommand command = null;
+        CliCommand subjectCommand = null;
         File heapFile = null;
+        CliArguments.OutputProfile profile = CliArguments.OutputProfile.DEFAULT;
         CliArguments.OutputFormat format = CliArguments.OutputFormat.TEXT;
+        boolean formatExplicit = false;
         boolean verbose = false;
         boolean help = false;
         int limit = DEFAULT_LIMIT;
@@ -36,20 +35,34 @@ public final class CliArgumentParser
         String oqlQuery = null;
         String queryCommand = null;
 
-        for (int ii = 1; ii < args.length; ii++)
+        for (int ii = 0; ii < args.length; ii++)
         {
             String arg = args[ii];
             if (isHelpToken(arg))
             {
                 help = true;
             }
+            else if ("--agent".equals(arg)) //$NON-NLS-1$
+            {
+                profile = CliArguments.OutputProfile.AGENT;
+            }
+            else if (arg.startsWith("--profile=")) //$NON-NLS-1$
+            {
+                profile = CliArguments.OutputProfile.parse(arg.substring("--profile=".length())); //$NON-NLS-1$
+            }
+            else if ("--profile".equals(arg)) //$NON-NLS-1$
+            {
+                profile = CliArguments.OutputProfile.parse(nextArg(args, ++ii, "--profile")); //$NON-NLS-1$
+            }
             else if (arg.startsWith("--format=")) //$NON-NLS-1$
             {
                 format = CliArguments.OutputFormat.parse(arg.substring("--format=".length())); //$NON-NLS-1$
+                formatExplicit = true;
             }
             else if ("--format".equals(arg)) //$NON-NLS-1$
             {
                 format = CliArguments.OutputFormat.parse(nextArg(args, ++ii, "--format")); //$NON-NLS-1$
+                formatExplicit = true;
             }
             else if (arg.startsWith("--limit=")) //$NON-NLS-1$
             {
@@ -91,7 +104,15 @@ public final class CliArgumentParser
             {
                 throw CliException.usage("Unknown option: " + arg); //$NON-NLS-1$
             }
-            else if (heapFile == null)
+            else if (command == null)
+            {
+                command = CliCommand.parse(arg);
+            }
+            else if (command.requiresSubjectCommand() && subjectCommand == null)
+            {
+                subjectCommand = CliCommand.parse(arg);
+            }
+            else if (command.requiresSnapshot() && heapFile == null)
             {
                 heapFile = new File(arg).getAbsoluteFile();
             }
@@ -101,10 +122,96 @@ public final class CliArgumentParser
             }
         }
 
-        CliArguments parsed = new CliArguments(command, heapFile, format, verbose, help, limit, DEFAULT_TREE_DEPTH,
-                        objectAddress, oqlQuery, queryCommand);
+        if (profile == CliArguments.OutputProfile.AGENT && !formatExplicit)
+            format = CliArguments.OutputFormat.JSON;
+
+        if (command == null)
+        {
+            if (help)
+            {
+                return new CliArguments(null, null, null, profile, format, verbose, true, limit, DEFAULT_TREE_DEPTH,
+                                objectAddress, oqlQuery, queryCommand);
+            }
+            throw CliException.usage("Missing command"); //$NON-NLS-1$
+        }
+
+        CliArguments parsed = new CliArguments(command, subjectCommand, heapFile, profile, format, verbose, help,
+                        limit, DEFAULT_TREE_DEPTH, objectAddress, oqlQuery, queryCommand);
         validate(parsed);
         return parsed;
+    }
+
+    public CliArguments.OutputProfile detectProfile(String[] args)
+    {
+        if (args == null)
+            return CliArguments.OutputProfile.DEFAULT;
+
+        CliArguments.OutputProfile profile = CliArguments.OutputProfile.DEFAULT;
+        for (int ii = 0; ii < args.length; ii++)
+        {
+            String arg = args[ii];
+            if ("--agent".equals(arg)) //$NON-NLS-1$
+            {
+                profile = CliArguments.OutputProfile.AGENT;
+            }
+            else if (arg.startsWith("--profile=")) //$NON-NLS-1$
+            {
+                try
+                {
+                    profile = CliArguments.OutputProfile.parse(arg.substring("--profile=".length())); //$NON-NLS-1$
+                }
+                catch (CliException ignore)
+                {
+                    return profile;
+                }
+            }
+            else if ("--profile".equals(arg) && ii + 1 < args.length) //$NON-NLS-1$
+            {
+                try
+                {
+                    profile = CliArguments.OutputProfile.parse(args[++ii]);
+                }
+                catch (CliException ignore)
+                {
+                    return profile;
+                }
+            }
+        }
+        return profile;
+    }
+
+    public CliArguments.OutputFormat detectFormat(String[] args, CliArguments.OutputProfile profile)
+    {
+        if (args != null)
+        {
+            for (int ii = 0; ii < args.length; ii++)
+            {
+                String arg = args[ii];
+                if (arg.startsWith("--format=")) //$NON-NLS-1$
+                {
+                    try
+                    {
+                        return CliArguments.OutputFormat.parse(arg.substring("--format=".length())); //$NON-NLS-1$
+                    }
+                    catch (CliException ignore)
+                    {
+                        return defaultFormat(profile);
+                    }
+                }
+                else if ("--format".equals(arg) && ii + 1 < args.length) //$NON-NLS-1$
+                {
+                    try
+                    {
+                        return CliArguments.OutputFormat.parse(args[++ii]);
+                    }
+                    catch (CliException ignore)
+                    {
+                        return defaultFormat(profile);
+                    }
+                }
+            }
+        }
+        return defaultFormat(profile);
     }
 
     private void validate(CliArguments arguments) throws CliException
@@ -112,7 +219,10 @@ public final class CliArgumentParser
         if (arguments.isHelp())
             return;
 
-        if (arguments.getHeapFile() == null)
+        if (arguments.getCommand().requiresSubjectCommand() && arguments.getSubjectCommand() == null)
+            throw CliException.usage(arguments.getCommand().getToken() + " requires a command name"); //$NON-NLS-1$
+
+        if (arguments.getCommand().requiresSnapshot() && arguments.getHeapFile() == null)
             throw CliException.usage("Missing heap dump path"); //$NON-NLS-1$
 
         switch (arguments.getCommand())
@@ -129,6 +239,8 @@ public final class CliArgumentParser
                 if (isEmpty(arguments.getQueryCommand()))
                     throw CliException.usage("query requires --command"); //$NON-NLS-1$
                 break;
+            case DESCRIBE:
+            case SCHEMA:
             default:
                 break;
         }
@@ -137,6 +249,12 @@ public final class CliArgumentParser
     private boolean isEmpty(String value)
     {
         return value == null || value.length() == 0;
+    }
+
+    private CliArguments.OutputFormat defaultFormat(CliArguments.OutputProfile profile)
+    {
+        return profile == CliArguments.OutputProfile.AGENT ? CliArguments.OutputFormat.JSON
+                        : CliArguments.OutputFormat.TEXT;
     }
 
     private int parseLimit(String value) throws CliException

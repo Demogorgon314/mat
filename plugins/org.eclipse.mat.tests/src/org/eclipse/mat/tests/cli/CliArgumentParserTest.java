@@ -27,6 +27,7 @@ public class CliArgumentParserTest
 
         assertEquals(CliCommand.HISTOGRAM, arguments.getCommand());
         assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
+        assertEquals(CliArguments.OutputProfile.DEFAULT, arguments.getProfile());
         assertEquals(5, arguments.getLimit());
         assertEquals("sample.hprof", arguments.getHeapFile().getName()); //$NON-NLS-1$
     }
@@ -39,6 +40,41 @@ public class CliArgumentParserTest
 
         assertEquals(CliCommand.PATH2GC, arguments.getCommand());
         assertEquals("0x2a", arguments.getObjectAddress()); //$NON-NLS-1$
+    }
+
+    @Test
+    public void enablesAgentProfileAndDefaultsToJson() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "--agent", "histogram", "sample.hprof" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+
+        assertEquals(CliCommand.HISTOGRAM, arguments.getCommand());
+        assertEquals(CliArguments.OutputProfile.AGENT, arguments.getProfile());
+        assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
+    }
+
+    @Test
+    public void parsesDescribeCommandWithoutHeap() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "describe", "histogram", "--profile", "agent" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        assertEquals(CliCommand.DESCRIBE, arguments.getCommand());
+        assertEquals(CliCommand.HISTOGRAM, arguments.getSubjectCommand());
+        assertEquals(CliArguments.OutputProfile.AGENT, arguments.getProfile());
+        assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
+    }
+
+    @Test
+    public void detectsRequestedProfileAndFormatBeforeFullParse()
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        assertEquals(CliArguments.OutputProfile.AGENT,
+                        parser.detectProfile(new String[] { "--agent", "summary", "sample.hprof" })); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+        assertEquals(CliArguments.OutputFormat.TEXT, parser.detectFormat(
+                        new String[] { "--profile", "agent", "--format", "text", "summary", "sample.hprof" }, //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+                        CliArguments.OutputProfile.AGENT));
     }
 
     @Test

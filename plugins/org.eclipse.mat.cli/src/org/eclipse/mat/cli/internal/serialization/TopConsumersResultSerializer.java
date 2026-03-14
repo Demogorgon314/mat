@@ -44,6 +44,61 @@ public class TopConsumersResultSerializer
         return truncated;
     }
 
+    public boolean writeAgentJson(JsonWriter writer, TopConsumersResult result, SerializationOptions options)
+    {
+        writer.name("totalRetainedHeap").value(result.getTotalRetainedHeap()); //$NON-NLS-1$
+
+        int objectLimit = Math.min(result.getBiggestObjects().size(), options.getLimit());
+        int classLimit = Math.min(result.getClasses().size(), options.getLimit());
+        int classLoaderLimit = Math.min(result.getClassLoaders().size(), options.getLimit());
+        boolean biggestObjectsTruncated = result.getBiggestObjects().size() > objectLimit;
+        boolean classesTruncated = result.getClasses().size() > classLimit;
+        boolean classLoadersTruncated = result.getClassLoaders().size() > classLoaderLimit;
+
+        writer.name("biggestObjects").beginArray(); //$NON-NLS-1$
+        for (int ii = 0; ii < objectLimit; ii++)
+        {
+            TopConsumersResult.ObjectRow row = result.getBiggestObjects().get(ii);
+            writer.beginObject();
+            writer.name("objectId").value(row.getObjectId()); //$NON-NLS-1$
+            writer.name("label").value(row.getLabel()); //$NON-NLS-1$
+            writer.name("retainedBytes").value(row.getRetainedBytes()); //$NON-NLS-1$
+            writer.name("retainedPercent").value(row.getRetainedPercent()); //$NON-NLS-1$
+            writer.endObject();
+        }
+        writer.endArray();
+        writer.name("biggestObjectsTruncated").value(biggestObjectsTruncated); //$NON-NLS-1$
+
+        writer.name("classes").beginArray(); //$NON-NLS-1$
+        for (int ii = 0; ii < classLimit; ii++)
+        {
+            writeAgentDominatorRow(writer, result.getClasses().get(ii));
+        }
+        writer.endArray();
+        writer.name("classesTruncated").value(classesTruncated); //$NON-NLS-1$
+
+        writer.name("classLoaders").beginArray(); //$NON-NLS-1$
+        for (int ii = 0; ii < classLoaderLimit; ii++)
+        {
+            writeAgentDominatorRow(writer, result.getClassLoaders().get(ii));
+        }
+        writer.endArray();
+        writer.name("classLoadersTruncated").value(classLoadersTruncated); //$NON-NLS-1$
+
+        PackageTruncationState packageState = new PackageTruncationState(options.getTreeNodeLimit());
+        writer.name("packages"); //$NON-NLS-1$
+        if (result.getPackages() == null)
+        {
+            writer.nullValue();
+        }
+        else
+        {
+            writeAgentPackageNode(writer, result.getPackages(), options, packageState);
+        }
+        writer.name("packagesTruncated").value(packageState.truncated); //$NON-NLS-1$
+        return biggestObjectsTruncated || classesTruncated || classLoadersTruncated || packageState.truncated;
+    }
+
     public String toText(TopConsumersResult result, SerializationOptions options)
     {
         StringBuilder builder = new StringBuilder(2048);
@@ -121,6 +176,55 @@ public class TopConsumersResultSerializer
         writer.name("truncated").value(state.truncated); //$NON-NLS-1$
         writer.endObject();
         return state.truncated;
+    }
+
+    private void writeAgentDominatorRow(JsonWriter writer, TopConsumersResult.DominatorRow row)
+    {
+        writer.beginObject();
+        writer.name("objectId").value(row.getObjectId()); //$NON-NLS-1$
+        writer.name("label").value(row.getLabel()); //$NON-NLS-1$
+        writer.name("count").value(row.getCount()); //$NON-NLS-1$
+        writer.name("retainedBytes").value(row.getRetainedBytes()); //$NON-NLS-1$
+        writer.name("retainedPercent").value(row.getRetainedPercent()); //$NON-NLS-1$
+        writer.endObject();
+    }
+
+    private void writeAgentPackageNode(JsonWriter writer, TopConsumersResult.PackageNode node, SerializationOptions options,
+                    PackageTruncationState state)
+    {
+        if (state.remainingNodes <= 0)
+        {
+            state.truncated = true;
+            return;
+        }
+
+        state.remainingNodes--;
+        List<TopConsumersResult.PackageNode> children = node.getChildren();
+        int limit = Math.min(children.size(), options.getLimit());
+        boolean childrenTruncated = children.size() > limit;
+        if (childrenTruncated)
+            state.truncated = true;
+
+        writer.beginObject();
+        writer.name("name").value(node.getName()); //$NON-NLS-1$
+        writer.name("retainedBytes").value(node.getRetainedBytes()); //$NON-NLS-1$
+        writer.name("retainedPercent").value(node.getRetainedPercent()); //$NON-NLS-1$
+        writer.name("topDominators").value(node.getTopDominators()); //$NON-NLS-1$
+        writer.name("_hasChildren").value(!children.isEmpty()); //$NON-NLS-1$
+        writer.name("_children").beginArray(); //$NON-NLS-1$
+        for (int ii = 0; ii < limit; ii++)
+        {
+            if (state.remainingNodes <= 0)
+            {
+                state.truncated = true;
+                childrenTruncated = true;
+                break;
+            }
+            writeAgentPackageNode(writer, children.get(ii), options, state);
+        }
+        writer.endArray();
+        writer.name("_childrenTruncated").value(childrenTruncated); //$NON-NLS-1$
+        writer.endObject();
     }
 
     private void writePackageNode(JsonWriter writer, TopConsumersResult.PackageNode node, SerializationOptions options,

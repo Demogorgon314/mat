@@ -10,6 +10,7 @@
 package org.eclipse.mat.cli.internal;
 
 import java.io.PrintStream;
+import java.util.Locale;
 
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.equinox.app.IApplication;
@@ -35,8 +36,13 @@ public class CliApplication implements IApplication
     {
         String[] args = (String[]) context.getArguments().get(IApplicationContext.APPLICATION_ARGS);
         CliArguments parsed = null;
+        CliArguments.OutputProfile requestedProfile = parser.detectProfile(args);
+        CliArguments.OutputFormat requestedFormat = parser.detectFormat(args, requestedProfile);
         try
         {
+            if (requestedProfile == CliArguments.OutputProfile.AGENT)
+                Locale.setDefault(Locale.ENGLISH);
+
             parsed = parser.parse(args);
             if (parsed.isHelp())
             {
@@ -44,35 +50,46 @@ public class CliApplication implements IApplication
                 return IApplication.EXIT_OK;
             }
 
-            ensurePlatformServices();
-
-            try (SnapshotSession session = executor.openSnapshot(parsed))
+            CliExecution execution;
+            if (parsed.getCommand().requiresSnapshot())
             {
-                CliExecution execution = executor.execute(parsed, session);
-                serializer.serialize(parsed, execution, System.out);
+                ensurePlatformServices();
+                try (SnapshotSession session = executor.openSnapshot(parsed))
+                {
+                    execution = executor.execute(parsed, session);
+                }
             }
+            else
+            {
+                execution = executor.execute(parsed);
+            }
+
+            serializer.serialize(parsed, execution, System.out);
             return IApplication.EXIT_OK;
         }
         catch (CliException e)
         {
-            return exit(e.getExitCode(), parsed, e, System.err, System.out);
+            return exit(e.getExitCode(), parsed, requestedProfile, requestedFormat, e, System.err, System.out);
         }
         catch (OutOfMemoryError e)
         {
-            return exit(CliExitCodes.OUT_OF_MEMORY, parsed, e, System.err, System.out);
+            return exit(CliExitCodes.OUT_OF_MEMORY, parsed, requestedProfile, requestedFormat, e, System.err, System.out);
         }
         catch (Exception e)
         {
-            return exit(CliExitCodes.EXECUTION_ERROR, parsed, e, System.err, System.out);
+            return exit(CliExitCodes.EXECUTION_ERROR, parsed, requestedProfile, requestedFormat, e, System.err, System.out);
         }
     }
 
-    private Object exit(int code, CliArguments parsed, Throwable error, PrintStream err, PrintStream out)
+    private Object exit(int code, CliArguments parsed, CliArguments.OutputProfile requestedProfile,
+                    CliArguments.OutputFormat requestedFormat, Throwable error, PrintStream err, PrintStream out)
     {
-        boolean json = parsed != null && parsed.getFormat() == CliArguments.OutputFormat.JSON;
+        CliArguments.OutputProfile profile = parsed == null ? requestedProfile : parsed.getProfile();
+        CliArguments.OutputFormat format = parsed == null ? requestedFormat : parsed.getFormat();
+        boolean json = format == CliArguments.OutputFormat.JSON;
         if (json)
         {
-            serializer.serializeError(parsed, code, error, out);
+            serializer.serializeError(parsed, profile, code, error, out);
         }
         else
         {

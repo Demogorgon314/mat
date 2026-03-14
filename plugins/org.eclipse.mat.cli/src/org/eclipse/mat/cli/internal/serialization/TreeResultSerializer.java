@@ -26,6 +26,17 @@ public class TreeResultSerializer extends StructuredResultSerializer
         return state.truncated;
     }
 
+    public boolean writeAgentJson(JsonWriter writer, IResultTree tree, SerializationOptions options)
+    {
+        ColumnSchema[] schema = buildColumnSchemas(tree.getColumns());
+        writeAgentSchema(writer, schema);
+        writer.name("items").beginArray(); //$NON-NLS-1$
+        TruncationState state = new TruncationState(options.getTreeNodeLimit());
+        writeAgentNodes(writer, tree, schema, tree.getElements(), 0, options, state);
+        writer.endArray();
+        return state.truncated;
+    }
+
     public String toText(IResultTree tree, SerializationOptions options)
     {
         StringBuilder builder = new StringBuilder();
@@ -77,6 +88,68 @@ public class TreeResultSerializer extends StructuredResultSerializer
         }
     }
 
+    private void writeAgentNodes(JsonWriter writer, IResultTree tree, ColumnSchema[] columns, List<?> rows, int depth,
+                    SerializationOptions options, TruncationState state)
+    {
+        int limit = Math.min(rows.size(), options.getLimit());
+        if (rows.size() > limit)
+            state.truncated = true;
+
+        for (int ii = 0; ii < limit; ii++)
+        {
+            if (state.remainingNodes <= 0)
+            {
+                state.truncated = true;
+                break;
+            }
+
+            Object row = rows.get(ii);
+            boolean hasChildren = tree.hasChildren(row);
+            state.remainingNodes--;
+
+            writer.beginObject();
+            writeAgentRow(writer, tree, columns, row);
+            writer.name("_hasChildren").value(hasChildren); //$NON-NLS-1$
+
+            boolean childrenTruncated = false;
+            writer.name("_children").beginArray(); //$NON-NLS-1$
+            if (hasChildren)
+            {
+                if (depth + 1 >= options.getTreeDepthLimit())
+                {
+                    childrenTruncated = true;
+                    state.truncated = true;
+                }
+                else
+                {
+                    List<?> children = tree.getChildren(row);
+                    int childLimit = Math.min(children.size(), options.getLimit());
+                    if (children.size() > childLimit)
+                    {
+                        childrenTruncated = true;
+                        state.truncated = true;
+                    }
+
+                    for (int childIndex = 0; childIndex < childLimit; childIndex++)
+                    {
+                        if (state.remainingNodes <= 0)
+                        {
+                            childrenTruncated = true;
+                            state.truncated = true;
+                            break;
+                        }
+                        writeAgentNodes(writer, tree, columns, children.subList(childIndex, childIndex + 1), depth + 1,
+                                        options, state);
+                    }
+                }
+            }
+            writer.endArray();
+
+            writer.name("_childrenTruncated").value(childrenTruncated); //$NON-NLS-1$
+            writer.endObject();
+        }
+    }
+
     private void appendNodes(StringBuilder builder, IResultTree tree, Column[] columns, List<?> rows, int depth,
                     SerializationOptions options, TruncationState state)
     {
@@ -116,7 +189,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
         {
             if (ii > 0)
                 builder.append(" | "); //$NON-NLS-1$
-            String value = displayValue(columns[ii], row, tree.getColumnValue(row, ii));
+            String value = displayValue(columns[ii], row, safeColumnValue(tree, row, ii));
             builder.append(value == null ? "" : value); //$NON-NLS-1$
         }
         return builder.toString();

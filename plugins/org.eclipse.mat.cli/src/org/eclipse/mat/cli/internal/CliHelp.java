@@ -19,6 +19,8 @@ public final class CliHelp
         StringBuilder help = new StringBuilder();
         help.append("Usage:\n"); //$NON-NLS-1$
         help.append("  mat-cli <command> <heap> [options]\n"); //$NON-NLS-1$
+        help.append("  mat-cli describe <command> [options]\n"); //$NON-NLS-1$
+        help.append("  mat-cli schema <command> [options]\n"); //$NON-NLS-1$
         help.append("  mat-cli --help\n\n"); //$NON-NLS-1$
         help.append("Commands:\n"); //$NON-NLS-1$
         help.append("  summary <heap>\n"); //$NON-NLS-1$
@@ -26,10 +28,14 @@ public final class CliHelp
         help.append("  top-consumers <heap> [--format text|json]\n"); //$NON-NLS-1$
         help.append("  path2gc <heap> --object 0x... [--format text|json]\n"); //$NON-NLS-1$
         help.append("  oql <heap> --query \"...\" [--format text|json]\n"); //$NON-NLS-1$
-        help.append("  query <heap> --command \"...\" [--format text|json]\n\n"); //$NON-NLS-1$
+        help.append("  query <heap> --command \"...\" [--format text|json]\n"); //$NON-NLS-1$
+        help.append("  describe <command> [--format text|json]\n"); //$NON-NLS-1$
+        help.append("  schema <command> [--format text|json]\n\n"); //$NON-NLS-1$
         help.append("Global options:\n"); //$NON-NLS-1$
-        help.append("  --format text|json   Output format (default: text)\n"); //$NON-NLS-1$
+        help.append("  --format text|json   Output format (default: text, agent profile: json)\n"); //$NON-NLS-1$
         help.append("  --limit N            Maximum rows or children per level (default: 20)\n"); //$NON-NLS-1$
+        help.append("  --profile default|agent  Output profile (default: default)\n"); //$NON-NLS-1$
+        help.append("  --agent              Shortcut for --profile agent\n"); //$NON-NLS-1$
         help.append("  --verbose            Print detailed diagnostics on failure\n"); //$NON-NLS-1$
         help.append("  --help               Show this help\n"); //$NON-NLS-1$
         return help.toString();

@@ -27,6 +27,22 @@ import org.eclipse.mat.util.VoidProgressListener;
 
 public class CliCommandExecutor
 {
+    public CliExecution execute(CliArguments arguments) throws Exception
+    {
+        switch (arguments.getCommand())
+        {
+            case DESCRIBE:
+                return CliExecution.result(new CommandMetadataResult(CommandMetadataResult.Kind.DESCRIBE,
+                                lookupDefinition(arguments.getSubjectCommand())));
+            case SCHEMA:
+                return CliExecution.result(new CommandMetadataResult(CommandMetadataResult.Kind.SCHEMA,
+                                lookupDefinition(arguments.getSubjectCommand())));
+            default:
+                throw CliException.execution("Command requires a snapshot session: " + arguments.getCommand().getToken(), //$NON-NLS-1$
+                                null);
+        }
+    }
+
     public SnapshotSession openSnapshot(CliArguments arguments) throws CliException
     {
         File heapFile = arguments.getHeapFile();
@@ -55,6 +71,8 @@ public class CliCommandExecutor
 
     public CliExecution execute(CliArguments arguments, SnapshotSession session) throws Exception
     {
+        if (!arguments.getCommand().requiresSnapshot())
+            return execute(arguments);
         return execute(arguments, session.getSnapshot(), session.getProgressListener());
     }
 
@@ -79,6 +97,9 @@ public class CliCommandExecutor
                 IResult result = SnapshotQuery.parse(arguments.getQueryCommand(), snapshot).execute(listener);
                 validateResult(result);
                 return CliExecution.result(result);
+            case DESCRIBE:
+            case SCHEMA:
+                return execute(arguments);
             default:
                 throw CliException.usage("Unsupported command: " + arguments.getCommand().getToken()); //$NON-NLS-1$
         }
@@ -94,5 +115,13 @@ public class CliCommandExecutor
         {
             throw CliException.unsupported("Unsupported result type: " + result.getClass().getName()); //$NON-NLS-1$
         }
+    }
+
+    private CliCommandCatalog.CommandDefinition lookupDefinition(CliCommand command) throws CliException
+    {
+        CliCommandCatalog.CommandDefinition definition = CliCommandCatalog.lookup(command);
+        if (definition == null)
+            throw CliException.execution("No command metadata found for " + command.getToken(), null); //$NON-NLS-1$
+        return definition;
     }
 }

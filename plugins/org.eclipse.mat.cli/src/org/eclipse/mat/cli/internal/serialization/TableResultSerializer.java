@@ -40,6 +40,29 @@ public class TableResultSerializer extends StructuredResultSerializer
         return truncated;
     }
 
+    public boolean writeAgentJson(JsonWriter writer, IResultTable table, SerializationOptions options)
+    {
+        Column[] columns = table.getColumns();
+        ColumnSchema[] schema = buildColumnSchemas(columns);
+        writeAgentSchema(writer, schema);
+
+        int rowCount = table.getRowCount();
+        int limit = Math.min(rowCount, options.getLimit());
+        boolean truncated = rowCount > limit;
+
+        writer.name("items").beginArray(); //$NON-NLS-1$
+        for (int ii = 0; ii < limit; ii++)
+        {
+            Object row = table.getRow(ii);
+            writer.beginObject();
+            writeAgentRow(writer, table, schema, row);
+            writer.endObject();
+        }
+        writer.endArray();
+
+        return truncated;
+    }
+
     public String toText(IResultTable table, SerializationOptions options)
     {
         Column[] columns = table.getColumns();
@@ -58,7 +81,7 @@ public class TableResultSerializer extends StructuredResultSerializer
             String[] values = new String[columns.length];
             for (int jj = 0; jj < columns.length; jj++)
             {
-                values[jj] = safe(displayValue(columns[jj], row, table.getColumnValue(row, jj)));
+                values[jj] = safe(displayValue(columns[jj], row, safeColumnValue(table, row, jj)));
                 widths[jj] = Math.min(Math.max(widths[jj], values[jj].length()), 80);
             }
             rows.add(values);

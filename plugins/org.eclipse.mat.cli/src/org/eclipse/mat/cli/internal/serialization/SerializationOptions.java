@@ -14,17 +14,29 @@ public final class SerializationOptions
     private final int limit;
     private final int treeDepthLimit;
     private final int treeNodeLimit;
+    private final boolean agentProfile;
 
     public SerializationOptions(int limit, int treeDepthLimit)
     {
-        this(limit, treeDepthLimit, Math.max(100, limit * 10));
+        this(limit, treeDepthLimit, Math.max(100, limit * 10), false);
+    }
+
+    public SerializationOptions(int limit, int treeDepthLimit, boolean agentProfile)
+    {
+        this(limit, treeDepthLimit, Math.max(100, limit * 10), agentProfile);
     }
 
     public SerializationOptions(int limit, int treeDepthLimit, int treeNodeLimit)
     {
+        this(limit, treeDepthLimit, treeNodeLimit, false);
+    }
+
+    public SerializationOptions(int limit, int treeDepthLimit, int treeNodeLimit, boolean agentProfile)
+    {
         this.limit = limit;
         this.treeDepthLimit = treeDepthLimit;
         this.treeNodeLimit = treeNodeLimit;
+        this.agentProfile = agentProfile;
     }
 
     public int getLimit()
@@ -40,5 +52,10 @@ public final class SerializationOptions
     public int getTreeNodeLimit()
     {
         return treeNodeLimit;
+    }
+
+    public boolean isAgentProfile()
+    {
+        return agentProfile;
     }
 }
