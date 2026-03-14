@@ -17,6 +17,7 @@ import org.eclipse.mat.query.IResult;
 import org.eclipse.mat.query.IResultTable;
 import org.eclipse.mat.query.IResultTree;
 import org.eclipse.mat.query.results.TextResult;
+import org.eclipse.mat.report.Spec;
 import org.eclipse.mat.snapshot.ISnapshot;
 import org.eclipse.mat.snapshot.SnapshotFactory;
 import org.eclipse.mat.snapshot.query.SnapshotQuery;
@@ -67,7 +68,7 @@ public class CliCommandExecutor
             case HISTOGRAM:
                 return CliExecution.result(SnapshotQuery.lookup("histogram", snapshot).refine(listener).build()); //$NON-NLS-1$
             case TOP_CONSUMERS:
-                return CliExecution.result(SnapshotQuery.lookup("top_consumers", snapshot).execute(listener)); //$NON-NLS-1$
+                return CliExecution.result(new TopConsumersResultBuilder().build(snapshot, listener));
             case PATH2GC:
                 return CliExecution.result(SnapshotQuery
                                 .parse("path2gc " + arguments.getObjectAddress(), snapshot).execute(listener)); //$NON-NLS-1$
@@ -88,7 +89,8 @@ public class CliCommandExecutor
         if (result == null)
             throw CliException.execution("Query returned no result", null); //$NON-NLS-1$
 
-        if (!(result instanceof TextResult || result instanceof IResultTable || result instanceof IResultTree))
+        if (!(result instanceof TextResult || result instanceof IResultTable || result instanceof IResultTree
+                        || result instanceof Spec))
         {
             throw CliException.unsupported("Unsupported result type: " + result.getClass().getName()); //$NON-NLS-1$
         }

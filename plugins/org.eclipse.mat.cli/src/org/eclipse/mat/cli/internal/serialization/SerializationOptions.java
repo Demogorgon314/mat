@@ -13,11 +13,18 @@ public final class SerializationOptions
 {
     private final int limit;
     private final int treeDepthLimit;
+    private final int treeNodeLimit;
 
     public SerializationOptions(int limit, int treeDepthLimit)
     {
+        this(limit, treeDepthLimit, Math.max(100, limit * 10));
+    }
+
+    public SerializationOptions(int limit, int treeDepthLimit, int treeNodeLimit)
+    {
         this.limit = limit;
         this.treeDepthLimit = treeDepthLimit;
+        this.treeNodeLimit = treeNodeLimit;
     }
 
     public int getLimit()
@@ -28,5 +35,10 @@ public final class SerializationOptions
     public int getTreeDepthLimit()
     {
         return treeDepthLimit;
+    }
+
+    public int getTreeNodeLimit()
+    {
+        return treeNodeLimit;
     }
 }

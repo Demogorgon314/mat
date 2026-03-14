@@ -20,7 +20,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
     {
         writeColumns(writer, tree.getColumns());
         writer.name("rows").beginArray(); //$NON-NLS-1$
-        TruncationState state = new TruncationState();
+        TruncationState state = new TruncationState(options.getTreeNodeLimit());
         writeNodes(writer, tree, tree.getColumns(), tree.getElements(), 0, options, state);
         writer.endArray();
         return state.truncated;
@@ -29,7 +29,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
     public String toText(IResultTree tree, SerializationOptions options)
     {
         StringBuilder builder = new StringBuilder();
-        TruncationState state = new TruncationState();
+        TruncationState state = new TruncationState(Integer.MAX_VALUE);
         appendNodes(builder, tree, tree.getColumns(), tree.getElements(), 0, options, state);
         return builder.toString();
     }
@@ -43,7 +43,14 @@ public class TreeResultSerializer extends StructuredResultSerializer
 
         for (int ii = 0; ii < limit; ii++)
         {
+            if (state.remainingNodes <= 0)
+            {
+                state.truncated = true;
+                break;
+            }
+
             Object row = rows.get(ii);
+            state.remainingNodes--;
             writer.beginObject();
             writeRowValues(writer, tree, columns, row);
             writeContext(writer, tree, row);
@@ -58,7 +65,12 @@ public class TreeResultSerializer extends StructuredResultSerializer
                 writer.name("children").beginArray(); //$NON-NLS-1$
                 List<?> children = tree.hasChildren(row) ? tree.getChildren(row) : null;
                 if (children != null)
-                    writeNodes(writer, tree, columns, children, depth + 1, options, state);
+                {
+                    if (state.remainingNodes > 0)
+                        writeNodes(writer, tree, columns, children, depth + 1, options, state);
+                    else
+                        state.truncated = true;
+                }
                 writer.endArray();
             }
             writer.endObject();
@@ -112,6 +124,12 @@ public class TreeResultSerializer extends StructuredResultSerializer
 
     private static final class TruncationState
     {
+        private int remainingNodes;
         private boolean truncated;
+
+        private TruncationState(int remainingNodes)
+        {
+            this.remainingNodes = remainingNodes;
+        }
     }
 }

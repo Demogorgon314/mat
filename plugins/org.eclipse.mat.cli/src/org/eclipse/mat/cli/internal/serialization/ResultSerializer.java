@@ -16,16 +16,21 @@ import org.eclipse.mat.cli.internal.CliArguments;
 import org.eclipse.mat.cli.internal.CliExecution;
 import org.eclipse.mat.cli.internal.CliException;
 import org.eclipse.mat.cli.internal.SnapshotSummary;
+import org.eclipse.mat.cli.internal.TopConsumersResult;
 import org.eclipse.mat.query.IResult;
 import org.eclipse.mat.query.IResultTable;
 import org.eclipse.mat.query.IResultTree;
 import org.eclipse.mat.query.results.TextResult;
+import org.eclipse.mat.report.Spec;
 
 public class ResultSerializer
 {
     private final TableResultSerializer tableSerializer = new TableResultSerializer();
     private final TreeResultSerializer treeSerializer = new TreeResultSerializer();
     private final TextResultSerializer textSerializer = new TextResultSerializer();
+    private final SpecResultSerializer specSerializer = new SpecResultSerializer(tableSerializer, treeSerializer,
+                    textSerializer);
+    private final TopConsumersResultSerializer topConsumersSerializer = new TopConsumersResultSerializer();
 
     public void serialize(CliArguments arguments, CliExecution execution, PrintStream out) throws IOException, CliException
     {
@@ -67,6 +72,10 @@ public class ResultSerializer
         {
             out.println(textSerializer.toText((TextResult) result));
         }
+        else if (result instanceof TopConsumersResult)
+        {
+            out.print(topConsumersSerializer.toText((TopConsumersResult) result, options));
+        }
         else if (result instanceof IResultTable)
         {
             out.print(tableSerializer.toText((IResultTable) result, options));
@@ -74,6 +83,10 @@ public class ResultSerializer
         else if (result instanceof IResultTree)
         {
             out.print(treeSerializer.toText((IResultTree) result, options));
+        }
+        else if (result instanceof Spec)
+        {
+            out.print(specSerializer.toText((Spec) result, options));
         }
         else
         {
@@ -104,6 +117,11 @@ public class ResultSerializer
                 writer.name("resultType").value("text"); //$NON-NLS-1$ //$NON-NLS-2$
                 truncated = textSerializer.writeJson(writer, (TextResult) result);
             }
+            else if (result instanceof TopConsumersResult)
+            {
+                writer.name("resultType").value("top-consumers"); //$NON-NLS-1$ //$NON-NLS-2$
+                truncated = topConsumersSerializer.writeJson(writer, (TopConsumersResult) result, options);
+            }
             else if (result instanceof IResultTable)
             {
                 writer.name("resultType").value("table"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -113,6 +131,11 @@ public class ResultSerializer
             {
                 writer.name("resultType").value("tree"); //$NON-NLS-1$ //$NON-NLS-2$
                 truncated = treeSerializer.writeJson(writer, (IResultTree) result, options);
+            }
+            else if (result instanceof Spec)
+            {
+                writer.name("resultType").value(specSerializer.rootResultType((Spec) result)); //$NON-NLS-1$
+                truncated = specSerializer.writeJson(writer, (Spec) result, options);
             }
             else
             {
@@ -145,16 +168,6 @@ public class ResultSerializer
     private CliException unsupported(IResult result)
     {
         String resultName = result == null ? "null" : result.getClass().getName(); //$NON-NLS-1$
-        if (result != null && isCompositeCommand(result))
-        {
-            return CliException.unsupported("Unsupported result type for v1 CLI: " + resultName); //$NON-NLS-1$
-        }
         return CliException.unsupported("Unsupported result type: " + resultName); //$NON-NLS-1$
-    }
-
-    private boolean isCompositeCommand(IResult result)
-    {
-        return result.getClass().getName().startsWith("org.eclipse.mat.report.") //$NON-NLS-1$
-                        || result.getClass().getName().startsWith("org.eclipse.mat.query.results.CompositeResult"); //$NON-NLS-1$
     }
 }
