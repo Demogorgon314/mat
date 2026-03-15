@@ -32,7 +32,7 @@ public class TableResultSerializer extends StructuredResultSerializer
             Object row = table.getRow(ii);
             writer.beginObject();
             writeRowValues(writer, table, columns, row);
-            writeContext(writer, table, row);
+            writeContext(writer, table, row, options);
             writer.endObject();
         }
         writer.endArray();
@@ -55,7 +55,7 @@ public class TableResultSerializer extends StructuredResultSerializer
         {
             Object row = table.getRow(ii);
             writer.beginObject();
-            writeAgentRow(writer, table, schema, row);
+            writeAgentRow(writer, table, schema, row, options);
             writer.endObject();
         }
         writer.endArray();

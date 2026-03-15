@@ -52,6 +52,88 @@ public class CliArgumentParserTest
     }
 
     @Test
+    public void parsesInstancesArguments() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "instances", "sample.hprof", "--class",
+                        "java.lang.String", "--include-subclasses", "--limit", "7", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
+
+        assertEquals(CliCommand.INSTANCES, arguments.getCommand());
+        assertEquals("java.lang.String", arguments.getClassName()); //$NON-NLS-1$
+        assertTrue(arguments.isIncludeSubclasses());
+        assertEquals(7, arguments.getLimit());
+        assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
+    }
+
+    @Test
+    public void parsesInspectObjectArguments() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(
+                        new String[] { "inspect-object", "sample.hprof", "--object", "0x2a", "--field-path",
+                                        "value", "--depth", "3" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertEquals(CliCommand.INSPECT_OBJECT, arguments.getCommand());
+        assertEquals("0x2a", arguments.getObjectAddress()); //$NON-NLS-1$
+        assertEquals("value", arguments.getFieldPath()); //$NON-NLS-1$
+        assertEquals(3, arguments.getTreeDepthLimit());
+    }
+
+    @Test
+    public void defaultsInspectObjectDepthToThree() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "inspect-object", "sample.hprof", "--object", "0x2a" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        assertEquals(3, arguments.getTreeDepthLimit());
+    }
+
+    @Test
+    public void defaultsInspectObjectDepthToThreeInAgentProfile() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(
+                        new String[] { "--agent", "inspect-object", "sample.hprof", "--object", "0x2a" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+
+        assertEquals(3, arguments.getTreeDepthLimit());
+        assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
+    }
+
+    @Test
+    public void rejectsConflictingInspectObjectPathOptions() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        try
+        {
+            parser.parse(new String[] { "inspect-object", "sample.hprof", "--object", "0x2a", "--select-field",
+                            "value", "--field-path", "value.count" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
+            fail("Expected conflicting inspect-object options"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertTrue(e.getMessage().contains("only one of --select-field or --field-path")); //$NON-NLS-1$
+        }
+    }
+
+    @Test
+    public void rejectsDottedSelectField() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        try
+        {
+            parser.parse(new String[] { "inspect-object", "sample.hprof", "--object", "0x2a", "--select-field",
+                            "value.count" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+            fail("Expected dotted select-field rejection"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertTrue(e.getMessage().contains("Use --field-path")); //$NON-NLS-1$
+        }
+    }
+
+    @Test
     public void defaultsThreadsCommandToAllThreads()
                     throws Exception
     {
@@ -217,7 +299,11 @@ public class CliArgumentParserTest
         String help = CliHelp.generalHelp();
 
         assertTrue(help.contains("threads <heap> [--limit N] [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("instances <heap> --class <fqcn> [--include-subclasses] [--limit N] [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("inspect-object <heap> --object 0x... [--select-field FIELD | --field-path PATH] [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("top-consumers <heap> [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
-        assertTrue(help.contains("--depth N            Maximum tree or section depth")); //$NON-NLS-1$
+        assertTrue(help.contains("--depth N            Maximum tree or section depth (default: 8, agent profile: 4, inspect-object: 3)")); //$NON-NLS-1$
+        assertTrue(help.contains("--field-path PATH    Inspect a dotted field path such as cleaner.offsetMap")); //$NON-NLS-1$
+        assertTrue(help.contains("Inner class names containing '$' must be quoted or escaped")); //$NON-NLS-1$
     }
 }

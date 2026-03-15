@@ -52,12 +52,17 @@ public final class CliArguments
     private final int limit;
     private final int treeDepthLimit;
     private final String objectAddress;
+    private final String className;
+    private final String selectField;
+    private final String fieldPath;
+    private final boolean includeSubclasses;
     private final String oqlQuery;
     private final String queryCommand;
 
     CliArguments(CliCommand command, CliCommand subjectCommand, String subjectName, File heapFile, OutputProfile profile,
                     OutputFormat format, boolean verbose, boolean help, int limit, int treeDepthLimit,
-                    String objectAddress, String oqlQuery, String queryCommand)
+                    String objectAddress, String className, String selectField, String fieldPath,
+                    boolean includeSubclasses, String oqlQuery, String queryCommand)
     {
         this.command = command;
         this.subjectCommand = subjectCommand;
@@ -70,6 +75,10 @@ public final class CliArguments
         this.limit = limit;
         this.treeDepthLimit = treeDepthLimit;
         this.objectAddress = objectAddress;
+        this.className = className;
+        this.selectField = selectField;
+        this.fieldPath = fieldPath;
+        this.includeSubclasses = includeSubclasses;
         this.oqlQuery = oqlQuery;
         this.queryCommand = queryCommand;
     }
@@ -132,6 +141,31 @@ public final class CliArguments
     public String getObjectAddress()
     {
         return objectAddress;
+    }
+
+    public String getClassName()
+    {
+        return className;
+    }
+
+    public String getSelectField()
+    {
+        return selectField;
+    }
+
+    public String getFieldPath()
+    {
+        return fieldPath;
+    }
+
+    public String getInspectionFieldPath()
+    {
+        return fieldPath != null ? fieldPath : selectField;
+    }
+
+    public boolean isIncludeSubclasses()
+    {
+        return includeSubclasses;
     }
 
     public String getOqlQuery()

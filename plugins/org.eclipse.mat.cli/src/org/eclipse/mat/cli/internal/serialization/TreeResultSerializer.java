@@ -68,8 +68,8 @@ public class TreeResultSerializer extends StructuredResultSerializer
             state.remainingNodes--;
             writer.beginObject();
             writeRowValues(writer, tree, columns, row);
-            writeContext(writer, tree, row);
-            Integer objectId = contextObjectId(tree, row);
+            writeContext(writer, tree, row, options);
+            Integer objectId = rowObjectId(tree, row);
             boolean cycle = path.isCycle(objectId);
             writer.name("_cycle").value(cycle); //$NON-NLS-1$
             if (cycle)
@@ -121,9 +121,9 @@ public class TreeResultSerializer extends StructuredResultSerializer
             state.remainingNodes--;
 
             writer.beginObject();
-            writeAgentRow(writer, tree, columns, row);
+            writeAgentRow(writer, tree, columns, row, options);
             writer.name("_hasChildren").value(hasChildren); //$NON-NLS-1$
-            Integer objectId = contextObjectId(tree, row);
+            Integer objectId = rowObjectId(tree, row);
             boolean cycle = path.isCycle(objectId);
             writer.name("_cycle").value(cycle); //$NON-NLS-1$
 
@@ -182,7 +182,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
                 builder.append("  "); //$NON-NLS-1$
             builder.append("- "); //$NON-NLS-1$
             builder.append(formatRow(columns, tree, row)).append('\n');
-            Integer objectId = contextObjectId(tree, row);
+            Integer objectId = rowObjectId(tree, row);
             if (path.isCycle(objectId))
             {
                 for (int pad = 0; pad < depth + 1; pad++)
@@ -255,10 +255,9 @@ public class TreeResultSerializer extends StructuredResultSerializer
         }
     }
 
-    private Integer contextObjectId(IResultTree tree, Object row)
+    private Integer rowObjectId(IResultTree tree, Object row)
     {
-        IContextObject context = safeContext(tree, row);
-        return context == null || context.getObjectId() < 0 ? null : Integer.valueOf(context.getObjectId());
+        return contextObjectId(safeContext(tree, row));
     }
 
     private static final class PathState

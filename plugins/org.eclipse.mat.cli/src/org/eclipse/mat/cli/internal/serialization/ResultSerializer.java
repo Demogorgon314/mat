@@ -167,7 +167,8 @@ public class ResultSerializer
         }
         else
         {
-            SerializationOptions options = new SerializationOptions(arguments.getLimit(), arguments.getTreeDepthLimit());
+            SerializationOptions options = new SerializationOptions(arguments.getLimit(),
+                            arguments.getTreeDepthLimit(), execution.getObjectAddressResolver());
             IResult result = execution.getResult();
             boolean truncated;
             if (result instanceof TextResult)
@@ -255,8 +256,8 @@ public class ResultSerializer
         }
         else
         {
-            SerializationOptions options = new SerializationOptions(arguments.getLimit(), arguments.getTreeDepthLimit(),
-                            true);
+            SerializationOptions options = new SerializationOptions(arguments.getLimit(),
+                            arguments.getTreeDepthLimit(), true, execution.getObjectAddressResolver());
             IResult result = execution.getResult();
             if (result instanceof TextResult)
             {
@@ -402,7 +403,7 @@ public class ResultSerializer
         {
             return renderSuggestions(arguments,
                             Arrays.asList("path2gc <heap> --object 0x... --agent", //$NON-NLS-1$
-                                            "query <heap> --command \"dominator_tree 0x...\" --agent"), //$NON-NLS-1$
+                                            "query <heap> --command \"show_dominator_tree 0x...\" --agent"), //$NON-NLS-1$
                             execution.getPrimaryObjectAddress());
         }
 
@@ -437,6 +438,8 @@ public class ResultSerializer
                                             "histogram <heap> --agent", "top-consumers <heap> --agent"), //$NON-NLS-1$ //$NON-NLS-2$
                             arguments.getObjectAddress());
         }
+        if ("invalid_argument".equals(kind) && arguments.getCommand() == CliCommand.INSTANCES) //$NON-NLS-1$
+            return renderSuggestions(arguments, Arrays.asList("histogram <heap> --agent", "oql <heap> --query \"SELECT * FROM java.lang.String s\" --agent"), null); //$NON-NLS-1$ //$NON-NLS-2$
 
         return suggestedNextCommands(arguments, (CliExecution) null);
     }
@@ -467,6 +470,8 @@ public class ResultSerializer
             rendered = rendered.replace("<query>", arguments.getSubjectName()); //$NON-NLS-1$
             rendered = rendered.replace("<subject>", arguments.getSubjectName()); //$NON-NLS-1$
         }
+        if (arguments.getClassName() != null)
+            rendered = rendered.replace("<class>", arguments.getClassName()); //$NON-NLS-1$
         String resolvedObjectAddress = arguments.getObjectAddress() != null ? arguments.getObjectAddress() : objectAddress;
         if (resolvedObjectAddress != null)
             rendered = rendered.replace("0x...", resolvedObjectAddress); //$NON-NLS-1$
@@ -490,7 +495,8 @@ public class ResultSerializer
         if (root instanceof java.nio.file.AccessDeniedException || lower.contains("not writable") //$NON-NLS-1$
                         || lower.contains("permission denied") || lower.contains("could not be written")) //$NON-NLS-1$ //$NON-NLS-2$
             return "permission"; //$NON-NLS-1$
-        if (lower.contains("no object found at address") || lower.contains("invalid object address")) //$NON-NLS-1$ //$NON-NLS-2$
+        if (lower.contains("no object found at address") || lower.contains("invalid object address") //$NON-NLS-1$ //$NON-NLS-2$
+                        || lower.contains("no classes found matching")) //$NON-NLS-1$
             return "invalid_argument"; //$NON-NLS-1$
         if (lower.contains("unknown mat query") || (lower.contains("command") && lower.contains("not found"))) //$NON-NLS-1$ //$NON-NLS-2$
             return "query_not_found"; //$NON-NLS-1$
@@ -524,6 +530,8 @@ public class ResultSerializer
             return "Use `mat-cli oql <heap> --query \"SELECT * FROM OBJECTS " //$NON-NLS-1$
                             + (arguments.getObjectAddress() == null ? "0x..." : arguments.getObjectAddress()) //$NON-NLS-1$
                             + "\" --agent` to verify the address before retrying path2gc."; //$NON-NLS-1$
+        if ("invalid_argument".equals(kind) && arguments != null && arguments.getCommand() == CliCommand.INSTANCES) //$NON-NLS-1$
+            return "Verify the fully qualified class name, or use `mat-cli histogram <heap> --agent` to discover matching classes first."; //$NON-NLS-1$
         if ("snapshot_lifecycle".equals(kind)) //$NON-NLS-1$
             return "The snapshot or its index files were closed before result materialization finished; rerun with a fixed CLI build or use --verbose for diagnostics."; //$NON-NLS-1$
         if ("query_syntax".equals(kind) && arguments != null

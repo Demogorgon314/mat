@@ -45,6 +45,7 @@ public class ThreadsResultSerializer
             writer.endArray();
             writer.name("_context").beginObject(); //$NON-NLS-1$
             writer.name("objectId").value(entry.getObjectId()); //$NON-NLS-1$
+            writer.name("objectAddress").value(entry.getObjectAddress()); //$NON-NLS-1$
             writer.endObject();
             writer.endObject();
         }

@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.eclipse.mat.query.IContextObject;
+import org.eclipse.mat.query.IContextObjectSet;
 import org.eclipse.mat.query.IResultPie;
 import org.eclipse.mat.query.IResultPie.ColoredSlice;
 import org.eclipse.mat.query.IResultPie.Slice;
@@ -29,7 +30,7 @@ public class PieResultSerializer
         writer.name("slices").beginArray(); //$NON-NLS-1$
         for (int ii = 0; ii < limit; ii++)
         {
-            writeSlice(writer, slices.get(ii), false);
+            writeSlice(writer, slices.get(ii), false, options);
         }
         writer.endArray();
         return truncated;
@@ -44,7 +45,7 @@ public class PieResultSerializer
         writer.name("items").beginArray(); //$NON-NLS-1$
         for (int ii = 0; ii < limit; ii++)
         {
-            writeSlice(writer, slices.get(ii), true);
+            writeSlice(writer, slices.get(ii), true, options);
         }
         writer.endArray();
         return truncated;
@@ -71,44 +72,67 @@ public class PieResultSerializer
         return builder.toString();
     }
 
-    private void writeSlice(JsonWriter writer, Slice slice, boolean agentProfile)
+    private void writeSlice(JsonWriter writer, Slice slice, boolean agentProfile, SerializationOptions options)
     {
         writer.beginObject();
         writer.name("label").value(slice.getLabel()); //$NON-NLS-1$
         writer.name("value").value(slice.getValue()); //$NON-NLS-1$
         writer.name("description").value(slice.getDescription()); //$NON-NLS-1$
         if (agentProfile)
-            writeAgentContext(writer, slice.getContext());
+            writeAgentContext(writer, slice.getContext(), options);
         else
-            writeContext(writer, slice.getContext());
+            writeContext(writer, slice.getContext(), options);
         writer.name("color").value(color(slice)); //$NON-NLS-1$
         writer.endObject();
     }
 
-    private void writeContext(JsonWriter writer, IContextObject context)
+    private void writeContext(JsonWriter writer, IContextObject context, SerializationOptions options)
     {
-        if (context == null || context.getObjectId() < 0)
+        Integer objectId = contextObjectId(context);
+        if (objectId == null)
         {
             writer.name("context").nullValue(); //$NON-NLS-1$
             return;
         }
 
         writer.name("context").beginObject(); //$NON-NLS-1$
-        writer.name("objectId").value(context.getObjectId()); //$NON-NLS-1$
+        writer.name("objectId").value(objectId.intValue()); //$NON-NLS-1$
+        String objectAddress = options == null ? null : options.resolveObjectAddress(objectId.intValue());
+        if (objectAddress != null)
+            writer.name("objectAddress").value(objectAddress); //$NON-NLS-1$
         writer.endObject();
     }
 
-    private void writeAgentContext(JsonWriter writer, IContextObject context)
+    private void writeAgentContext(JsonWriter writer, IContextObject context, SerializationOptions options)
     {
-        if (context == null || context.getObjectId() < 0)
+        Integer objectId = contextObjectId(context);
+        if (objectId == null)
         {
             writer.name("_context").nullValue(); //$NON-NLS-1$
             return;
         }
 
         writer.name("_context").beginObject(); //$NON-NLS-1$
-        writer.name("objectId").value(context.getObjectId()); //$NON-NLS-1$
+        writer.name("objectId").value(objectId.intValue()); //$NON-NLS-1$
+        String objectAddress = options == null ? null : options.resolveObjectAddress(objectId.intValue());
+        if (objectAddress != null)
+            writer.name("objectAddress").value(objectAddress); //$NON-NLS-1$
         writer.endObject();
+    }
+
+    private Integer contextObjectId(IContextObject context)
+    {
+        if (context == null)
+            return null;
+        if (context.getObjectId() >= 0)
+            return Integer.valueOf(context.getObjectId());
+        if (context instanceof IContextObjectSet)
+        {
+            int[] objectIds = ((IContextObjectSet) context).getObjectIds();
+            if (objectIds != null && objectIds.length == 1 && objectIds[0] >= 0)
+                return Integer.valueOf(objectIds[0]);
+        }
+        return null;
     }
 
     private String color(Slice slice)

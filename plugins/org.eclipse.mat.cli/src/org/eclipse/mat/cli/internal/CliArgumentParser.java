@@ -20,13 +20,14 @@ public final class CliArgumentParser
     static final int MAX_LIMIT = 10000;
     static final int DEFAULT_TREE_DEPTH = 8;
     static final int DEFAULT_AGENT_TREE_DEPTH = 4;
+    static final int DEFAULT_INSPECT_OBJECT_TREE_DEPTH = 3;
 
     public CliArguments parse(String[] args) throws CliException
     {
         if (args == null || args.length == 0)
             return new CliArguments(null, null, null, null, CliArguments.OutputProfile.DEFAULT,
                             CliArguments.OutputFormat.TEXT, false, true, DEFAULT_LIMIT, DEFAULT_TREE_DEPTH, null, null,
-                            null);
+                            null, null, false, null, null);
 
         CliCommand command = null;
         CliCommand subjectCommand = null;
@@ -42,6 +43,10 @@ public final class CliArgumentParser
         int treeDepthLimit = DEFAULT_TREE_DEPTH;
         boolean treeDepthExplicit = false;
         String objectAddress = null;
+        String className = null;
+        String selectField = null;
+        String fieldPath = null;
+        boolean includeSubclasses = false;
         String oqlQuery = null;
         String oqlQueryFile = null;
         boolean oqlQueryStdin = false;
@@ -105,6 +110,34 @@ public final class CliArgumentParser
             else if ("--object".equals(arg)) //$NON-NLS-1$
             {
                 objectAddress = nextArg(args, ++ii, "--object"); //$NON-NLS-1$
+            }
+            else if (arg.startsWith("--class=")) //$NON-NLS-1$
+            {
+                className = arg.substring("--class=".length()); //$NON-NLS-1$
+            }
+            else if ("--class".equals(arg)) //$NON-NLS-1$
+            {
+                className = nextArg(args, ++ii, "--class"); //$NON-NLS-1$
+            }
+            else if (arg.startsWith("--select-field=")) //$NON-NLS-1$
+            {
+                selectField = arg.substring("--select-field=".length()); //$NON-NLS-1$
+            }
+            else if ("--select-field".equals(arg)) //$NON-NLS-1$
+            {
+                selectField = nextArg(args, ++ii, "--select-field"); //$NON-NLS-1$
+            }
+            else if (arg.startsWith("--field-path=")) //$NON-NLS-1$
+            {
+                fieldPath = arg.substring("--field-path=".length()); //$NON-NLS-1$
+            }
+            else if ("--field-path".equals(arg)) //$NON-NLS-1$
+            {
+                fieldPath = nextArg(args, ++ii, "--field-path"); //$NON-NLS-1$
+            }
+            else if ("--include-subclasses".equals(arg)) //$NON-NLS-1$
+            {
+                includeSubclasses = true;
             }
             else if (arg.startsWith("--query=")) //$NON-NLS-1$
             {
@@ -179,18 +212,20 @@ public final class CliArgumentParser
 
         if (profile == CliArguments.OutputProfile.AGENT && !formatExplicit)
             format = CliArguments.OutputFormat.JSON;
-        if (!treeDepthExplicit)
-            treeDepthLimit = defaultTreeDepth(profile);
 
         if (command == null)
         {
             if (help)
             {
                 return new CliArguments(null, null, null, null, profile, format, verbose, true, limit,
-                                treeDepthLimit, objectAddress, oqlQuery, queryCommand);
+                                treeDepthLimit, objectAddress, className, selectField, fieldPath, includeSubclasses,
+                                oqlQuery, queryCommand);
             }
             throw CliException.usage("Missing command"); //$NON-NLS-1$
         }
+
+        if (!treeDepthExplicit)
+            treeDepthLimit = defaultTreeDepth(command, profile);
 
         if (command == CliCommand.OQL)
             oqlQuery = resolveExclusiveInput("oql", "--query", oqlQuery, "--query-file", oqlQueryFile, //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
@@ -203,7 +238,8 @@ public final class CliArgumentParser
             limit = defaultLimit(command, queryCommand);
 
         CliArguments parsed = new CliArguments(command, subjectCommand, subjectName, heapFile, profile, format, verbose,
-                        help, limit, treeDepthLimit, objectAddress, oqlQuery, queryCommand);
+                        help, limit, treeDepthLimit, objectAddress, className, selectField, fieldPath,
+                        includeSubclasses, oqlQuery, queryCommand);
         validate(parsed);
         return parsed;
     }
@@ -298,8 +334,23 @@ public final class CliArgumentParser
         switch (arguments.getCommand())
         {
             case PATH2GC:
+            case INSPECT_OBJECT:
                 if (isEmpty(arguments.getObjectAddress()))
-                    throw CliException.usage("path2gc requires --object 0x..."); //$NON-NLS-1$
+                    throw CliException.usage(arguments.getCommand().getToken() + " requires --object 0x..."); //$NON-NLS-1$
+                if (!isEmpty(arguments.getSelectField()) && !isEmpty(arguments.getFieldPath()))
+                    throw CliException.usage("inspect-object accepts only one of --select-field or --field-path"); //$NON-NLS-1$
+                if (arguments.getSelectField() != null && isEmpty(arguments.getSelectField()))
+                    throw CliException.usage("inspect-object requires a non-empty --select-field"); //$NON-NLS-1$
+                if (arguments.getFieldPath() != null && isEmpty(arguments.getFieldPath()))
+                    throw CliException.usage("inspect-object requires a non-empty --field-path"); //$NON-NLS-1$
+                if (!isEmpty(arguments.getSelectField()) && arguments.getSelectField().indexOf('.') >= 0)
+                    throw CliException.usage("--select-field accepts one field name. Use --field-path for dotted paths."); //$NON-NLS-1$
+                if (!isEmpty(arguments.getFieldPath()) && hasEmptyPathSegment(arguments.getFieldPath()))
+                    throw CliException.usage("Invalid --field-path: " + arguments.getFieldPath()); //$NON-NLS-1$
+                break;
+            case INSTANCES:
+                if (isEmpty(arguments.getClassName()))
+                    throw CliException.usage("instances requires --class <fqcn>"); //$NON-NLS-1$
                 break;
             case OQL:
                 if (isEmpty(arguments.getOqlQuery()))
@@ -420,9 +471,14 @@ public final class CliArgumentParser
         File heapFile = null;
         boolean help = args == null || args.length == 0;
         String objectAddress = null;
+        String className = null;
+        String selectField = null;
+        String fieldPath = null;
+        boolean includeSubclasses = false;
         String oqlQuery = null;
         String queryCommand = null;
-        int treeDepthLimit = defaultTreeDepth(profile);
+        int treeDepthLimit = defaultTreeDepth(null, profile);
+        boolean treeDepthExplicit = false;
 
         if (args != null)
         {
@@ -440,8 +496,17 @@ public final class CliArgumentParser
                         String value = args[++ii];
                         if ("--object".equals(arg)) //$NON-NLS-1$
                             objectAddress = value;
+                        else if ("--class".equals(arg)) //$NON-NLS-1$
+                            className = value;
+                        else if ("--select-field".equals(arg)) //$NON-NLS-1$
+                            selectField = value;
+                        else if ("--field-path".equals(arg)) //$NON-NLS-1$
+                            fieldPath = value;
                         else if ("--depth".equals(arg)) //$NON-NLS-1$
+                        {
                             treeDepthLimit = safePartialDepth(value, treeDepthLimit);
+                            treeDepthExplicit = true;
+                        }
                         else if ("--query".equals(arg)) //$NON-NLS-1$
                             oqlQuery = value;
                         else if ("--command".equals(arg)) //$NON-NLS-1$
@@ -452,17 +517,34 @@ public final class CliArgumentParser
                 {
                     objectAddress = arg.substring("--object=".length()); //$NON-NLS-1$
                 }
+                else if (arg.startsWith("--class=")) //$NON-NLS-1$
+                {
+                    className = arg.substring("--class=".length()); //$NON-NLS-1$
+                }
                 else if (arg.startsWith("--query=")) //$NON-NLS-1$
                 {
                     oqlQuery = arg.substring("--query=".length()); //$NON-NLS-1$
                 }
+                else if (arg.startsWith("--select-field=")) //$NON-NLS-1$
+                {
+                    selectField = arg.substring("--select-field=".length()); //$NON-NLS-1$
+                }
+                else if (arg.startsWith("--field-path=")) //$NON-NLS-1$
+                {
+                    fieldPath = arg.substring("--field-path=".length()); //$NON-NLS-1$
+                }
                 else if (arg.startsWith("--depth=")) //$NON-NLS-1$
                 {
                     treeDepthLimit = safePartialDepth(arg.substring("--depth=".length()), treeDepthLimit); //$NON-NLS-1$
+                    treeDepthExplicit = true;
                 }
                 else if (arg.startsWith("--command=")) //$NON-NLS-1$
                 {
                     queryCommand = arg.substring("--command=".length()); //$NON-NLS-1$
+                }
+                else if ("--include-subclasses".equals(arg)) //$NON-NLS-1$
+                {
+                    includeSubclasses = true;
                 }
                 else if (arg.startsWith("--")) //$NON-NLS-1$
                 {
@@ -502,8 +584,12 @@ public final class CliArgumentParser
             }
         }
 
+        if (!treeDepthExplicit)
+            treeDepthLimit = defaultTreeDepth(command, profile);
+
         return new CliArguments(command, subjectCommand, subjectName, heapFile, profile, format, false, help,
-                        defaultLimit(command, queryCommand), treeDepthLimit, objectAddress, oqlQuery, queryCommand);
+                        defaultLimit(command, queryCommand), treeDepthLimit, objectAddress, className, selectField,
+                        fieldPath, includeSubclasses, oqlQuery, queryCommand);
     }
 
     private int defaultLimit(CliCommand command, String queryCommand)
@@ -535,13 +621,23 @@ public final class CliArgumentParser
     {
         return "--profile".equals(option) || "--format".equals(option) || "--limit".equals(option) //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         || "--depth".equals(option) //$NON-NLS-1$
-                        || "--object".equals(option) || "--query".equals(option) || "--query-file".equals(option) //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                        || "--object".equals(option) || "--class".equals(option) //$NON-NLS-1$ //$NON-NLS-2$
+                        || "--select-field".equals(option) || "--field-path".equals(option) //$NON-NLS-1$ //$NON-NLS-2$
+                        || "--query".equals(option) //$NON-NLS-1$
+                        || "--query-file".equals(option) //$NON-NLS-1$
                         || "--command".equals(option) || "--command-file".equals(option); //$NON-NLS-1$ //$NON-NLS-2$
     }
 
-    private int defaultTreeDepth(CliArguments.OutputProfile profile)
+    private int defaultTreeDepth(CliCommand command, CliArguments.OutputProfile profile)
     {
+        if (command == CliCommand.INSPECT_OBJECT)
+            return DEFAULT_INSPECT_OBJECT_TREE_DEPTH;
         return profile == CliArguments.OutputProfile.AGENT ? DEFAULT_AGENT_TREE_DEPTH : DEFAULT_TREE_DEPTH;
+    }
+
+    private boolean hasEmptyPathSegment(String fieldPath)
+    {
+        return fieldPath.startsWith(".") || fieldPath.endsWith(".") || fieldPath.indexOf("..") >= 0; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
     }
 
     private int safePartialDepth(String value, int fallback)

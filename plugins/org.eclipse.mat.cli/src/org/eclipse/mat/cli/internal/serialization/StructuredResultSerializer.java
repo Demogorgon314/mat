@@ -14,9 +14,11 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
+import org.eclipse.mat.cli.internal.DisplayValue;
 import org.eclipse.mat.query.Bytes;
 import org.eclipse.mat.query.Column;
 import org.eclipse.mat.query.IContextObject;
+import org.eclipse.mat.query.IContextObjectSet;
 import org.eclipse.mat.query.IDecorator;
 import org.eclipse.mat.query.IStructuredResult;
 
@@ -87,7 +89,7 @@ abstract class StructuredResultSerializer
             ids.put(baseId, Integer.valueOf(previous == null ? 1 : previous.intValue() + 1));
             String id = previous == null ? baseId : baseId + "_" + (previous.intValue() + 1); //$NON-NLS-1$
             Class<?> type = column == null ? null : column.getType();
-            schemas[ii] = new ColumnSchema(column, id, jsonType(type), type == null ? null : type.getName());
+            schemas[ii] = new ColumnSchema(column, id, jsonType(column), type == null ? null : type.getName());
         }
         return schemas;
     }
@@ -109,20 +111,24 @@ abstract class StructuredResultSerializer
         writer.endObject();
     }
 
-    protected void writeAgentRow(JsonWriter writer, IStructuredResult result, ColumnSchema[] columns, Object row)
+    protected void writeAgentRow(JsonWriter writer, IStructuredResult result, ColumnSchema[] columns, Object row,
+                    SerializationOptions options)
     {
         CellValue[] cells = readCells(result, columns, row);
         for (int ii = 0; ii < columns.length; ii++)
         {
             writer.name(columns[ii].id);
-            writer.rawValue(rawValue(cells[ii].value));
+            writer.rawValue(agentRawValue(columns[ii].column, cells[ii].value));
         }
-        writeAgentContext(writer, result, row);
+        writeAgentContext(writer, result, row, options);
+        writeAgentCellMetadata(writer, columns, cells);
         writeAgentCellErrors(writer, columns, cells);
     }
 
     protected Object rawValue(Object value)
     {
+        if (value instanceof DisplayValue)
+            return rawValue(((DisplayValue) value).getText());
         if (value instanceof Bytes)
             return Long.valueOf(((Bytes) value).getValue());
         if (value instanceof Number || value instanceof Boolean || value instanceof String)
@@ -132,20 +138,45 @@ abstract class StructuredResultSerializer
         return String.valueOf(value);
     }
 
+    protected Object rawValue(Column column, Object value)
+    {
+        if (isAddressValue(column, value))
+            return formatObjectAddress(((Number) value).longValue());
+        return rawValue(value);
+    }
+
+    protected Object agentRawValue(Column column, Object value)
+    {
+        if (value instanceof Bytes)
+        {
+            long bytes = ((Bytes) value).getValue();
+            if (bytes < 0)
+                return Long.valueOf(-bytes);
+        }
+        return rawValue(column, value);
+    }
+
     protected String displayValue(Column column, Object row, Object value)
     {
         if (value == null)
             return null;
 
         String rendered;
-        Format formatter = column.getFormatter();
-        if (formatter != null)
+        if (isAddressValue(column, value))
         {
-            rendered = formatter.format(value);
+            rendered = String.valueOf(rawValue(column, value));
         }
         else
         {
-            rendered = String.valueOf(rawValue(value));
+            Format formatter = column.getFormatter();
+            if (formatter != null)
+            {
+                rendered = formatter.format(value);
+            }
+            else
+            {
+                rendered = String.valueOf(rawValue(column, value));
+            }
         }
 
         IDecorator decorator = column.getDecorator();
@@ -163,31 +194,38 @@ abstract class StructuredResultSerializer
         return builder.toString();
     }
 
-    protected void writeContext(JsonWriter writer, IStructuredResult result, Object row)
+    protected void writeContext(JsonWriter writer, IStructuredResult result, Object row, SerializationOptions options)
     {
-        IContextObject context = safeContext(result, row);
-        if (context == null || context.getObjectId() < 0)
+        Integer objectId = contextObjectId(safeContext(result, row));
+        if (objectId == null)
         {
             writer.name("context").nullValue(); //$NON-NLS-1$
             return;
         }
 
         writer.name("context").beginObject(); //$NON-NLS-1$
-        writer.name("objectId").value(context.getObjectId()); //$NON-NLS-1$
+        writer.name("objectId").value(objectId.intValue()); //$NON-NLS-1$
+        String objectAddress = resolveObjectAddress(options, objectId);
+        if (objectAddress != null)
+            writer.name("objectAddress").value(objectAddress); //$NON-NLS-1$
         writer.endObject();
     }
 
-    protected void writeAgentContext(JsonWriter writer, IStructuredResult result, Object row)
+    protected void writeAgentContext(JsonWriter writer, IStructuredResult result, Object row,
+                    SerializationOptions options)
     {
-        IContextObject context = safeContext(result, row);
-        if (context == null || context.getObjectId() < 0)
+        Integer objectId = contextObjectId(safeContext(result, row));
+        if (objectId == null)
         {
             writer.name("_context").nullValue(); //$NON-NLS-1$
             return;
         }
 
         writer.name("_context").beginObject(); //$NON-NLS-1$
-        writer.name("objectId").value(context.getObjectId()); //$NON-NLS-1$
+        writer.name("objectId").value(objectId.intValue()); //$NON-NLS-1$
+        String objectAddress = resolveObjectAddress(options, objectId);
+        if (objectAddress != null)
+            writer.name("objectAddress").value(objectAddress); //$NON-NLS-1$
         writer.endObject();
     }
 
@@ -197,7 +235,7 @@ abstract class StructuredResultSerializer
         writer.name("values").beginArray(); //$NON-NLS-1$
         for (int ii = 0; ii < columns.length; ii++)
         {
-            writer.rawValue(rawValue(cells[ii].value));
+            writer.rawValue(rawValue(columns[ii], cells[ii].value));
         }
         writer.endArray();
 
@@ -317,6 +355,52 @@ abstract class StructuredResultSerializer
         writer.endObject();
     }
 
+    protected void writeAgentCellMetadata(JsonWriter writer, ColumnSchema[] columns, CellValue[] cells)
+    {
+        boolean hasMetadata = false;
+        for (CellValue cell : cells)
+        {
+            if (isApproximateBytes(cell.value) || displayMetadata(cell.value) != null)
+            {
+                hasMetadata = true;
+                break;
+            }
+        }
+        if (!hasMetadata)
+            return;
+
+        writer.name("_meta").beginObject(); //$NON-NLS-1$
+        for (int ii = 0; ii < cells.length; ii++)
+        {
+            DisplayValue.Metadata metadata = displayMetadata(cells[ii].value);
+            if (!isApproximateBytes(cells[ii].value) && metadata == null)
+                continue;
+            writer.name(columns[ii].id).beginObject();
+            if (isApproximateBytes(cells[ii].value))
+                writer.name("kind").value("approximate_lower_bound"); //$NON-NLS-1$ //$NON-NLS-2$
+            if (metadata != null)
+            {
+                if (metadata.getKind() != null)
+                    writer.name("kind").value(metadata.getKind()); //$NON-NLS-1$
+                if (metadata.getLength() != null)
+                    writer.name("length").value(metadata.getLength().intValue()); //$NON-NLS-1$
+                if (metadata.isTruncated() != null)
+                    writer.name("truncated").value(metadata.isTruncated().booleanValue()); //$NON-NLS-1$
+                if (metadata.getEncoding() != null)
+                    writer.name("encoding").value(metadata.getEncoding()); //$NON-NLS-1$
+            }
+            writer.endObject();
+        }
+        writer.endObject();
+    }
+
+    private DisplayValue.Metadata displayMetadata(Object value)
+    {
+        if (value instanceof DisplayValue)
+            return ((DisplayValue) value).getMetadata();
+        return null;
+    }
+
     protected void writeCellError(JsonWriter writer, CellError error)
     {
         writer.name("class").value(error.className); //$NON-NLS-1$
@@ -326,6 +410,31 @@ abstract class StructuredResultSerializer
     protected String formatCellError(CellError error)
     {
         return "<error: " + error.message + ">"; //$NON-NLS-1$ //$NON-NLS-2$
+    }
+
+    protected Integer contextObjectId(IContextObject context)
+    {
+        if (context == null)
+            return null;
+        if (context.getObjectId() >= 0)
+            return Integer.valueOf(context.getObjectId());
+        if (context instanceof IContextObjectSet)
+        {
+            int[] objectIds = ((IContextObjectSet) context).getObjectIds();
+            if (objectIds != null && objectIds.length == 1 && objectIds[0] >= 0)
+                return Integer.valueOf(objectIds[0]);
+        }
+        return null;
+    }
+
+    protected String resolveObjectAddress(SerializationOptions options, Integer objectId)
+    {
+        return options == null || objectId == null ? null : options.resolveObjectAddress(objectId.intValue());
+    }
+
+    protected String formatObjectAddress(long objectAddress)
+    {
+        return "0x" + Long.toHexString(objectAddress); //$NON-NLS-1$
     }
 
     private String normalizeColumnId(String label, int index)
@@ -361,14 +470,45 @@ abstract class StructuredResultSerializer
         return builder.toString();
     }
 
-    private String jsonType(Class<?> type)
+    private boolean isAddressValue(Column column, Object value)
     {
+        return value instanceof Number && isAddressColumn(column);
+    }
+
+    private boolean isApproximateBytes(Object value)
+    {
+        return value instanceof Bytes && ((Bytes) value).getValue() < 0;
+    }
+
+    private boolean isAddressColumn(Column column)
+    {
+        if (column == null || column.getType() == null || !isIntegerType(column.getType()))
+            return false;
+
+        String label = column.getLabel();
+        if (label == null)
+            return false;
+
+        StringBuilder normalized = new StringBuilder(label.length());
+        for (int ii = 0; ii < label.length(); ii++)
+        {
+            char ch = Character.toLowerCase(label.charAt(ii));
+            if (Character.isLetterOrDigit(ch))
+                normalized.append(ch);
+        }
+        return normalized.toString().endsWith("address"); //$NON-NLS-1$
+    }
+
+    private String jsonType(Column column)
+    {
+        Class<?> type = column == null ? null : column.getType();
+        if (isAddressColumn(column))
+            return "string"; //$NON-NLS-1$
         if (type == null)
             return "string"; //$NON-NLS-1$
         if (Bytes.class.isAssignableFrom(type))
             return "integer"; //$NON-NLS-1$
-        if (type == byte.class || type == short.class || type == int.class || type == long.class //$NON-NLS-1$
-                        || type == Byte.class || type == Short.class || type == Integer.class || type == Long.class)
+        if (isIntegerType(type))
             return "integer"; //$NON-NLS-1$
         if (type == float.class || type == double.class || type == Float.class || type == Double.class //$NON-NLS-1$
                         || (Number.class.isAssignableFrom(type) && !Long.class.isAssignableFrom(type)
@@ -378,5 +518,11 @@ abstract class StructuredResultSerializer
         if (type == boolean.class || type == Boolean.class)
             return "boolean"; //$NON-NLS-1$
         return "string"; //$NON-NLS-1$
+    }
+
+    private boolean isIntegerType(Class<?> type)
+    {
+        return type == byte.class || type == short.class || type == int.class || type == long.class //$NON-NLS-1$
+                        || type == Byte.class || type == Short.class || type == Integer.class || type == Long.class;
     }
 }

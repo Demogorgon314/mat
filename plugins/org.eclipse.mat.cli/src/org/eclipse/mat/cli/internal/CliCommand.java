@@ -14,6 +14,8 @@ public enum CliCommand
     SUMMARY("summary", true, false, false, false), //$NON-NLS-1$
     THREADS("threads", true, false, false, false), //$NON-NLS-1$
     HISTOGRAM("histogram", true, false, false, false), //$NON-NLS-1$
+    INSTANCES("instances", true, false, false, false), //$NON-NLS-1$
+    INSPECT_OBJECT("inspect-object", true, false, false, false), //$NON-NLS-1$
     TOP_CONSUMERS("top-consumers", true, false, false, false), //$NON-NLS-1$
     PATH2GC("path2gc", true, false, false, false), //$NON-NLS-1$
     OQL("oql", true, false, false, false), //$NON-NLS-1$

@@ -23,6 +23,7 @@ import java.util.List;
 import org.eclipse.mat.cli.internal.CliArgumentParser;
 import org.eclipse.mat.cli.internal.CliArguments;
 import org.eclipse.mat.cli.internal.CliExecution;
+import org.eclipse.mat.cli.internal.DisplayValue;
 import org.eclipse.mat.cli.internal.QueryMetadataResult;
 import org.eclipse.mat.cli.internal.ThreadsResult;
 import org.eclipse.mat.cli.internal.TopConsumersResult;
@@ -83,6 +84,22 @@ public class ResultSerializerTest
         assertTrue(json.contains("\"schema\":{\"columns\":[{\"id\":\"name\",\"label\":\"Name\",\"jsonType\":\"string\",\"sourceType\":\"java.lang.String\"},{\"id\":\"count\",\"label\":\"Count\",\"jsonType\":\"integer\",\"sourceType\":\"int\"}]}")); //$NON-NLS-1$
         assertTrue(json.contains("\"items\":[{\"name\":\"Alpha\",\"count\":7,\"_context\":{\"objectId\":42}}]")); //$NON-NLS-1$
         assertFalse(json.contains("displayValues")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesTableResultToAgentJsonWithContextObjectAddressWhenResolverAvailable()
+    {
+        TableResultSerializer serializer = new TableResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeAgentJson(writer, new SampleTable(),
+                        new SerializationOptions(10, 8, objectId -> "0x" + Integer.toHexString(objectId))); //$NON-NLS-1$
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"_context\":{\"objectId\":42,\"objectAddress\":\"0x2a\"}")); //$NON-NLS-1$
     }
 
     @Test
@@ -151,6 +168,68 @@ public class ResultSerializerTest
         assertTrue(json.contains("\"items\":[{\"name\":\"Root\",\"depth\":1,\"_context\":{\"objectId\":77},\"_hasChildren\":true")); //$NON-NLS-1$
         assertTrue(json.contains("\"_children\":[{\"name\":\"Leaf\",\"depth\":2,\"_context\":{\"objectId\":78},\"_hasChildren\":false")); //$NON-NLS-1$
         assertTrue(json.contains("\"_childrenTruncated\":false")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesAddressColumnsAsHexStringsInAgentJson()
+    {
+        TableResultSerializer serializer = new TableResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeAgentJson(writer, new AddressTable(), new SerializationOptions(10, 8));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"id\":\"threadaddress\",\"label\":\"threadAddress\",\"jsonType\":\"string\",\"sourceType\":\"java.lang.Long\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"threadaddress\":\"0x2a\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesAddressColumnsAsHexStringsInText()
+    {
+        TableResultSerializer serializer = new TableResultSerializer();
+
+        String text = serializer.toText(new AddressTable(), new SerializationOptions(10, 8));
+
+        assertTrue(text.contains("threadAddress")); //$NON-NLS-1$
+        assertTrue(text.contains("0x2a")); //$NON-NLS-1$
+        assertFalse(text.contains(" | 42")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void normalizesApproximateBytesInAgentJson()
+    {
+        TableResultSerializer serializer = new TableResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeAgentJson(writer, new ApproximateBytesTable(),
+                        new SerializationOptions(10, 8));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"retained_heap\":7")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_meta\":{\"retained_heap\":{\"kind\":\"approximate_lower_bound\"}}")); //$NON-NLS-1$
+        assertFalse(json.contains("\"retained_heap\":-7")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesDisplayValueMetadataInAgentTreeJson()
+    {
+        TreeResultSerializer serializer = new TreeResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeAgentJson(writer, new PreviewTree(), new SerializationOptions(10, 8));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"value\":\"61 62 63 ...\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_meta\":{\"value\":{\"kind\":\"hex_preview\",\"length\":64,\"truncated\":true,\"encoding\":\"hex\"}}")); //$NON-NLS-1$
     }
 
     @Test
@@ -353,9 +432,11 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertTrue(truncated);
-        assertTrue(json.contains("\"biggestObjects\":[{\"objectId\":91,\"label\":\"Largest\",\"retainedBytes\":500,\"retainedPercent\":0.5}]")
-                        || json.contains("\"biggestObjects\":[{\"objectId\":91,\"label\":\"Largest\",\"retainedBytes\":500,\"retainedPercent\":0.5},{\"objectId\":92")); //$NON-NLS-1$
-        assertTrue(json.contains("\"classes\":[{\"objectId\":41,\"label\":\"Alpha\",\"count\":4,\"retainedBytes\":600,\"retainedPercent\":0.6}")); //$NON-NLS-1$
+        assertTrue(
+                        json.contains("\"biggestObjects\":[{\"objectId\":91,\"label\":\"Largest\",\"retainedBytes\":500,\"retainedPercent\":0.5,\"_context\":{\"objectId\":91}}]")
+                                        || json.contains("\"biggestObjects\":[{\"objectId\":91,\"label\":\"Largest\",\"retainedBytes\":500,\"retainedPercent\":0.5,\"_context\":{\"objectId\":91}},{\"objectId\":92")); //$NON-NLS-1$
+        assertTrue(json.contains(
+                        "\"classes\":[{\"objectId\":41,\"label\":\"Alpha\",\"count\":4,\"retainedBytes\":600,\"retainedPercent\":0.6,\"_context\":{\"objectId\":41}}")); //$NON-NLS-1$
         assertTrue(json.contains("\"packages\":{\"name\":\"<all>\",\"retainedBytes\":1000,\"retainedPercent\":1.0,\"topDominators\":4")); //$NON-NLS-1$
         assertFalse(json.contains("retainedBytesText")); //$NON-NLS-1$
         assertFalse(json.contains("retainedPercentText")); //$NON-NLS-1$
@@ -474,7 +555,7 @@ public class ResultSerializerTest
         assertTrue(json.contains("\"summary\":{\"totalThreads\":2")); //$NON-NLS-1$
         assertTrue(json.contains("\"threads\":[{")); //$NON-NLS-1$
         assertTrue(json.contains("\"stackAvailable\":false")); //$NON-NLS-1$
-        assertTrue(json.contains("\"_context\":{\"objectId\":42}")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_context\":{\"objectId\":42,\"objectAddress\":\"0x2a\"}")); //$NON-NLS-1$
     }
 
     @Test
@@ -689,6 +770,141 @@ public class ResultSerializerTest
         public List<?> getChildren(Object parent)
         {
             return ((Node) parent).children;
+        }
+    }
+
+    private static final class PreviewTree implements IResultTree
+    {
+        private final PreviewNode root = new PreviewNode("Payload", //$NON-NLS-1$
+                        new DisplayValue("61 62 63 ...", new DisplayValue.Metadata("hex_preview", Integer.valueOf(64), //$NON-NLS-1$ //$NON-NLS-2$
+                                        Boolean.TRUE, "hex")), 91); //$NON-NLS-1$
+        private final Column[] columns = new Column[] { new Column("Name", String.class), new Column("Value", String.class) }; //$NON-NLS-1$ //$NON-NLS-2$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            PreviewNode value = (PreviewNode) row;
+            return columnIndex == 0 ? value.name : value.value;
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            final PreviewNode value = (PreviewNode) row;
+            return new IContextObject()
+            {
+                public int getObjectId()
+                {
+                    return value.objectId;
+                }
+            };
+        }
+
+        public List<?> getElements()
+        {
+            return Collections.singletonList(root);
+        }
+
+        public boolean hasChildren(Object element)
+        {
+            return false;
+        }
+
+        public List<?> getChildren(Object parent)
+        {
+            return Collections.emptyList();
+        }
+    }
+
+    private static final class AddressTable implements IResultTable
+    {
+        private final Column[] columns = new Column[] { new Column("threadAddress", Long.class) }; //$NON-NLS-1$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            return Long.valueOf(42L);
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            return null;
+        }
+
+        public int getRowCount()
+        {
+            return 1;
+        }
+
+        public Object getRow(int rowId)
+        {
+            return Integer.valueOf(rowId);
+        }
+    }
+
+    private static final class PreviewNode
+    {
+        private final String name;
+        private final DisplayValue value;
+        private final int objectId;
+
+        private PreviewNode(String name, DisplayValue value, int objectId)
+        {
+            this.name = name;
+            this.value = value;
+            this.objectId = objectId;
+        }
+    }
+
+    private static final class ApproximateBytesTable implements IResultTable
+    {
+        private final Column[] columns = new Column[] { new Column("Retained Heap", Bytes.class) }; //$NON-NLS-1$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            return new Bytes(-7L);
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            return null;
+        }
+
+        public int getRowCount()
+        {
+            return 1;
+        }
+
+        public Object getRow(int rowId)
+        {
+            return Integer.valueOf(rowId);
         }
     }
 

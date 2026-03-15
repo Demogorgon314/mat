@@ -20,6 +20,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.Collection;
 
 import org.eclipse.mat.cli.internal.CliArgumentParser;
 import org.eclipse.mat.cli.internal.CliArguments;
@@ -29,6 +30,7 @@ import org.eclipse.mat.cli.internal.CliExecution;
 import org.eclipse.mat.cli.internal.SnapshotSession;
 import org.eclipse.mat.cli.internal.serialization.ResultSerializer;
 import org.eclipse.mat.snapshot.ISnapshot;
+import org.eclipse.mat.snapshot.model.IClass;
 import org.eclipse.mat.tests.TestSnapshots;
 import org.junit.Test;
 
@@ -70,6 +72,8 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"summary\":{\"totalThreads\":")); //$NON-NLS-1$
         assertTrue(json.contains("\"returnedThreads\":2")); //$NON-NLS-1$
         assertTrue(json.contains("\"threads\":[{")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_context\":{\"objectId\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"objectAddress\":\"0x")); //$NON-NLS-1$
         assertTrue(json.contains("\"stackAvailable\":")); //$NON-NLS-1$
         assertTrue(json.contains("\"stackFrames\":[")); //$NON-NLS-1$
     }
@@ -84,6 +88,106 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"columns\":")); //$NON-NLS-1$
         assertTrue(json.contains("\"rows\":")); //$NON-NLS-1$
         assertTrue(json.contains("\"label\":\"Retained Heap\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesInstancesCommandAgainstHprofSnapshotAsAgentJson() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String json = executeJson(new String[] { "instances", heap.getAbsolutePath(), "--agent", "--class",
+                        "java.lang.String", "--limit", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+
+        assertTrue(json.contains("\"resultKind\":\"table\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"id\":\"object_address\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"id\":\"class_name\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{")); //$NON-NLS-1$
+        assertTrue(json.contains("\"class_name\":\"java.lang.String\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_context\":{\"objectId\":")); //$NON-NLS-1$
+        assertTrue(json.contains("inspect-object")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesInstancesCommandAgainstHprofSnapshotAsText() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String address = firstObjectAddress(heap, "java.lang.String"); //$NON-NLS-1$
+        String text = execute(new String[] { "instances", heap.getAbsolutePath(), "--class", "java.lang.String",
+                        "--limit", "1", "--format", "text" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertTrue(text.contains("Object Address")); //$NON-NLS-1$
+        assertTrue(text.contains(address)); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesInspectObjectCommandAgainstHprofSnapshotAsAgentJson() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String address = firstObjectAddress(heap, "java.lang.String"); //$NON-NLS-1$
+        String json = executeJson(new String[] { "inspect-object", heap.getAbsolutePath(), "--agent", "--object",
+                        address, "--limit", "5", "--depth", "3" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertTrue(json.contains("\"resultKind\":\"tree\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"id\":\"kind\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"id\":\"value\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"kind\":\"object\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"<object>\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"objectAddress\":\"" + address + "\"")); //$NON-NLS-1$ //$NON-NLS-2$
+        assertTrue(json.contains("\"_children\":[{")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"value\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_meta\":{\"value\":{\"kind\":\"text_preview\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesInspectObjectSelectFieldAgainstHprofSnapshotAsAgentJson() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String address = firstObjectAddress(heap, "java.lang.String"); //$NON-NLS-1$
+        String json = executeJson(new String[] { "inspect-object", heap.getAbsolutePath(), "--agent", "--object",
+                        address, "--select-field", "value", "--limit", "5" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertTrue(json.contains("\"kind\":\"field\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"value\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"type\":\"char[]\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_hasChildren\":true")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_meta\":{\"value\":{\"kind\":\"text_preview\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesInspectObjectFieldPathToPrimitiveAsAgentJson() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String address = firstObjectAddress(heap, "java.lang.String"); //$NON-NLS-1$
+        String json = executeJson(new String[] { "inspect-object", heap.getAbsolutePath(), "--agent", "--object",
+                        address, "--field-path", "count" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+
+        assertTrue(json.contains("\"kind\":\"field\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"count\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"type\":\"int\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_context\":null")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_children\":[]")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void failsMissingInspectObjectFieldPathWithExecutionError() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        CliArguments parsed = new CliArgumentParser().parse(new String[] { "inspect-object", heap.getAbsolutePath(),
+                        "--object", firstObjectAddress(heap, "java.lang.String"), "--field-path", "missingField" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+        CliCommandExecutor executor = new CliCommandExecutor();
+
+        try (SnapshotSession session = executor.openSnapshot(parsed))
+        {
+            try
+            {
+                executor.execute(parsed, session);
+                fail("Expected missing inspect-object field path"); //$NON-NLS-1$
+            }
+            catch (CliException e)
+            {
+                assertEquals(3, e.getExitCode());
+                assertTrue(e.getMessage().contains("Field 'missingField' not found")); //$NON-NLS-1$
+            }
+        }
     }
 
     @Test
@@ -120,7 +224,7 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"subject\":\"top-consumers\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"resultKind\":\"schema\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"payloadKind\":\"top-consumers\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"payloadFields\":[\"totalRetainedHeap\",\"biggestObjects[]\",\"biggestObjectsTruncated\",\"classes[]\",\"classesTruncated\",\"classLoaders[]\",\"classLoadersTruncated\",\"packages\",\"packagesTruncated\"]")); //$NON-NLS-1$
+        assertTrue(json.contains("\"payloadFields\":[\"totalRetainedHeap\",\"biggestObjects[]\",\"biggestObjects[]._context.objectAddress\",\"biggestObjectsTruncated\",\"classes[]\",\"classes[]._context.objectAddress\",\"classesTruncated\",\"classLoaders[]\",\"classLoaders[]._context.objectAddress\",\"classLoadersTruncated\",\"packages\",\"packagesTruncated\"]")); //$NON-NLS-1$
     }
 
     @Test
@@ -171,6 +275,7 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"id\":\"retained_heap\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"items\":[{")); //$NON-NLS-1$
         assertTrue(json.contains("\"_context\":{\"objectId\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"objectAddress\":\"0x")); //$NON-NLS-1$
         assertTrue(json.contains("\"suggestedNextCommands\":")); //$NON-NLS-1$
     }
 
@@ -184,6 +289,8 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"biggestObjects\":[{")); //$NON-NLS-1$
         assertTrue(json.contains("\"classes\":[{")); //$NON-NLS-1$
         assertTrue(json.contains("\"classLoaders\":[{")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_context\":{\"objectId\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"objectAddress\":\"0x")); //$NON-NLS-1$
         assertTrue(json.contains("\"packages\":{\"name\":\"<all>\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"packagesTruncated\":")); //$NON-NLS-1$
         assertTrue(json.contains("\"suggestedNextCommands\":")); //$NON-NLS-1$
@@ -200,6 +307,19 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"resultType\":\"table\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"rows\":")); //$NON-NLS-1$
         assertTrue(json.contains("\"VALUE\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesOqlCommandAgainstHprofSnapshotAsAgentJsonWithHexAddresses() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String json = executeJson(new String[] { "oql", heap.getAbsolutePath(), "--agent", "--query",
+                        "select s.@objectAddress as ADDRESS, toString(s) as VALUE from java.lang.String s", "--limit",
+                        "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+
+        assertTrue(json.contains("\"resultKind\":\"table\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"id\":\"address\",\"label\":\"ADDRESS\",\"jsonType\":\"string\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"address\":\"0x")); //$NON-NLS-1$
     }
 
     @Test
@@ -327,8 +447,29 @@ public class CliCommandExecutorTest
         String json = executeJson(new String[] { "query", heap.getAbsolutePath(), "--agent", "--command", "histogram" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
         assertTrue(json.contains("mat-cli path2gc")); //$NON-NLS-1$
-        assertTrue(json.contains("dominator_tree 0x")); //$NON-NLS-1$
+        assertTrue(json.contains("show_dominator_tree 0x")); //$NON-NLS-1$
         assertFalse(json.contains("describe top-consumers")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesShowDominatorTreeCommandAgainstHprofSnapshotWithObjectAddress() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        CliCommandExecutor executor = new CliCommandExecutor();
+        String address;
+
+        try (SnapshotSession session = executor.openSnapshot(
+                        new CliArgumentParser().parse(new String[] { "summary", heap.getAbsolutePath() }))) //$NON-NLS-1$ //$NON-NLS-2$
+        {
+            int objectId = session.getSnapshot().getGCRoots()[0];
+            address = "0x" + Long.toHexString(session.getSnapshot().mapIdToAddress(objectId)); //$NON-NLS-1$
+        }
+
+        String json = executeJson(new String[] { "query", heap.getAbsolutePath(), "--agent", "--command",
+                        "show_dominator_tree " + address, "--limit", "1" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        assertTrue(json.contains("\"resultKind\":\"tree\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{")); //$NON-NLS-1$
     }
 
     @Test
@@ -414,5 +555,20 @@ public class CliCommandExecutorTest
                 heap = target;
         }
         return heap;
+    }
+
+    private String firstObjectAddress(File heap, String className) throws Exception
+    {
+        CliCommandExecutor executor = new CliCommandExecutor();
+        CliArguments arguments = new CliArgumentParser().parse(new String[] { "summary", heap.getAbsolutePath() }); //$NON-NLS-1$ //$NON-NLS-2$
+        try (SnapshotSession session = executor.openSnapshot(arguments))
+        {
+            ISnapshot snapshot = session.getSnapshot();
+            Collection<IClass> classes = snapshot.getClassesByName(className, false);
+            assertTrue(classes != null && !classes.isEmpty());
+            int[] objectIds = classes.iterator().next().getObjectIds();
+            assertTrue(objectIds.length > 0);
+            return "0x" + Long.toHexString(snapshot.mapIdToAddress(objectIds[0])); //$NON-NLS-1$
+        }
     }
 }

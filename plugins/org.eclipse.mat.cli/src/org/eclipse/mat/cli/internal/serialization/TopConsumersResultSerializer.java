@@ -58,13 +58,7 @@ public class TopConsumersResultSerializer
         writer.name("biggestObjects").beginArray(); //$NON-NLS-1$
         for (int ii = 0; ii < objectLimit; ii++)
         {
-            TopConsumersResult.ObjectRow row = result.getBiggestObjects().get(ii);
-            writer.beginObject();
-            writer.name("objectId").value(row.getObjectId()); //$NON-NLS-1$
-            writer.name("label").value(row.getLabel()); //$NON-NLS-1$
-            writer.name("retainedBytes").value(row.getRetainedBytes()); //$NON-NLS-1$
-            writer.name("retainedPercent").value(row.getRetainedPercent()); //$NON-NLS-1$
-            writer.endObject();
+            writeAgentObjectRow(writer, result.getBiggestObjects().get(ii), options);
         }
         writer.endArray();
         writer.name("biggestObjectsTruncated").value(biggestObjectsTruncated); //$NON-NLS-1$
@@ -72,7 +66,7 @@ public class TopConsumersResultSerializer
         writer.name("classes").beginArray(); //$NON-NLS-1$
         for (int ii = 0; ii < classLimit; ii++)
         {
-            writeAgentDominatorRow(writer, result.getClasses().get(ii));
+            writeAgentDominatorRow(writer, result.getClasses().get(ii), options);
         }
         writer.endArray();
         writer.name("classesTruncated").value(classesTruncated); //$NON-NLS-1$
@@ -80,7 +74,7 @@ public class TopConsumersResultSerializer
         writer.name("classLoaders").beginArray(); //$NON-NLS-1$
         for (int ii = 0; ii < classLoaderLimit; ii++)
         {
-            writeAgentDominatorRow(writer, result.getClassLoaders().get(ii));
+            writeAgentDominatorRow(writer, result.getClassLoaders().get(ii), options);
         }
         writer.endArray();
         writer.name("classLoadersTruncated").value(classLoadersTruncated); //$NON-NLS-1$
@@ -178,7 +172,18 @@ public class TopConsumersResultSerializer
         return state.truncated;
     }
 
-    private void writeAgentDominatorRow(JsonWriter writer, TopConsumersResult.DominatorRow row)
+    private void writeAgentObjectRow(JsonWriter writer, TopConsumersResult.ObjectRow row, SerializationOptions options)
+    {
+        writer.beginObject();
+        writer.name("objectId").value(row.getObjectId()); //$NON-NLS-1$
+        writer.name("label").value(row.getLabel()); //$NON-NLS-1$
+        writer.name("retainedBytes").value(row.getRetainedBytes()); //$NON-NLS-1$
+        writer.name("retainedPercent").value(row.getRetainedPercent()); //$NON-NLS-1$
+        writeAgentContext(writer, row.getObjectId(), options);
+        writer.endObject();
+    }
+
+    private void writeAgentDominatorRow(JsonWriter writer, TopConsumersResult.DominatorRow row, SerializationOptions options)
     {
         writer.beginObject();
         writer.name("objectId").value(row.getObjectId()); //$NON-NLS-1$
@@ -186,6 +191,20 @@ public class TopConsumersResultSerializer
         writer.name("count").value(row.getCount()); //$NON-NLS-1$
         writer.name("retainedBytes").value(row.getRetainedBytes()); //$NON-NLS-1$
         writer.name("retainedPercent").value(row.getRetainedPercent()); //$NON-NLS-1$
+        writeAgentContext(writer, row.getObjectId(), options);
+        writer.endObject();
+    }
+
+    private void writeAgentContext(JsonWriter writer, int objectId, SerializationOptions options)
+    {
+        if (objectId < 0)
+            return;
+
+        writer.name("_context").beginObject(); //$NON-NLS-1$
+        writer.name("objectId").value(objectId); //$NON-NLS-1$
+        String objectAddress = options == null ? null : options.resolveObjectAddress(objectId);
+        if (objectAddress != null)
+            writer.name("objectAddress").value(objectAddress); //$NON-NLS-1$
         writer.endObject();
     }
 

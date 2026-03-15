@@ -13,32 +13,47 @@ import org.eclipse.mat.query.IResult;
 
 public final class CliExecution
 {
+    @FunctionalInterface
+    public interface ObjectAddressResolver
+    {
+        String resolveObjectAddress(int objectId);
+    }
+
     private final SnapshotSummary summary;
     private final IResult result;
     private final String primaryObjectAddress;
     private final String note;
+    private final ObjectAddressResolver objectAddressResolver;
 
-    private CliExecution(SnapshotSummary summary, IResult result, String primaryObjectAddress, String note)
+    private CliExecution(SnapshotSummary summary, IResult result, String primaryObjectAddress, String note,
+                    ObjectAddressResolver objectAddressResolver)
     {
         this.summary = summary;
         this.result = result;
         this.primaryObjectAddress = primaryObjectAddress;
         this.note = note;
+        this.objectAddressResolver = objectAddressResolver;
     }
 
     public static CliExecution summary(SnapshotSummary summary)
     {
-        return new CliExecution(summary, null, null, null);
+        return new CliExecution(summary, null, null, null, null);
     }
 
     public static CliExecution result(IResult result)
     {
-        return new CliExecution(null, result, null, null);
+        return new CliExecution(null, result, null, null, null);
     }
 
     public static CliExecution result(IResult result, String primaryObjectAddress, String note)
     {
-        return new CliExecution(null, result, primaryObjectAddress, note);
+        return new CliExecution(null, result, primaryObjectAddress, note, null);
+    }
+
+    public static CliExecution result(IResult result, String primaryObjectAddress, String note,
+                    ObjectAddressResolver objectAddressResolver)
+    {
+        return new CliExecution(null, result, primaryObjectAddress, note, objectAddressResolver);
     }
 
     public boolean isSummary()
@@ -64,5 +79,10 @@ public final class CliExecution
     public String getNote()
     {
         return note;
+    }
+
+    public ObjectAddressResolver getObjectAddressResolver()
+    {
+        return objectAddressResolver;
     }
 }

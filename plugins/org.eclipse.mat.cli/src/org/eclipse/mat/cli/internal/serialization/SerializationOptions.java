@@ -9,34 +9,61 @@
  *******************************************************************************/
 package org.eclipse.mat.cli.internal.serialization;
 
+import org.eclipse.mat.cli.internal.CliExecution.ObjectAddressResolver;
+
 public final class SerializationOptions
 {
     private final int limit;
     private final int treeDepthLimit;
     private final int treeNodeLimit;
     private final boolean agentProfile;
+    private final ObjectAddressResolver objectAddressResolver;
 
     public SerializationOptions(int limit, int treeDepthLimit)
     {
-        this(limit, treeDepthLimit, Math.max(100, limit * 10), false);
+        this(limit, treeDepthLimit, Math.max(100, limit * 10), false, null);
     }
 
     public SerializationOptions(int limit, int treeDepthLimit, boolean agentProfile)
     {
-        this(limit, treeDepthLimit, Math.max(100, limit * 10), agentProfile);
+        this(limit, treeDepthLimit, Math.max(100, limit * 10), agentProfile, null);
+    }
+
+    public SerializationOptions(int limit, int treeDepthLimit, ObjectAddressResolver objectAddressResolver)
+    {
+        this(limit, treeDepthLimit, Math.max(100, limit * 10), false, objectAddressResolver);
+    }
+
+    public SerializationOptions(int limit, int treeDepthLimit, boolean agentProfile,
+                    ObjectAddressResolver objectAddressResolver)
+    {
+        this(limit, treeDepthLimit, Math.max(100, limit * 10), agentProfile, objectAddressResolver);
     }
 
     public SerializationOptions(int limit, int treeDepthLimit, int treeNodeLimit)
     {
-        this(limit, treeDepthLimit, treeNodeLimit, false);
+        this(limit, treeDepthLimit, treeNodeLimit, false, null);
+    }
+
+    public SerializationOptions(int limit, int treeDepthLimit, int treeNodeLimit,
+                    ObjectAddressResolver objectAddressResolver)
+    {
+        this(limit, treeDepthLimit, treeNodeLimit, false, objectAddressResolver);
     }
 
     public SerializationOptions(int limit, int treeDepthLimit, int treeNodeLimit, boolean agentProfile)
+    {
+        this(limit, treeDepthLimit, treeNodeLimit, agentProfile, null);
+    }
+
+    public SerializationOptions(int limit, int treeDepthLimit, int treeNodeLimit, boolean agentProfile,
+                    ObjectAddressResolver objectAddressResolver)
     {
         this.limit = limit;
         this.treeDepthLimit = treeDepthLimit;
         this.treeNodeLimit = treeNodeLimit;
         this.agentProfile = agentProfile;
+        this.objectAddressResolver = objectAddressResolver;
     }
 
     public int getLimit()
@@ -57,5 +84,10 @@ public final class SerializationOptions
     public boolean isAgentProfile()
     {
         return agentProfile;
+    }
+
+    public String resolveObjectAddress(int objectId)
+    {
+        return objectAddressResolver == null ? null : objectAddressResolver.resolveObjectAddress(objectId);
     }
 }
