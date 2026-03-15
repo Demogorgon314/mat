@@ -403,6 +403,63 @@ public class CliArgumentParserTest
     }
 
     @Test
+    public void parsesCommandSpecificHelpAfterCommand() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "summary", "--help" }); //$NON-NLS-1$ //$NON-NLS-2$
+
+        assertEquals(CliCommand.SUMMARY, arguments.getCommand());
+        assertTrue(arguments.isHelp());
+        assertNull(arguments.getHeapFile());
+    }
+
+    @Test
+    public void parsesCommandSpecificHelpBeforeCommand() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "help", "histogram" }); //$NON-NLS-1$ //$NON-NLS-2$
+
+        assertEquals(CliCommand.HISTOGRAM, arguments.getCommand());
+        assertTrue(arguments.isHelp());
+        assertNull(arguments.getHeapFile());
+    }
+
+    @Test
+    public void parsesCommandSpecificHelpKeywordAfterCommand() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "query", "help" }); //$NON-NLS-1$ //$NON-NLS-2$
+
+        assertEquals(CliCommand.QUERY, arguments.getCommand());
+        assertTrue(arguments.isHelp());
+        assertNull(arguments.getHeapFile());
+        assertNull(arguments.getQueryCommand());
+    }
+
+    @Test
+    public void parsesDescribeQueryHelpWithoutSubject() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "describe-query", "--help" }); //$NON-NLS-1$ //$NON-NLS-2$
+
+        assertEquals(CliCommand.DESCRIBE_QUERY, arguments.getCommand());
+        assertTrue(arguments.isHelp());
+        assertNull(arguments.getSubjectName());
+    }
+
+    @Test
+    public void partialParsePreservesCommandForPrefixedHelp()
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.partialParse(new String[] { "help", "path2gc", "--format", "json" }, //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+                        CliArguments.OutputFormat.JSON);
+
+        assertEquals(CliCommand.PATH2GC, arguments.getCommand());
+        assertTrue(arguments.isHelp());
+        assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
+    }
+
+    @Test
     public void helpIncludesDepthAndTopConsumersLimit()
     {
         String help = CliHelp.generalHelp();
@@ -414,6 +471,28 @@ public class CliArgumentParserTest
         assertTrue(help.contains("--depth N            Maximum tree or section depth (default: 8, inspect-object: 3)")); //$NON-NLS-1$
         assertTrue(help.contains("--field-path PATH    Inspect a dotted field path such as cleaner.offsetMap")); //$NON-NLS-1$
         assertTrue(help.contains("--show-nulls         Show nested null fields and array slots in text output")); //$NON-NLS-1$
+        assertTrue(help.contains("Use 'mat-cli <command> --help' for command-specific help.")); //$NON-NLS-1$
         assertTrue(help.contains("Inner class names containing '$' must be quoted or escaped")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void commandHelpRendersSpecificCommandMetadata()
+    {
+        String help = CliHelp.commandHelp(CliCommand.PATH2GC);
+
+        assertTrue(help.contains("Command: path2gc")); //$NON-NLS-1$
+        assertTrue(help.contains("Usage: mat-cli path2gc <heap> --object 0x... [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("--object 0x... (required): Object address to resolve from the snapshot.")); //$NON-NLS-1$
+        assertTrue(help.contains("Suggested next commands:")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void commandHelpForDescribeShowsDescribeUsage()
+    {
+        String help = CliHelp.commandHelp(CliCommand.DESCRIBE);
+
+        assertTrue(help.contains("Command: describe")); //$NON-NLS-1$
+        assertTrue(help.contains("Usage: mat-cli describe <command> [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("Positional arguments:")); //$NON-NLS-1$
     }
 }

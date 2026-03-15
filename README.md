@@ -47,6 +47,7 @@ brew install Demogorgon314/mat-cli/mat-cli
 
 ```bash
 mat-cli --help
+mat-cli histogram --help
 mat-cli summary path/to/heap.hprof
 mat-cli histogram path/to/heap.hprof --format json
 mat-cli oql path/to/heap.hprof --query "SELECT * FROM java.lang.String s"
@@ -54,6 +55,7 @@ mat-cli oql path/to/heap.hprof --query "SELECT * FROM java.lang.String s"
 
 Useful discovery commands:
 
+- `mat-cli <command> --help`
 - `mat-cli describe <command>`
 - `mat-cli schema <command> --format json`
 - `mat-cli list-queries --format json`

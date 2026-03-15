@@ -22,6 +22,8 @@ import java.util.List;
 
 import org.eclipse.mat.cli.internal.CliArgumentParser;
 import org.eclipse.mat.cli.internal.CliArguments;
+import org.eclipse.mat.cli.internal.CliExitCodes;
+import org.eclipse.mat.cli.internal.CliException;
 import org.eclipse.mat.cli.internal.CliExecution;
 import org.eclipse.mat.cli.internal.DisplayValue;
 import org.eclipse.mat.cli.internal.QueryMetadataResult;
@@ -717,6 +719,25 @@ public class ResultSerializerTest
 
         String json = output.toString(StandardCharsets.UTF_8.name());
         assertTrue(json.contains("\"kind\":\"query_error\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void usageErrorsPreferCommandSpecificHelpHint() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        CliArguments arguments = new CliArgumentParser().partialParse(
+                        new String[] { "path2gc", "sample.hprof", "--format", "json" }, CliArguments.OutputFormat.JSON); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serializeError(arguments, CliArguments.OutputFormat.JSON, CliExitCodes.USAGE,
+                            CliException.usage("path2gc requires --object 0x..."), stream); //$NON-NLS-1$
+        }
+
+        String json = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(json.contains("mat-cli path2gc --help")); //$NON-NLS-1$
+        assertTrue(json.contains("mat-cli describe path2gc --format json")); //$NON-NLS-1$
     }
 
     @Test

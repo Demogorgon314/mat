@@ -448,7 +448,7 @@ public class ResultSerializer
         if (exitCode == CliExitCodes.OUT_OF_MEMORY)
             return "Retry with a larger heap, for example MAT_CLI_VMARGS=\"-Xmx2g\"."; //$NON-NLS-1$
         if (exitCode == CliExitCodes.USAGE)
-            return "Run `mat-cli --help` or `mat-cli describe <command> --format json` for the expected arguments."; //$NON-NLS-1$
+            return usageHint(arguments);
         if ("query_not_found".equals(kind)) //$NON-NLS-1$
             return "Run `mat-cli list-queries --format json` to discover valid MAT query identifiers."; //$NON-NLS-1$
         if ("missing_file".equals(kind)) //$NON-NLS-1$
@@ -474,6 +474,16 @@ public class ResultSerializer
         if (arguments != null && arguments.getCommand() == org.eclipse.mat.cli.internal.CliCommand.DESCRIBE_QUERY)
             return "Run `mat-cli list-queries --format json` to discover valid MAT query identifiers."; //$NON-NLS-1$
         return "Retry with --verbose for diagnostics or narrow the query scope."; //$NON-NLS-1$
+    }
+
+    private String usageHint(CliArguments arguments)
+    {
+        if (arguments == null || arguments.getCommand() == null)
+            return "Run `mat-cli --help` or `mat-cli describe <command> --format json` for the expected arguments."; //$NON-NLS-1$
+
+        String command = arguments.getCommand().getToken();
+        return "Run `mat-cli " + command + " --help` or `mat-cli describe " + command //$NON-NLS-1$ //$NON-NLS-2$
+                        + " --format json` for the expected arguments."; //$NON-NLS-1$
     }
 
     private boolean isRetryable(CliArguments arguments, int exitCode, Throwable error)

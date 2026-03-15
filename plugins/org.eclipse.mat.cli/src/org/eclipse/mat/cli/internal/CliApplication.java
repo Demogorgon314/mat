@@ -45,7 +45,7 @@ public class CliApplication implements IApplication
             parsed = parser.parse(args);
             if (parsed.isHelp())
             {
-                System.out.print(CliHelp.generalHelp());
+                System.out.print(parsed.getCommand() == null ? CliHelp.generalHelp() : CliHelp.commandHelp(parsed.getCommand()));
                 return IApplication.EXIT_OK;
             }
 
@@ -104,7 +104,8 @@ public class CliApplication implements IApplication
             else if (parsed != null && parsed.isVerbose())
                 error.printStackTrace(err);
             if (code == CliExitCodes.USAGE)
-                err.print(CliHelp.generalHelp());
+                err.print(parsed != null && parsed.getCommand() != null ? CliHelp.commandHelp(parsed.getCommand())
+                                : CliHelp.generalHelp());
         }
         return Integer.valueOf(code);
     }

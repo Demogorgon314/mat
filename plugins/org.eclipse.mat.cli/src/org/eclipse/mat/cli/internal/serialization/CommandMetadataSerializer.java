@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.mat.cli.internal.CliHelp;
 import org.eclipse.mat.cli.internal.CliCommandCatalog.CommandDefinition;
 import org.eclipse.mat.cli.internal.CliCommandCatalog.OptionDefinition;
 import org.eclipse.mat.cli.internal.CliCommandCatalog.OutputDefinition;
@@ -53,36 +54,8 @@ public class CommandMetadataSerializer
 
     public String toText(CommandMetadataResult result)
     {
-        CommandDefinition definition = result.getDefinition();
-        StringBuilder builder = new StringBuilder(512);
-        builder.append("Command: ").append(definition.getCommand().getToken()).append('\n'); //$NON-NLS-1$
-        builder.append("Summary: ").append(definition.getSummary()).append('\n'); //$NON-NLS-1$
-        builder.append("Usage: ").append(definition.getUsage()).append('\n'); //$NON-NLS-1$
-        builder.append("Requires snapshot: ").append(definition.requiresSnapshot() ? "yes" : "no").append('\n'); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-        appendStrings(builder, "Positional arguments", definition.getPositionalArguments()); //$NON-NLS-1$
-        builder.append("Options:\n"); //$NON-NLS-1$
-        for (OptionDefinition option : definition.getOptions())
-        {
-            builder.append("  ").append(option.getName()); //$NON-NLS-1$
-            if (option.getValueHint() != null)
-                builder.append(' ').append(option.getValueHint());
-            builder.append(option.isRequired() ? " (required): " : ": "); //$NON-NLS-1$ //$NON-NLS-2$
-            builder.append(option.getDescription()).append('\n');
-        }
-        builder.append("Outputs:\n"); //$NON-NLS-1$
-        for (OutputDefinition output : uniqueOutputs(definition.getOutputs()))
-        {
-            builder.append("  ").append(output.getFormat()).append(": "); //$NON-NLS-1$
-            builder.append(output.getResultKind()).append(" - ").append(output.getDescription()).append('\n'); //$NON-NLS-1$
-        }
-        if (result.getKind() == CommandMetadataResult.Kind.SCHEMA)
-        {
-            builder.append("JSON payload kind: ").append(jsonPayloadKind(definition)).append('\n'); //$NON-NLS-1$
-            builder.append("JSON payload: ").append(definition.getAgentPayloadDescription()).append('\n'); //$NON-NLS-1$
-            appendStrings(builder, "JSON payload fields", definition.getAgentPayloadFields()); //$NON-NLS-1$
-        }
-        appendStrings(builder, "Suggested next commands", definition.getSuggestedNextCommands()); //$NON-NLS-1$
-        return builder.toString();
+        return CliHelp.renderCommandMetadata(result.getDefinition(),
+                        result.getKind() == CommandMetadataResult.Kind.SCHEMA);
     }
 
     private String jsonPayloadKind(CommandDefinition definition)
