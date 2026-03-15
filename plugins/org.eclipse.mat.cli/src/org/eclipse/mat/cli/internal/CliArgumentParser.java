@@ -508,6 +508,9 @@ public final class CliArgumentParser
 
     private int defaultLimit(CliCommand command, String queryCommand)
     {
+        if (command == CliCommand.THREADS)
+            return Integer.MAX_VALUE;
+
         if (command == CliCommand.QUERY)
         {
             String queryIdentifier = queryIdentifier(queryCommand);

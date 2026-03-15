@@ -26,6 +26,7 @@ public final class CliHelp
         help.append("  mat-cli --help\n\n"); //$NON-NLS-1$
         help.append("Commands:\n"); //$NON-NLS-1$
         help.append("  summary <heap>\n"); //$NON-NLS-1$
+        help.append("  threads <heap> [--limit N] [--format text|json]\n"); //$NON-NLS-1$
         help.append("  histogram <heap> [--limit N] [--format text|json]\n"); //$NON-NLS-1$
         help.append("  top-consumers <heap> [--limit N] [--depth N] [--format text|json]\n"); //$NON-NLS-1$
         help.append("  path2gc <heap> --object 0x... [--limit N] [--depth N] [--format text|json]\n"); //$NON-NLS-1$

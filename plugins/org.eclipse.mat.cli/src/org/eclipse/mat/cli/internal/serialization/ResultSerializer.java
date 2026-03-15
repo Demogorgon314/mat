@@ -23,6 +23,7 @@ import org.eclipse.mat.cli.internal.CliExitCodes;
 import org.eclipse.mat.cli.internal.CommandMetadataResult;
 import org.eclipse.mat.cli.internal.QueryMetadataResult;
 import org.eclipse.mat.cli.internal.SnapshotSummary;
+import org.eclipse.mat.cli.internal.ThreadsResult;
 import org.eclipse.mat.cli.internal.TopConsumersResult;
 import org.eclipse.mat.query.IResult;
 import org.eclipse.mat.query.IResultPie;
@@ -42,6 +43,7 @@ public class ResultSerializer
     private final PieResultSerializer pieSerializer = new PieResultSerializer();
     private final SpecResultSerializer specSerializer = new SpecResultSerializer(tableSerializer, treeSerializer,
                     textSerializer, pieSerializer);
+    private final ThreadsResultSerializer threadsSerializer = new ThreadsResultSerializer();
     private final TopConsumersResultSerializer topConsumersSerializer = new TopConsumersResultSerializer();
     private final CommandMetadataSerializer metadataSerializer = new CommandMetadataSerializer();
     private final QueryMetadataSerializer queryMetadataSerializer = new QueryMetadataSerializer();
@@ -120,6 +122,10 @@ public class ResultSerializer
         {
             out.print(topConsumersSerializer.toText((TopConsumersResult) result, options));
         }
+        else if (result instanceof ThreadsResult)
+        {
+            out.print(threadsSerializer.toText((ThreadsResult) result));
+        }
         else if (result instanceof IResultTable)
         {
             out.print(tableSerializer.toText((IResultTable) result, options));
@@ -182,6 +188,11 @@ public class ResultSerializer
             {
                 writer.name("resultType").value("top-consumers"); //$NON-NLS-1$ //$NON-NLS-2$
                 truncated = topConsumersSerializer.writeJson(writer, (TopConsumersResult) result, options);
+            }
+            else if (result instanceof ThreadsResult)
+            {
+                writer.name("resultType").value("threads"); //$NON-NLS-1$ //$NON-NLS-2$
+                truncated = threadsSerializer.writeJson(writer, (ThreadsResult) result);
             }
             else if (result instanceof IResultTable)
             {
@@ -267,6 +278,11 @@ public class ResultSerializer
             {
                 writer.name("resultKind").value("top-consumers"); //$NON-NLS-1$ //$NON-NLS-2$
                 truncated = topConsumersSerializer.writeAgentJson(writer, (TopConsumersResult) result, options);
+            }
+            else if (result instanceof ThreadsResult)
+            {
+                writer.name("resultKind").value("threads"); //$NON-NLS-1$ //$NON-NLS-2$
+                truncated = threadsSerializer.writeJson(writer, (ThreadsResult) result);
             }
             else if (result instanceof IResultTable)
             {

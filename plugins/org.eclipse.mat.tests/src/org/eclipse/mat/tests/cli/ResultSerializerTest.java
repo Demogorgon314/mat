@@ -22,7 +22,9 @@ import java.util.List;
 
 import org.eclipse.mat.cli.internal.CliArgumentParser;
 import org.eclipse.mat.cli.internal.CliArguments;
+import org.eclipse.mat.cli.internal.CliExecution;
 import org.eclipse.mat.cli.internal.QueryMetadataResult;
+import org.eclipse.mat.cli.internal.ThreadsResult;
 import org.eclipse.mat.cli.internal.TopConsumersResult;
 import org.eclipse.mat.cli.internal.serialization.JsonWriter;
 import org.eclipse.mat.cli.internal.serialization.PieResultSerializer;
@@ -454,6 +456,28 @@ public class ResultSerializerTest
     }
 
     @Test
+    public void serializesThreadsAgentEnvelope() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        CliArguments arguments = new CliArgumentParser()
+                        .parse(new String[] { "--agent", "threads", "sample.hprof" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serialize(arguments, CliExecution.result(sampleThreadsResult()), stream);
+        }
+
+        String json = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(json.contains("\"resultKind\":\"threads\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"notice\":\"best-effort from heap dump, not a full jstack equivalent\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"summary\":{\"totalThreads\":2")); //$NON-NLS-1$
+        assertTrue(json.contains("\"threads\":[{")); //$NON-NLS-1$
+        assertTrue(json.contains("\"stackAvailable\":false")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_context\":{\"objectId\":42}")); //$NON-NLS-1$
+    }
+
+    @Test
     public void classifiesProblemReportedOqlErrors() throws Exception
     {
         ResultSerializer serializer = new ResultSerializer();
@@ -561,6 +585,18 @@ public class ResultSerializerTest
                                         new TopConsumersResult.PackageNode("example", 650, 0.65d, 2, Collections.<TopConsumersResult.PackageNode>emptyList()))), //$NON-NLS-1$
                         new TopConsumersResult.PackageNode("com", 200, 0.2d, 1, Collections.<TopConsumersResult.PackageNode>emptyList()))); //$NON-NLS-1$
         return new TopConsumersResult(1000, biggestObjects, classes, classLoaders, root);
+    }
+
+    private ThreadsResult sampleThreadsResult()
+    {
+        List<ThreadsResult.ThreadEntry> threads = Arrays.asList(
+                        new ThreadsResult.ThreadEntry(42, "main", "java.lang.Thread @ 0x2a", "0x2a", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        "[alive, runnable]", 2048L, true, null, //$NON-NLS-1$
+                                        Arrays.asList("at example.Main.run(Main.java:10)")), //$NON-NLS-1$
+                        new ThreadsResult.ThreadEntry(43, "worker", "java.lang.Thread @ 0x2b", "0x2b", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        ThreadsResult.UNAVAILABLE, 1024L, false,
+                                        ThreadsResult.STACK_UNAVAILABLE_REASON, Collections.<String>emptyList()));
+        return new ThreadsResult(ThreadsResult.NOTICE, new ThreadsResult.Summary(2, 2, 1, 1), threads, false);
     }
 
     private static final class SampleTable implements IResultTable

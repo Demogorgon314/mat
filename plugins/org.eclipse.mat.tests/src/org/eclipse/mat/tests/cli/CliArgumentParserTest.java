@@ -52,6 +52,17 @@ public class CliArgumentParserTest
     }
 
     @Test
+    public void defaultsThreadsCommandToAllThreads()
+                    throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "threads", "sample.hprof" }); //$NON-NLS-1$ //$NON-NLS-2$
+
+        assertEquals(CliCommand.THREADS, arguments.getCommand());
+        assertEquals(Integer.MAX_VALUE, arguments.getLimit());
+    }
+
+    @Test
     public void enablesAgentProfileAndDefaultsToJson() throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
@@ -205,6 +216,7 @@ public class CliArgumentParserTest
     {
         String help = CliHelp.generalHelp();
 
+        assertTrue(help.contains("threads <heap> [--limit N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("top-consumers <heap> [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("--depth N            Maximum tree or section depth")); //$NON-NLS-1$
     }

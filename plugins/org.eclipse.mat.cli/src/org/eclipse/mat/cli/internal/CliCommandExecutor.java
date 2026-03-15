@@ -98,6 +98,8 @@ public class CliCommandExecutor
         {
             case SUMMARY:
                 return CliExecution.summary(SnapshotSummary.from(snapshot.getSnapshotInfo()));
+            case THREADS:
+                return CliExecution.result(new ThreadsResultBuilder().build(snapshot, listener, arguments.getLimit()));
             case HISTOGRAM:
                 RefinedResultBuilder histogram = SnapshotQuery.lookup("histogram", snapshot).refine(listener); //$NON-NLS-1$
                 histogram.addDefaultContextDerivedColumn(RetainedSizeDerivedData.APPROXIMATE);
@@ -331,8 +333,9 @@ public class CliCommandExecutor
         if (result == null)
             throw CliException.execution("Query returned no result", null); //$NON-NLS-1$
 
-        if (!(result instanceof TextResult || result instanceof IResultTable || result instanceof IResultTree
-                        || result instanceof IResultPie || result instanceof CompositeResult || result instanceof Spec))
+        if (!(result instanceof TextResult || result instanceof ThreadsResult || result instanceof IResultTable
+                        || result instanceof IResultTree || result instanceof IResultPie
+                        || result instanceof CompositeResult || result instanceof Spec))
         {
             throw CliException.unsupported("Unsupported result type: " + result.getClass().getName()); //$NON-NLS-1$
         }

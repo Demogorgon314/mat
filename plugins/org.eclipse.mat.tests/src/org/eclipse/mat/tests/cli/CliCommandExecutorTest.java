@@ -47,6 +47,34 @@ public class CliCommandExecutorTest
     }
 
     @Test
+    public void executesThreadsCommandAgainstHprofSnapshotAsText() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String text = execute(new String[] { "threads", heap.getAbsolutePath(), "--format", "text", "--limit", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+
+        assertTrue(text.contains("best-effort from heap dump, not a full jstack equivalent")); //$NON-NLS-1$
+        assertTrue(text.contains("Overview")); //$NON-NLS-1$
+        assertTrue(text.contains("Retained Heap")); //$NON-NLS-1$
+        assertTrue(text.contains("Stack:")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesThreadsCommandAgainstHprofSnapshotAsAgentJson() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String json = executeJson(new String[] { "threads", heap.getAbsolutePath(), "--agent", "--limit", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        assertTrue(json.contains("\"schemaVersion\":\"mat-cli/v1\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"resultKind\":\"threads\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"notice\":\"best-effort from heap dump, not a full jstack equivalent\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"summary\":{\"totalThreads\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"returnedThreads\":2")); //$NON-NLS-1$
+        assertTrue(json.contains("\"threads\":[{")); //$NON-NLS-1$
+        assertTrue(json.contains("\"stackAvailable\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"stackFrames\":[")); //$NON-NLS-1$
+    }
+
+    @Test
     public void executesHistogramCommandAgainstHprofSnapshot() throws Exception
     {
         File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
@@ -93,6 +121,17 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"resultKind\":\"schema\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"payloadKind\":\"top-consumers\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"payloadFields\":[\"totalRetainedHeap\",\"biggestObjects[]\",\"biggestObjectsTruncated\",\"classes[]\",\"classesTruncated\",\"classLoaders[]\",\"classLoadersTruncated\",\"packages\",\"packagesTruncated\"]")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesThreadsSchemaCommandInAgentProfile() throws Exception
+    {
+        String json = executeJson(new String[] { "schema", "threads", "--agent" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+
+        assertTrue(json.contains("\"subject\":\"threads\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"resultKind\":\"schema\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"payloadKind\":\"threads\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"threads[].stackFrames[]\"")); //$NON-NLS-1$
     }
 
     @Test
@@ -317,6 +356,17 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"note\":\"Object is already a GC root")); //$NON-NLS-1$
     }
 
+    @Test
+    public void executesThreadsCommandAgainstPhdWithCompanionJavacore() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.IBM_JDK8_64BIT_HEAP_AND_JAVA);
+        String json = executeJson(new String[] { "threads", heap.getAbsolutePath(), "--agent", "--limit", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        assertTrue(json.contains("\"resultKind\":\"threads\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"summary\":{\"totalThreads\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"threads\":[")); //$NON-NLS-1$
+    }
+
     private String executeJson(String[] args) throws Exception
     {
         return execute(args);
@@ -352,10 +402,17 @@ public class CliCommandExecutorTest
 
     private File copyHeap(String resourceName) throws Exception
     {
-        File source = TestSnapshots.getResourceFile(resourceName);
         File directory = TestSnapshots.createGeneratedName("cli", null); //$NON-NLS-1$
-        File heap = new File(directory, new File(resourceName).getName());
-        Files.copy(source.toPath(), heap.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        String[] resources = resourceName.split(";"); //$NON-NLS-1$
+        File heap = null;
+        for (String resource : resources)
+        {
+            File source = TestSnapshots.getResourceFile(resource);
+            File target = new File(directory, new File(resource).getName());
+            Files.copy(source.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            if (heap == null)
+                heap = target;
+        }
         return heap;
     }
 }
