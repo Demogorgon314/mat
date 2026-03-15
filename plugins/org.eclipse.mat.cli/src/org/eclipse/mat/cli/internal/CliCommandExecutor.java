@@ -113,7 +113,8 @@ public class CliCommandExecutor
                 return snapshotResult(snapshot, histogram.build(), null, null);
             case INSTANCES:
                 return snapshotResult(snapshot, new InstancesResultBuilder().build(snapshot, arguments.getClassName(),
-                                arguments.isIncludeSubclasses(), listener), null, null);
+                                arguments.getClassRegex(), arguments.isIncludeSubclasses(),
+                                arguments.getClassContains(), listener), null, null);
             case INSPECT_OBJECT:
                 return executeInspectObject(arguments, snapshot);
             case TOP_CONSUMERS:

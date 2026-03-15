@@ -396,8 +396,11 @@ public class ResultSerializer
             rendered = rendered.replace("<query>", arguments.getSubjectName()); //$NON-NLS-1$
             rendered = rendered.replace("<subject>", arguments.getSubjectName()); //$NON-NLS-1$
         }
-        if (arguments.getClassName() != null)
-            rendered = rendered.replace("<class>", arguments.getClassName()); //$NON-NLS-1$
+        if (arguments.getClassName() != null || arguments.getClassRegex() != null || arguments.getClassContains() != null)
+            rendered = rendered.replace("<class>",
+                            arguments.getClassName() != null ? arguments.getClassName()
+                                            : arguments.getClassRegex() != null ? arguments.getClassRegex()
+                                                            : arguments.getClassContains()); //$NON-NLS-1$
         String resolvedObjectAddress = arguments.getObjectAddress() != null ? arguments.getObjectAddress() : objectAddress;
         if (resolvedObjectAddress != null)
             rendered = rendered.replace("0x...", resolvedObjectAddress); //$NON-NLS-1$
@@ -457,7 +460,7 @@ public class ResultSerializer
                             + (arguments.getObjectAddress() == null ? "0x..." : arguments.getObjectAddress()) //$NON-NLS-1$
                             + "\" --format json` to verify the address before retrying path2gc."; //$NON-NLS-1$
         if ("invalid_argument".equals(kind) && arguments != null && arguments.getCommand() == CliCommand.INSTANCES) //$NON-NLS-1$
-            return "Verify the fully qualified class name, or use `mat-cli histogram <heap> --format json` to discover matching classes first."; //$NON-NLS-1$
+            return "Verify the fully qualified class name, class regex, or contains text, or use `mat-cli histogram <heap> --format json` to discover matching classes first."; //$NON-NLS-1$
         if ("snapshot_lifecycle".equals(kind)) //$NON-NLS-1$
             return "The snapshot or its index files were closed before result materialization finished; rerun with a fixed CLI build or use --verbose for diagnostics."; //$NON-NLS-1$
         if ("query_syntax".equals(kind) && arguments != null

@@ -28,7 +28,7 @@ public final class CliHelp
         help.append("  summary <heap>\n"); //$NON-NLS-1$
         help.append("  threads <heap> [--limit N] [--format text|json]\n"); //$NON-NLS-1$
         help.append("  histogram <heap> [--limit N] [--format text|json]\n"); //$NON-NLS-1$
-        help.append("  instances <heap> --class <fqcn> [--include-subclasses] [--limit N] [--format text|json]\n"); //$NON-NLS-1$
+        help.append("  instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--format text|json]\n"); //$NON-NLS-1$
         help.append("  inspect-object <heap> --object 0x... [--select-field FIELD | --field-path PATH] [--limit N] [--depth N] [--format text|json]\n"); //$NON-NLS-1$
         help.append("  top-consumers <heap> [--limit N] [--depth N] [--format text|json]\n"); //$NON-NLS-1$
         help.append("  path2gc <heap> --object 0x... [--limit N] [--depth N] [--format text|json]\n"); //$NON-NLS-1$

@@ -10,6 +10,7 @@
 package org.eclipse.mat.tests.cli;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -59,7 +60,39 @@ public class CliArgumentParserTest
 
         assertEquals(CliCommand.INSTANCES, arguments.getCommand());
         assertEquals("java.lang.String", arguments.getClassName()); //$NON-NLS-1$
+        assertNull(arguments.getClassRegex());
+        assertNull(arguments.getClassContains());
         assertTrue(arguments.isIncludeSubclasses());
+        assertEquals(7, arguments.getLimit());
+        assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
+    }
+
+    @Test
+    public void parsesInstancesRegexArguments() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "instances", "sample.hprof",
+                        "--class-regex=java\\.lang\\.String", "--limit", "7", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+
+        assertEquals(CliCommand.INSTANCES, arguments.getCommand());
+        assertNull(arguments.getClassName());
+        assertEquals("java\\.lang\\.String", arguments.getClassRegex()); //$NON-NLS-1$
+        assertNull(arguments.getClassContains());
+        assertEquals(7, arguments.getLimit());
+        assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
+    }
+
+    @Test
+    public void parsesInstancesContainsArguments() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "instances", "sample.hprof", "--class-contains",
+                        "String", "--limit", "7", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertEquals(CliCommand.INSTANCES, arguments.getCommand());
+        assertNull(arguments.getClassName());
+        assertNull(arguments.getClassRegex());
+        assertEquals("String", arguments.getClassContains()); //$NON-NLS-1$
         assertEquals(7, arguments.getLimit());
         assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
     }
@@ -117,6 +150,76 @@ public class CliArgumentParserTest
         catch (CliException e)
         {
             assertTrue(e.getMessage().contains("only one of --select-field or --field-path")); //$NON-NLS-1$
+        }
+    }
+
+    @Test
+    public void rejectsInstancesWithoutClassSelector() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        try
+        {
+            parser.parse(new String[] { "instances", "sample.hprof" }); //$NON-NLS-1$ //$NON-NLS-2$
+            fail("Expected missing instances class selector"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertEquals(2, e.getExitCode());
+            assertTrue(e.getMessage().contains("requires one of --class <fqcn>, --class-regex <regex> or --class-contains <text>")); //$NON-NLS-1$
+        }
+    }
+
+    @Test
+    public void rejectsInstancesWithConflictingClassSelectors() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        try
+        {
+            parser.parse(new String[] { "instances", "sample.hprof", "--class", "java.lang.String", "--class-regex",
+                            "java\\.lang\\..*" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+            fail("Expected conflicting instances selectors"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertEquals(2, e.getExitCode());
+            assertTrue(e.getMessage().contains("only one of --class, --class-regex or --class-contains")); //$NON-NLS-1$
+        }
+    }
+
+    @Test
+    public void rejectsInstancesWithContainsAndRegexSelectors() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        try
+        {
+            parser.parse(new String[] { "instances", "sample.hprof", "--class-contains", "String", "--class-regex",
+                            "java\\.lang\\..*" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+            fail("Expected conflicting instances selectors"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertEquals(2, e.getExitCode());
+            assertTrue(e.getMessage().contains("only one of --class, --class-regex or --class-contains")); //$NON-NLS-1$
+        }
+    }
+
+    @Test
+    public void rejectsInvalidInstancesClassRegex() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        try
+        {
+            parser.parse(new String[] { "instances", "sample.hprof", "--class-regex", "[" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+            fail("Expected invalid class regex"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertEquals(2, e.getExitCode());
+            assertTrue(e.getMessage().contains("Invalid --class-regex")); //$NON-NLS-1$
         }
     }
 
@@ -304,7 +407,7 @@ public class CliArgumentParserTest
         String help = CliHelp.generalHelp();
 
         assertTrue(help.contains("threads <heap> [--limit N] [--format text|json]")); //$NON-NLS-1$
-        assertTrue(help.contains("instances <heap> --class <fqcn> [--include-subclasses] [--limit N] [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("inspect-object <heap> --object 0x... [--select-field FIELD | --field-path PATH] [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("top-consumers <heap> [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("--depth N            Maximum tree or section depth (default: 8, inspect-object: 3)")); //$NON-NLS-1$

@@ -170,7 +170,12 @@ public final class CliCommandCatalog
                     option("--limit", "N", false, "Limit rows or children per level."),
                     option("--format", "text|json", false, "Select text or JSON output."));
     private static final List<OptionDefinition> FORMAT_LIMIT_CLASS_OPTIONS = Arrays.asList(
-                    option("--class", "<fqcn>", true, "Fully qualified class name to match."),
+                    option("--class", "<fqcn>", false,
+                                    "Exactly match one fully qualified class name. Cannot be combined with --class-regex or --class-contains."),
+                    option("--class-regex", "<regex>", false,
+                                    "Match class names with a full Java regex. Use .*String.* for contains matching. Cannot be combined with --class or --class-contains."),
+                    option("--class-contains", "<text>", false,
+                                    "Match class names containing plain text. Cannot be combined with --class or --class-regex."),
                     option("--include-subclasses", null, false, "Include subclasses of each matched class."),
                     option("--limit", "N", false, "Limit rows returned."),
                     option("--format", "text|json", false, "Select text or JSON output."));
@@ -237,7 +242,7 @@ public final class CliCommandCatalog
                                         "items[]._meta.retained_heap.kind when approximate")));
         definitions.put(CliCommand.INSTANCES, new CommandDefinition(CliCommand.INSTANCES,
                         "List live objects for one class so you can pick a concrete instance to inspect.",
-                        "mat-cli instances <heap> --class <fqcn> [--include-subclasses] [--limit N] [--format text|json]",
+                        "mat-cli instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--format text|json]",
                         true, Collections.singletonList("heap"), FORMAT_LIMIT_CLASS_OPTIONS,
                         Arrays.asList(output("text", "table", "Text table of matching objects."),
                                         output("json", "table", "Stable keyed table JSON for matching objects.")),

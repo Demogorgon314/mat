@@ -13,6 +13,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 public final class CliArgumentParser
 {
@@ -25,7 +27,8 @@ public final class CliArgumentParser
     {
         if (args == null || args.length == 0)
             return new CliArguments(null, null, null, null, CliArguments.OutputFormat.TEXT, false, true,
-                            DEFAULT_LIMIT, DEFAULT_TREE_DEPTH, null, null, null, null, false, null, null);
+                            DEFAULT_LIMIT, DEFAULT_TREE_DEPTH, null, null, null, null, null, null, false, null,
+                            null);
 
         CliCommand command = null;
         CliCommand subjectCommand = null;
@@ -40,6 +43,8 @@ public final class CliArgumentParser
         boolean treeDepthExplicit = false;
         String objectAddress = null;
         String className = null;
+        String classRegex = null;
+        String classContains = null;
         String selectField = null;
         String fieldPath = null;
         boolean includeSubclasses = false;
@@ -112,6 +117,22 @@ public final class CliArgumentParser
             else if ("--class".equals(arg)) //$NON-NLS-1$
             {
                 className = nextArg(args, ++ii, "--class"); //$NON-NLS-1$
+            }
+            else if (arg.startsWith("--class-regex=")) //$NON-NLS-1$
+            {
+                classRegex = arg.substring("--class-regex=".length()); //$NON-NLS-1$
+            }
+            else if ("--class-regex".equals(arg)) //$NON-NLS-1$
+            {
+                classRegex = nextArg(args, ++ii, "--class-regex"); //$NON-NLS-1$
+            }
+            else if (arg.startsWith("--class-contains=")) //$NON-NLS-1$
+            {
+                classContains = arg.substring("--class-contains=".length()); //$NON-NLS-1$
+            }
+            else if ("--class-contains".equals(arg)) //$NON-NLS-1$
+            {
+                classContains = nextArg(args, ++ii, "--class-contains"); //$NON-NLS-1$
             }
             else if (arg.startsWith("--select-field=")) //$NON-NLS-1$
             {
@@ -209,8 +230,8 @@ public final class CliArgumentParser
             if (help)
             {
                 return new CliArguments(null, null, null, null, format, verbose, true, limit,
-                                treeDepthLimit, objectAddress, className, selectField, fieldPath, includeSubclasses,
-                                oqlQuery, queryCommand);
+                                treeDepthLimit, objectAddress, className, classRegex, classContains, selectField,
+                                fieldPath, includeSubclasses, oqlQuery, queryCommand);
             }
             throw CliException.usage("Missing command"); //$NON-NLS-1$
         }
@@ -229,8 +250,8 @@ public final class CliArgumentParser
             limit = defaultLimit(command, queryCommand);
 
         CliArguments parsed = new CliArguments(command, subjectCommand, subjectName, heapFile, format, verbose, help,
-                        limit, treeDepthLimit, objectAddress, className, selectField, fieldPath, includeSubclasses,
-                        oqlQuery, queryCommand);
+                        limit, treeDepthLimit, objectAddress, className, classRegex, classContains, selectField,
+                        fieldPath, includeSubclasses, oqlQuery, queryCommand);
         validate(parsed);
         return parsed;
     }
@@ -301,8 +322,18 @@ public final class CliArgumentParser
                     throw CliException.usage("Invalid --field-path: " + arguments.getFieldPath()); //$NON-NLS-1$
                 break;
             case INSTANCES:
-                if (isEmpty(arguments.getClassName()))
-                    throw CliException.usage("instances requires --class <fqcn>"); //$NON-NLS-1$
+                boolean hasClassName = !isEmpty(arguments.getClassName());
+                boolean hasClassRegex = !isEmpty(arguments.getClassRegex());
+                boolean hasClassContains = !isEmpty(arguments.getClassContains());
+                int selectorCount = (hasClassName ? 1 : 0) + (hasClassRegex ? 1 : 0) + (hasClassContains ? 1 : 0);
+                if (selectorCount == 0)
+                    throw CliException.usage(
+                                    "instances requires one of --class <fqcn>, --class-regex <regex> or --class-contains <text>"); //$NON-NLS-1$
+                if (selectorCount > 1)
+                    throw CliException.usage(
+                                    "instances accepts only one of --class, --class-regex or --class-contains"); //$NON-NLS-1$
+                if (hasClassRegex)
+                    validateClassRegex(arguments.getClassRegex());
                 break;
             case OQL:
                 if (isEmpty(arguments.getOqlQuery()))
@@ -422,6 +453,8 @@ public final class CliArgumentParser
         boolean help = args == null || args.length == 0;
         String objectAddress = null;
         String className = null;
+        String classRegex = null;
+        String classContains = null;
         String selectField = null;
         String fieldPath = null;
         boolean includeSubclasses = false;
@@ -448,6 +481,10 @@ public final class CliArgumentParser
                             objectAddress = value;
                         else if ("--class".equals(arg)) //$NON-NLS-1$
                             className = value;
+                        else if ("--class-regex".equals(arg)) //$NON-NLS-1$
+                            classRegex = value;
+                        else if ("--class-contains".equals(arg)) //$NON-NLS-1$
+                            classContains = value;
                         else if ("--select-field".equals(arg)) //$NON-NLS-1$
                             selectField = value;
                         else if ("--field-path".equals(arg)) //$NON-NLS-1$
@@ -470,6 +507,14 @@ public final class CliArgumentParser
                 else if (arg.startsWith("--class=")) //$NON-NLS-1$
                 {
                     className = arg.substring("--class=".length()); //$NON-NLS-1$
+                }
+                else if (arg.startsWith("--class-regex=")) //$NON-NLS-1$
+                {
+                    classRegex = arg.substring("--class-regex=".length()); //$NON-NLS-1$
+                }
+                else if (arg.startsWith("--class-contains=")) //$NON-NLS-1$
+                {
+                    classContains = arg.substring("--class-contains=".length()); //$NON-NLS-1$
                 }
                 else if (arg.startsWith("--query=")) //$NON-NLS-1$
                 {
@@ -538,8 +583,8 @@ public final class CliArgumentParser
             treeDepthLimit = defaultTreeDepth(command);
 
         return new CliArguments(command, subjectCommand, subjectName, heapFile, format, false, help,
-                        defaultLimit(command, queryCommand), treeDepthLimit, objectAddress, className, selectField,
-                        fieldPath, includeSubclasses, oqlQuery, queryCommand);
+                        defaultLimit(command, queryCommand), treeDepthLimit, objectAddress, className, classRegex,
+                        classContains, selectField, fieldPath, includeSubclasses, oqlQuery, queryCommand);
     }
 
     private int defaultLimit(CliCommand command, String queryCommand)
@@ -571,10 +616,24 @@ public final class CliArgumentParser
     {
         return "--format".equals(option) || "--limit".equals(option) || "--depth".equals(option) //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         || "--object".equals(option) || "--class".equals(option) //$NON-NLS-1$ //$NON-NLS-2$
+                        || "--class-regex".equals(option) //$NON-NLS-1$
+                        || "--class-contains".equals(option) //$NON-NLS-1$
                         || "--select-field".equals(option) || "--field-path".equals(option) //$NON-NLS-1$ //$NON-NLS-2$
                         || "--query".equals(option) //$NON-NLS-1$
                         || "--query-file".equals(option) //$NON-NLS-1$
                         || "--command".equals(option) || "--command-file".equals(option); //$NON-NLS-1$ //$NON-NLS-2$
+    }
+
+    private void validateClassRegex(String classRegex) throws CliException
+    {
+        try
+        {
+            Pattern.compile(classRegex);
+        }
+        catch (PatternSyntaxException e)
+        {
+            throw CliException.usage("Invalid --class-regex: " + classRegex + " (" + e.getDescription() + ")"); //$NON-NLS-1$ //$NON-NLS-2$
+        }
     }
 
     private int defaultTreeDepth(CliCommand command)

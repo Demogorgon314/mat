@@ -12,6 +12,7 @@ package org.eclipse.mat.cli.internal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.eclipse.mat.SnapshotException;
 import org.eclipse.mat.snapshot.ISnapshot;
@@ -20,12 +21,14 @@ import org.eclipse.mat.util.IProgressListener;
 
 final class InstancesResultBuilder
 {
-    public InstancesResult build(ISnapshot snapshot, String className, boolean includeSubclasses,
-                    IProgressListener listener) throws SnapshotException, CliException
+    public InstancesResult build(ISnapshot snapshot, String className, String classRegex, boolean includeSubclasses,
+                    String classContains, IProgressListener listener) throws SnapshotException, CliException
     {
-        Collection<IClass> classes = snapshot.getClassesByName(className, includeSubclasses);
+        String selector = className != null ? className : classRegex != null ? classRegex : classContains;
+        Collection<IClass> classes = className != null ? snapshot.getClassesByName(className, includeSubclasses)
+                        : snapshot.getClassesByName(pattern(classRegex, classContains), includeSubclasses);
         if (classes == null || classes.isEmpty())
-            throw CliException.execution("No classes found matching " + className, null); //$NON-NLS-1$
+            throw CliException.execution("No classes found matching " + selector, null); //$NON-NLS-1$
 
         List<InstancesResult.Row> rows = new ArrayList<InstancesResult.Row>();
         for (IClass clazz : classes)
@@ -39,5 +42,12 @@ final class InstancesResultBuilder
         }
 
         return new InstancesResult(rows.toArray(new InstancesResult.Row[0]));
+    }
+
+    private Pattern pattern(String classRegex, String classContains)
+    {
+        if (classRegex != null)
+            return Pattern.compile(classRegex);
+        return Pattern.compile(".*" + Pattern.quote(classContains) + ".*"); //$NON-NLS-1$ //$NON-NLS-2$
     }
 }

@@ -38,6 +38,8 @@ public final class CliArguments
     private final int treeDepthLimit;
     private final String objectAddress;
     private final String className;
+    private final String classRegex;
+    private final String classContains;
     private final String selectField;
     private final String fieldPath;
     private final boolean includeSubclasses;
@@ -46,8 +48,9 @@ public final class CliArguments
 
     CliArguments(CliCommand command, CliCommand subjectCommand, String subjectName, File heapFile,
                     OutputFormat format, boolean verbose, boolean help, int limit, int treeDepthLimit,
-                    String objectAddress, String className, String selectField, String fieldPath,
-                    boolean includeSubclasses, String oqlQuery, String queryCommand)
+                    String objectAddress, String className, String classRegex, String classContains,
+                    String selectField, String fieldPath, boolean includeSubclasses, String oqlQuery,
+                    String queryCommand)
     {
         this.command = command;
         this.subjectCommand = subjectCommand;
@@ -60,6 +63,8 @@ public final class CliArguments
         this.treeDepthLimit = treeDepthLimit;
         this.objectAddress = objectAddress;
         this.className = className;
+        this.classRegex = classRegex;
+        this.classContains = classContains;
         this.selectField = selectField;
         this.fieldPath = fieldPath;
         this.includeSubclasses = includeSubclasses;
@@ -120,6 +125,16 @@ public final class CliArguments
     public String getClassName()
     {
         return className;
+    }
+
+    public String getClassRegex()
+    {
+        return classRegex;
+    }
+
+    public String getClassContains()
+    {
+        return classContains;
     }
 
     public String getSelectField()

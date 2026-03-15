@@ -119,6 +119,68 @@ public class CliCommandExecutorTest
     }
 
     @Test
+    public void executesInstancesRegexCommandAgainstHprofSnapshotAsJson() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String json = executeJson(new String[] { "instances", heap.getAbsolutePath(), "--format", "json",
+                        "--class-regex", "java\\.lang\\.String", "--limit", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertTrue(json.contains("\"resultKind\":\"table\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{")); //$NON-NLS-1$
+        assertTrue(json.contains("\"object_address\":\"0x")); //$NON-NLS-1$
+        assertTrue(json.contains("\"class_name\":\"java.lang.String\"")); //$NON-NLS-1$
+        assertFalse(json.contains("\"schema\":")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesInstancesRegexCommandAgainstHprofSnapshotAsText() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String address = firstObjectAddress(heap, "java.lang.String"); //$NON-NLS-1$
+        String text = execute(new String[] { "instances", heap.getAbsolutePath(), "--class-regex",
+                        "java\\.lang\\.String", "--limit", "1", "--format", "text" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertTrue(text.contains("Object Address")); //$NON-NLS-1$
+        assertTrue(text.contains(address)); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesInstancesRegexCommandAgainstMultipleClasses() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        int limit = totalInstanceCount(heap, "java.lang.Runtime", "java.lang.Thread"); //$NON-NLS-1$ //$NON-NLS-2$
+        String json = executeJson(new String[] { "instances", heap.getAbsolutePath(), "--format", "json",
+                        "--class-regex", "java\\.lang\\.(Runtime|Thread)", "--limit", Integer.toString(limit) }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertTrue(json.contains("\"class_name\":\"java.lang.Runtime\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"class_name\":\"java.lang.Thread\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesInstancesContainsCommandAgainstHprofSnapshotAsJson() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String json = executeJson(new String[] { "instances", heap.getAbsolutePath(), "--format", "json",
+                        "--class-contains", "String", "--limit", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertTrue(json.contains("\"resultKind\":\"table\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{")); //$NON-NLS-1$
+        assertTrue(json.contains("\"class_name\":\"java.lang.String\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesInstancesContainsCommandAgainstMultipleClasses() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        int limit = totalInstanceCount(heap, "java.lang.Runtime", "java.lang.RuntimePermission"); //$NON-NLS-1$ //$NON-NLS-2$
+        String json = executeJson(new String[] { "instances", heap.getAbsolutePath(), "--format", "json",
+                        "--class-contains", "Runtime", "--limit", Integer.toString(limit) }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertTrue(json.contains("\"class_name\":\"java.lang.Runtime\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"class_name\":\"java.lang.RuntimePermission\"")); //$NON-NLS-1$
+    }
+
+    @Test
     public void executesInspectObjectCommandAgainstHprofSnapshotAsJson() throws Exception
     {
         File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
@@ -214,6 +276,18 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"resultKind\":\"describe\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"histogram\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"usage\":\"mat-cli histogram <heap> [--limit N] [--format text|json]\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void describesInstancesCommandWithClassRegexOption() throws Exception
+    {
+        String json = executeJson(new String[] { "describe", "instances", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        assertTrue(json.contains("\"resultKind\":\"describe\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"instances\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"usage\":\"mat-cli instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--format text|json]\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"--class-regex\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"--class-contains\"")); //$NON-NLS-1$
     }
 
     @Test
@@ -552,5 +626,26 @@ public class CliCommandExecutorTest
             assertTrue(objectIds.length > 0);
             return "0x" + Long.toHexString(snapshot.mapIdToAddress(objectIds[0])); //$NON-NLS-1$
         }
+    }
+
+    private int totalInstanceCount(File heap, String... classNames) throws Exception
+    {
+        int total = 0;
+        CliCommandExecutor executor = new CliCommandExecutor();
+        CliArguments arguments = new CliArgumentParser().parse(new String[] { "summary", heap.getAbsolutePath() }); //$NON-NLS-1$ //$NON-NLS-2$
+        try (SnapshotSession session = executor.openSnapshot(arguments))
+        {
+            ISnapshot snapshot = session.getSnapshot();
+            for (String className : classNames)
+            {
+                Collection<IClass> classes = snapshot.getClassesByName(className, false);
+                assertTrue(classes != null && !classes.isEmpty());
+                for (IClass clazz : classes)
+                {
+                    total += clazz.getObjectIds().length;
+                }
+            }
+        }
+        return total;
     }
 }
