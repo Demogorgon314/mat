@@ -24,11 +24,6 @@ if [ -z "$LAUNCHER_JAR" ]; then
     exit 1
 fi
 
-if ! CDPATH= cd -- "$DIR"; then
-    echo "Unable to change directory to $DIR" >&2
-    exit 1
-fi
-
 read_product_version() {
     if [ -f "$DIR/.eclipseproduct" ]; then
         version=$(sed -n 's/^version=//p' "$DIR/.eclipseproduct" | sed -n '1p')

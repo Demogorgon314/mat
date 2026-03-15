@@ -23,12 +23,6 @@ exit /b 1
 
 :launcher_found
 
-pushd "%_DIRNAME%" >nul 2>&1
-if errorlevel 1 (
-  >&2 echo Unable to change directory to "%_DIRNAME%"
-  exit /b 1
-)
-
 set "_PRODUCT_VERSION=unknown"
 if exist "%_DIRNAME%.eclipseproduct" (
   for /f "usebackq tokens=1,* delims==" %%A in (`type "%_DIRNAME%.eclipseproduct"`) do (
@@ -86,7 +80,6 @@ if not exist "%_CONFIG_DIR%" if "%_CONFIG_EXPLICIT%"=="0" (
 )
 if not exist "%_CONFIG_DIR%" (
   >&2 echo Unable to create writable runtime directory "%_CONFIG_DIR%"
-  popd >nul 2>&1
   exit /b 1
 )
 
@@ -97,7 +90,6 @@ if not exist "%_DATA_DIR%" if "%_DATA_EXPLICIT%"=="0" (
 )
 if not exist "%_DATA_DIR%" (
   >&2 echo Unable to create writable runtime directory "%_DATA_DIR%"
-  popd >nul 2>&1
   exit /b 1
 )
 
@@ -107,5 +99,4 @@ if defined MAT_CLI_VMARGS (
   "%_JAVA%" -Xmx1024m -jar "%_LAUNCHER%" -configuration "%_CONFIG_DIR%" -data "%_DATA_DIR%" -nosplash -product org.eclipse.mat.cli.product -application org.eclipse.mat.cli.app %*
 )
 
-popd >nul 2>&1
 endlocal
