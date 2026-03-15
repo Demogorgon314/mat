@@ -158,6 +158,16 @@ abstract class StructuredResultSerializer
 
     protected String displayValue(Column column, Object row, Object value)
     {
+        return displayValue(column, row, value, true);
+    }
+
+    protected String pathDisplayValue(Column column, Object row, Object value)
+    {
+        return displayValue(column, row, value, false);
+    }
+
+    private String displayValue(Column column, Object row, Object value, boolean spacedDecorator)
+    {
         if (value == null)
             return null;
 
@@ -185,13 +195,14 @@ abstract class StructuredResultSerializer
 
         String prefix = decorator.prefix(row);
         String suffix = decorator.suffix(row);
-        StringBuilder builder = new StringBuilder();
         if (prefix != null)
-            builder.append(prefix);
-        builder.append(rendered);
-        if (suffix != null)
-            builder.append(suffix);
-        return builder.toString();
+            if (suffix != null)
+                return spacedDecorator ? prefix + " " + rendered + " " + suffix : prefix + rendered + suffix; //$NON-NLS-1$ //$NON-NLS-2$
+            else
+                return spacedDecorator ? prefix + " " + rendered : prefix + rendered; //$NON-NLS-1$
+        else if (suffix != null)
+            return spacedDecorator ? rendered + " " + suffix : rendered + suffix; //$NON-NLS-1$
+        return rendered;
     }
 
     protected void writeContext(JsonWriter writer, IStructuredResult result, Object row, SerializationOptions options)

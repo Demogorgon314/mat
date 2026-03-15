@@ -482,11 +482,23 @@ public class TreeResultSerializer extends StructuredResultSerializer
 
     private String displayText(Column column, ColumnSchema schema, Object row, CellValue cell, boolean renderNullLiteral)
     {
+        return renderText(column, schema, row, cell, renderNullLiteral, true);
+    }
+
+    private String pathText(Column column, ColumnSchema schema, Object row, CellValue cell, boolean renderNullLiteral)
+    {
+        return renderText(column, schema, row, cell, renderNullLiteral, false);
+    }
+
+    private String renderText(Column column, ColumnSchema schema, Object row, CellValue cell, boolean renderNullLiteral,
+                    boolean spacedDecorator)
+    {
         if (cellError(cell) != null)
             return formatCellError(cellError(cell));
         if (cellValue(cell) == null)
             return renderNullLiteral && "value".equals(columnId(schema)) ? "null" : null; //$NON-NLS-1$ //$NON-NLS-2$
-        String display = displayValue(column, row, cellValue(cell));
+        String display = spacedDecorator ? displayValue(column, row, cellValue(cell))
+                        : pathDisplayValue(column, row, cellValue(cell));
         return display == null ? null : display.trim();
     }
 
@@ -497,6 +509,15 @@ public class TreeResultSerializer extends StructuredResultSerializer
         if (index < 0)
             return null;
         return displayText(columns[index], schema[index], row, cells[index], renderNullLiteral);
+    }
+
+    private String pathColumnDisplay(Column[] columns, ColumnSchema[] schema, Object row, CellValue[] cells, String id,
+                    boolean renderNullLiteral)
+    {
+        int index = columnIndex(schema, id);
+        if (index < 0)
+            return null;
+        return pathText(columns[index], schema[index], row, cells[index], renderNullLiteral);
     }
 
     private int columnIndex(ColumnSchema[] schema, String id)
@@ -568,14 +589,14 @@ public class TreeResultSerializer extends StructuredResultSerializer
 
     private String pathSegment(Column[] columns, ColumnSchema[] schema, Object row, CellValue[] cells, int index)
     {
-        String name = columnDisplay(columns, schema, row, cells, "name", false); //$NON-NLS-1$
+        String name = pathColumnDisplay(columns, schema, row, cells, "name", false); //$NON-NLS-1$
         if (name == null || name.length() == 0)
         {
             for (int ii = 0; ii < columns.length; ii++)
             {
                 if (cellError(cells[ii]) != null || cellValue(cells[ii]) == null)
                     continue;
-                String display = displayValue(columns[ii], row, cellValue(cells[ii]));
+                String display = pathDisplayValue(columns[ii], row, cellValue(cells[ii]));
                 if (display != null && display.trim().length() > 0)
                 {
                     name = display.trim();

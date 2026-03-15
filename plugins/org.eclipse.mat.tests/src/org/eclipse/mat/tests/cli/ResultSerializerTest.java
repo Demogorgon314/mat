@@ -42,6 +42,7 @@ import org.eclipse.mat.cli.internal.serialization.TreeTextStyleProvider.TreeText
 import org.eclipse.mat.query.Bytes;
 import org.eclipse.mat.query.Column;
 import org.eclipse.mat.query.IContextObject;
+import org.eclipse.mat.query.IDecorator;
 import org.eclipse.mat.query.IResult;
 import org.eclipse.mat.query.IResultPie;
 import org.eclipse.mat.query.IResultTable;
@@ -250,6 +251,53 @@ public class ResultSerializerTest
         assertFalse(text.startsWith("Name | Depth\n")); //$NON-NLS-1$
         assertTrue(text.contains("- Root [Depth=1]")); //$NON-NLS-1$
         assertTrue(text.contains("  - Leaf [Depth=2]")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void rendersDecoratorSpacingInTableTextAndJsonDisplayValues()
+    {
+        TableResultSerializer serializer = new TableResultSerializer();
+
+        String text = serializer.toText(new DecoratedTable(), new SerializationOptions(10, 8));
+
+        assertTrue(text.contains("pre Value post")); //$NON-NLS-1$
+        assertFalse(text.contains("preValuepost")); //$NON-NLS-1$
+
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeJson(writer, new DecoratedTable(), new SerializationOptions(10, 8));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"values\":[\"Value\",7]")); //$NON-NLS-1$
+        assertTrue(json.contains("\"displayValues\":[\"pre Value post\",\"7\"]")); //$NON-NLS-1$
+        assertFalse(json.contains("preValuepost")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void rendersDecoratorSpacingInTreeTextAndPreservesPathValues()
+    {
+        TreeResultSerializer serializer = new TreeResultSerializer();
+
+        String text = serializer.toText(new DecoratedTree(), new SerializationOptions(10, 8));
+
+        assertTrue(text.contains("- Root [Depth=1]")); //$NON-NLS-1$
+        assertTrue(text.contains("  - pre Leaf post [Depth=2]")); //$NON-NLS-1$
+        assertFalse(text.contains("preLeafpost [Depth=2]")); //$NON-NLS-1$
+
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeJson(writer, new DecoratedTree(), new SerializationOptions(10, 8));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"path\":\"<root>.preLeafpost\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"values\":[\"Leaf\",2]")); //$NON-NLS-1$
+        assertTrue(json.contains("\"displayValues\":[\"pre Leaf post\",\"2\"]")); //$NON-NLS-1$
     }
 
     @Test
@@ -869,6 +917,97 @@ public class ResultSerializerTest
         }
     }
 
+    private static final class DecoratedTable implements IResultTable
+    {
+        private final List<DecoratedRow> rows = Collections.singletonList(new DecoratedRow("Value", Integer.valueOf(7), //$NON-NLS-1$
+                        "pre", "post")); //$NON-NLS-1$ //$NON-NLS-2$
+        private final Column[] columns = new Column[] { new Column("Name", String.class).decorator(new RowDecorator()), //$NON-NLS-1$
+                        new Column("Count", int.class) }; //$NON-NLS-1$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            DecoratedRow value = (DecoratedRow) row;
+            return columnIndex == 0 ? value.name : value.count;
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            return null;
+        }
+
+        public int getRowCount()
+        {
+            return rows.size();
+        }
+
+        public Object getRow(int rowId)
+        {
+            return rows.get(rowId);
+        }
+    }
+
+    private static final class DecoratedTree implements IResultTree
+    {
+        private final DecoratedNode root = new DecoratedNode("Root", Integer.valueOf(1), 77, null, null, //$NON-NLS-1$
+                        Collections.singletonList(new DecoratedNode("Leaf", Integer.valueOf(2), 78, "pre", "post", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        Collections.<DecoratedNode>emptyList())));
+        private final Column[] columns = new Column[] { new Column("Name", String.class).decorator(new RowDecorator()), //$NON-NLS-1$
+                        new Column("Depth", int.class) }; //$NON-NLS-1$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            DecoratedNode value = (DecoratedNode) row;
+            return columnIndex == 0 ? value.name : value.depth;
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            final DecoratedNode value = (DecoratedNode) row;
+            return new IContextObject()
+            {
+                public int getObjectId()
+                {
+                    return value.objectId;
+                }
+            };
+        }
+
+        public List<?> getElements()
+        {
+            return Collections.singletonList(root);
+        }
+
+        public boolean hasChildren(Object element)
+        {
+            return !((DecoratedNode) element).children.isEmpty();
+        }
+
+        public List<?> getChildren(Object parent)
+        {
+            return ((DecoratedNode) parent).children;
+        }
+    }
+
     private static final class PreviewTree implements IResultTree
     {
         private final PreviewNode root = new PreviewNode("Payload", //$NON-NLS-1$
@@ -1141,6 +1280,64 @@ public class ResultSerializerTest
             this.name = name;
             this.value = value;
             this.objectId = objectId;
+        }
+    }
+
+    private static final class DecoratedRow
+    {
+        private final String name;
+        private final Integer count;
+        private final String prefix;
+        private final String suffix;
+
+        private DecoratedRow(String name, Integer count, String prefix, String suffix)
+        {
+            this.name = name;
+            this.count = count;
+            this.prefix = prefix;
+            this.suffix = suffix;
+        }
+    }
+
+    private static final class DecoratedNode
+    {
+        private final String name;
+        private final Integer depth;
+        private final int objectId;
+        private final String prefix;
+        private final String suffix;
+        private final List<DecoratedNode> children;
+
+        private DecoratedNode(String name, Integer depth, int objectId, String prefix, String suffix,
+                        List<DecoratedNode> children)
+        {
+            this.name = name;
+            this.depth = depth;
+            this.objectId = objectId;
+            this.prefix = prefix;
+            this.suffix = suffix;
+            this.children = children;
+        }
+    }
+
+    private static final class RowDecorator implements IDecorator
+    {
+        public String prefix(Object row)
+        {
+            if (row instanceof DecoratedRow)
+                return ((DecoratedRow) row).prefix;
+            if (row instanceof DecoratedNode)
+                return ((DecoratedNode) row).prefix;
+            return null;
+        }
+
+        public String suffix(Object row)
+        {
+            if (row instanceof DecoratedRow)
+                return ((DecoratedRow) row).suffix;
+            if (row instanceof DecoratedNode)
+                return ((DecoratedNode) row).suffix;
+            return null;
         }
     }
 
