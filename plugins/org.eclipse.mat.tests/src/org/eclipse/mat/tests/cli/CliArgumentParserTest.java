@@ -103,12 +103,13 @@ public class CliArgumentParserTest
         CliArgumentParser parser = new CliArgumentParser();
         CliArguments arguments = parser.parse(
                         new String[] { "inspect-object", "sample.hprof", "--object", "0x2a", "--field-path",
-                                        "value", "--depth", "3" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+                                        "value", "--depth", "3", "--show-nulls" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
 
         assertEquals(CliCommand.INSPECT_OBJECT, arguments.getCommand());
         assertEquals("0x2a", arguments.getObjectAddress()); //$NON-NLS-1$
         assertEquals("value", arguments.getFieldPath()); //$NON-NLS-1$
         assertEquals(3, arguments.getTreeDepthLimit());
+        assertTrue(arguments.isShowNulls());
     }
 
     @Test
@@ -408,10 +409,11 @@ public class CliArgumentParserTest
 
         assertTrue(help.contains("threads <heap> [--limit N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--format text|json]")); //$NON-NLS-1$
-        assertTrue(help.contains("inspect-object <heap> --object 0x... [--select-field FIELD | --field-path PATH] [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("inspect-object <heap> --object 0x... [--select-field FIELD | --field-path PATH] [--show-nulls] [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("top-consumers <heap> [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("--depth N            Maximum tree or section depth (default: 8, inspect-object: 3)")); //$NON-NLS-1$
         assertTrue(help.contains("--field-path PATH    Inspect a dotted field path such as cleaner.offsetMap")); //$NON-NLS-1$
+        assertTrue(help.contains("--show-nulls         Show nested null fields and array slots in text output")); //$NON-NLS-1$
         assertTrue(help.contains("Inner class names containing '$' must be quoted or escaped")); //$NON-NLS-1$
     }
 }

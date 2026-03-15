@@ -127,7 +127,7 @@ public class ResultSerializer
         }
         else if (result instanceof IResultTree)
         {
-            out.print(treeSerializer.toText((IResultTree) result, options));
+            out.print(treeSerializer.toText((IResultTree) result, options, arguments.isShowNulls()));
         }
         else if (result instanceof IResultPie)
         {

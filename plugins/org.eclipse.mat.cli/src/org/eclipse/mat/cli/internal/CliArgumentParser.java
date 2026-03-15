@@ -27,7 +27,7 @@ public final class CliArgumentParser
     {
         if (args == null || args.length == 0)
             return new CliArguments(null, null, null, null, CliArguments.OutputFormat.TEXT, false, true,
-                            DEFAULT_LIMIT, DEFAULT_TREE_DEPTH, null, null, null, null, null, null, false, null,
+                            false, DEFAULT_LIMIT, DEFAULT_TREE_DEPTH, null, null, null, null, null, null, false, null,
                             null);
 
         CliCommand command = null;
@@ -37,6 +37,7 @@ public final class CliArgumentParser
         CliArguments.OutputFormat format = CliArguments.OutputFormat.TEXT;
         boolean verbose = false;
         boolean help = false;
+        boolean showNulls = false;
         int limit = DEFAULT_LIMIT;
         boolean limitExplicit = false;
         int treeDepthLimit = DEFAULT_TREE_DEPTH;
@@ -198,6 +199,10 @@ public final class CliArgumentParser
             {
                 verbose = true;
             }
+            else if ("--show-nulls".equals(arg)) //$NON-NLS-1$
+            {
+                showNulls = true;
+            }
             else if (arg.startsWith("--")) //$NON-NLS-1$
             {
                 throw CliException.usage("Unknown option: " + arg); //$NON-NLS-1$
@@ -229,7 +234,7 @@ public final class CliArgumentParser
         {
             if (help)
             {
-                return new CliArguments(null, null, null, null, format, verbose, true, limit,
+                return new CliArguments(null, null, null, null, format, verbose, true, showNulls, limit,
                                 treeDepthLimit, objectAddress, className, classRegex, classContains, selectField,
                                 fieldPath, includeSubclasses, oqlQuery, queryCommand);
             }
@@ -250,6 +255,7 @@ public final class CliArgumentParser
             limit = defaultLimit(command, queryCommand);
 
         CliArguments parsed = new CliArguments(command, subjectCommand, subjectName, heapFile, format, verbose, help,
+                        showNulls,
                         limit, treeDepthLimit, objectAddress, className, classRegex, classContains, selectField,
                         fieldPath, includeSubclasses, oqlQuery, queryCommand);
         validate(parsed);
@@ -462,6 +468,7 @@ public final class CliArgumentParser
         String queryCommand = null;
         int treeDepthLimit = defaultTreeDepth(null);
         boolean treeDepthExplicit = false;
+        boolean showNulls = false;
 
         if (args != null)
         {
@@ -541,6 +548,10 @@ public final class CliArgumentParser
                 {
                     includeSubclasses = true;
                 }
+                else if ("--show-nulls".equals(arg)) //$NON-NLS-1$
+                {
+                    showNulls = true;
+                }
                 else if (arg.startsWith("--")) //$NON-NLS-1$
                 {
                     continue;
@@ -582,7 +593,7 @@ public final class CliArgumentParser
         if (!treeDepthExplicit)
             treeDepthLimit = defaultTreeDepth(command);
 
-        return new CliArguments(command, subjectCommand, subjectName, heapFile, format, false, help,
+        return new CliArguments(command, subjectCommand, subjectName, heapFile, format, false, help, showNulls,
                         defaultLimit(command, queryCommand), treeDepthLimit, objectAddress, className, classRegex,
                         classContains, selectField, fieldPath, includeSubclasses, oqlQuery, queryCommand);
     }

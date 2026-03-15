@@ -189,13 +189,29 @@ public class CliCommandExecutorTest
                         address, "--limit", "5", "--depth", "3" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
 
         assertTrue(json.contains("\"resultKind\":\"tree\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"path\":\"<root>\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"valueKind\":\"reference\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"hasChildren\":true")); //$NON-NLS-1$
         assertTrue(json.contains("\"kind\":\"object\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"<object>\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"object_address\":\"" + address + "\"")); //$NON-NLS-1$ //$NON-NLS-2$
         assertTrue(json.contains("\"_children\":[{")); //$NON-NLS-1$
+        assertTrue(json.contains("\"path\":\"<root>.value\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"value\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"_meta\":{\"value\":{\"kind\":\"text_preview\"")); //$NON-NLS-1$
         assertFalse(json.contains("\"schema\":")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesInspectObjectCommandAgainstHprofSnapshotAsText() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String text = execute(new String[] { "inspect-object", heap.getAbsolutePath(), "--object",
+                        firstObjectAddress(heap, "java.lang.String"), "--format", "text", "--depth", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertTrue(text.contains("object <object>: java.lang.String")); //$NON-NLS-1$
+        assertTrue(text.contains("  .value -> char[] @0x")); //$NON-NLS-1$
+        assertFalse(text.contains("Kind | Name")); //$NON-NLS-1$
     }
 
     @Test
@@ -207,10 +223,12 @@ public class CliCommandExecutorTest
                         address, "--select-field", "value", "--limit", "5" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
 
         assertTrue(json.contains("\"kind\":\"field\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"path\":\"<root>\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"valueKind\":\"reference\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"hasChildren\":true")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"value\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"type\":\"char[]\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"_children\":[{")); //$NON-NLS-1$
-        assertFalse(json.contains("\"_hasChildren\":")); //$NON-NLS-1$
         assertTrue(json.contains("\"_meta\":{\"value\":{\"kind\":\"text_preview\"")); //$NON-NLS-1$
     }
 
@@ -223,10 +241,25 @@ public class CliCommandExecutorTest
                         address, "--field-path", "count" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
 
         assertTrue(json.contains("\"kind\":\"field\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"path\":\"<root>\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"valueKind\":\"primitive\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"hasChildren\":false")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"count\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"type\":\"int\"")); //$NON-NLS-1$
         assertFalse(json.contains("\"_context\":")); //$NON-NLS-1$
         assertFalse(json.contains("\"_children\":")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesInspectObjectFieldPathToPrimitiveAsText() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String text = execute(new String[] { "inspect-object", heap.getAbsolutePath(), "--object",
+                        firstObjectAddress(heap, "java.lang.String"), "--field-path", "count", "--format", "text" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
+
+        assertTrue(text.contains(".count = ")); //$NON-NLS-1$
+        assertTrue(text.contains(" : int")); //$NON-NLS-1$
+        assertFalse(text.contains("Kind | Name")); //$NON-NLS-1$
     }
 
     @Test

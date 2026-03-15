@@ -288,6 +288,21 @@ abstract class StructuredResultSerializer
         return cells;
     }
 
+    protected Object cellValue(CellValue cell)
+    {
+        return cell == null ? null : cell.value;
+    }
+
+    protected CellError cellError(CellValue cell)
+    {
+        return cell == null ? null : cell.error;
+    }
+
+    protected String columnId(ColumnSchema schema)
+    {
+        return schema == null ? null : schema.id;
+    }
+
     protected CellValue[] readCells(IStructuredResult result, Column[] columns, Object row)
     {
         CellValue[] cells = new CellValue[columns.length];
@@ -406,7 +421,7 @@ abstract class StructuredResultSerializer
         writer.endObject();
     }
 
-    private DisplayValue.Metadata displayMetadata(Object value)
+    protected DisplayValue.Metadata displayMetadata(Object value)
     {
         if (value instanceof DisplayValue)
             return ((DisplayValue) value).getMetadata();
@@ -449,7 +464,7 @@ abstract class StructuredResultSerializer
         return "0x" + Long.toHexString(objectAddress); //$NON-NLS-1$
     }
 
-    private String normalizeColumnId(String label, int index)
+    protected String normalizeColumnId(String label, int index)
     {
         if (label == null)
             return "col_" + (index + 1); //$NON-NLS-1$
@@ -497,12 +512,12 @@ abstract class StructuredResultSerializer
         return false;
     }
 
-    private boolean isApproximateBytes(Object value)
+    protected boolean isApproximateBytes(Object value)
     {
         return value instanceof Bytes && ((Bytes) value).getValue() < 0;
     }
 
-    private boolean isAddressColumn(Column column)
+    protected boolean isAddressColumn(Column column)
     {
         if (column == null || column.getType() == null || !isIntegerType(column.getType()))
             return false;

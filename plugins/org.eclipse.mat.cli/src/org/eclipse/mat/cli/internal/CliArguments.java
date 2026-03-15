@@ -34,6 +34,7 @@ public final class CliArguments
     private final OutputFormat format;
     private final boolean verbose;
     private final boolean help;
+    private final boolean showNulls;
     private final int limit;
     private final int treeDepthLimit;
     private final String objectAddress;
@@ -47,7 +48,8 @@ public final class CliArguments
     private final String queryCommand;
 
     CliArguments(CliCommand command, CliCommand subjectCommand, String subjectName, File heapFile,
-                    OutputFormat format, boolean verbose, boolean help, int limit, int treeDepthLimit,
+                    OutputFormat format, boolean verbose, boolean help, boolean showNulls, int limit,
+                    int treeDepthLimit,
                     String objectAddress, String className, String classRegex, String classContains,
                     String selectField, String fieldPath, boolean includeSubclasses, String oqlQuery,
                     String queryCommand)
@@ -59,6 +61,7 @@ public final class CliArguments
         this.format = format;
         this.verbose = verbose;
         this.help = help;
+        this.showNulls = showNulls;
         this.limit = limit;
         this.treeDepthLimit = treeDepthLimit;
         this.objectAddress = objectAddress;
@@ -105,6 +108,11 @@ public final class CliArguments
     public boolean isHelp()
     {
         return help;
+    }
+
+    public boolean isShowNulls()
+    {
+        return showNulls;
     }
 
     public int getLimit()

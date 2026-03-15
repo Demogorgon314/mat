@@ -27,8 +27,9 @@ import org.eclipse.mat.snapshot.model.IObject;
 import org.eclipse.mat.snapshot.model.IObjectArray;
 import org.eclipse.mat.snapshot.model.IPrimitiveArray;
 import org.eclipse.mat.snapshot.model.ObjectReference;
+import org.eclipse.mat.cli.internal.serialization.TreeTextStyleProvider;
 
-final class ObjectInspectorResult implements IResultTree
+final class ObjectInspectorResult implements IResultTree, TreeTextStyleProvider
 {
     static final class RootValue
     {
@@ -119,6 +120,11 @@ final class ObjectInspectorResult implements IResultTree
     public List<?> getElements()
     {
         return roots;
+    }
+
+    public TreeTextStyle getTreeTextStyle()
+    {
+        return TreeTextStyle.INSPECTOR;
     }
 
     public boolean hasChildren(Object element)
@@ -309,6 +315,6 @@ final class ObjectInspectorResult implements IResultTree
 
     private Node primitiveNode(String kind, String name, String type, Object value)
     {
-        return new Node(kind, name, type, ObjectDisplayHelper.primitiveValue(value), null);
+        return new Node(kind, name, type, value == null ? null : ObjectDisplayHelper.primitiveValue(value), null);
     }
 }

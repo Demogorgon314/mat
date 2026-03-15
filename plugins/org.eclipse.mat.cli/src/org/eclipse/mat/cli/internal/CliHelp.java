@@ -29,7 +29,7 @@ public final class CliHelp
         help.append("  threads <heap> [--limit N] [--format text|json]\n"); //$NON-NLS-1$
         help.append("  histogram <heap> [--limit N] [--format text|json]\n"); //$NON-NLS-1$
         help.append("  instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--format text|json]\n"); //$NON-NLS-1$
-        help.append("  inspect-object <heap> --object 0x... [--select-field FIELD | --field-path PATH] [--limit N] [--depth N] [--format text|json]\n"); //$NON-NLS-1$
+        help.append("  inspect-object <heap> --object 0x... [--select-field FIELD | --field-path PATH] [--show-nulls] [--limit N] [--depth N] [--format text|json]\n"); //$NON-NLS-1$
         help.append("  top-consumers <heap> [--limit N] [--depth N] [--format text|json]\n"); //$NON-NLS-1$
         help.append("  path2gc <heap> --object 0x... [--limit N] [--depth N] [--format text|json]\n"); //$NON-NLS-1$
         help.append("  oql <heap> --query \"...\" [--limit N] [--depth N] [--format text|json]\n"); //$NON-NLS-1$
@@ -46,7 +46,8 @@ public final class CliHelp
         help.append("  --help               Show this help\n\n"); //$NON-NLS-1$
         help.append("Inspect-object options:\n"); //$NON-NLS-1$
         help.append("  --select-field FIELD Inspect one direct field from the root object\n"); //$NON-NLS-1$
-        help.append("  --field-path PATH    Inspect a dotted field path such as cleaner.offsetMap\n\n"); //$NON-NLS-1$
+        help.append("  --field-path PATH    Inspect a dotted field path such as cleaner.offsetMap\n"); //$NON-NLS-1$
+        help.append("  --show-nulls         Show nested null fields and array slots in text output\n\n"); //$NON-NLS-1$
         help.append("Input options:\n"); //$NON-NLS-1$
         help.append("  --query-file PATH    Read OQL text from a UTF-8 file\n"); //$NON-NLS-1$
         help.append("  --query-stdin        Read OQL text from stdin\n"); //$NON-NLS-1$

@@ -37,6 +37,8 @@ import org.eclipse.mat.cli.internal.serialization.TableResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.TextResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.TopConsumersResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.TreeResultSerializer;
+import org.eclipse.mat.cli.internal.serialization.TreeTextStyleProvider;
+import org.eclipse.mat.cli.internal.serialization.TreeTextStyleProvider.TreeTextStyle;
 import org.eclipse.mat.query.Bytes;
 import org.eclipse.mat.query.Column;
 import org.eclipse.mat.query.IContextObject;
@@ -150,8 +152,8 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
-        assertTrue(json.contains("\"rows\":[{\"values\":[\"Root\",1]")); //$NON-NLS-1$
-        assertTrue(json.contains("\"children\":[{\"values\":[\"Leaf\",2]")); //$NON-NLS-1$
+        assertTrue(json.contains("\"rows\":[{\"path\":\"<root>\",\"valueKind\":\"reference\",\"hasChildren\":true,\"values\":[\"Root\",1]")); //$NON-NLS-1$
+        assertTrue(json.contains("\"children\":[{\"path\":\"<root>.Leaf\",\"valueKind\":\"reference\",\"hasChildren\":false,\"values\":[\"Leaf\",2]")); //$NON-NLS-1$
         assertTrue(json.contains("\"context\":{\"objectId\":77}")); //$NON-NLS-1$
     }
 
@@ -167,10 +169,9 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
-        assertTrue(json.contains("\"items\":[{\"name\":\"Root\",\"depth\":1")); //$NON-NLS-1$
-        assertTrue(json.contains("\"_children\":[{\"name\":\"Leaf\",\"depth\":2")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{\"path\":\"<root>\",\"valueKind\":\"reference\",\"hasChildren\":true,\"name\":\"Root\",\"depth\":1")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_children\":[{\"path\":\"<root>.Leaf\",\"valueKind\":\"reference\",\"hasChildren\":false,\"name\":\"Leaf\",\"depth\":2")); //$NON-NLS-1$
         assertFalse(json.contains("\"schema\":")); //$NON-NLS-1$
-        assertFalse(json.contains("\"_hasChildren\":")); //$NON-NLS-1$
         assertFalse(json.contains("\"_childrenTruncated\":false")); //$NON-NLS-1$
     }
 
@@ -232,19 +233,107 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
+        assertTrue(json.contains("\"path\":\"<root>\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"valueKind\":\"preview\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"hasChildren\":false")); //$NON-NLS-1$
         assertTrue(json.contains("\"value\":\"61 62 63 ...\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"_meta\":{\"value\":{\"kind\":\"hex_preview\",\"length\":64,\"truncated\":true,\"encoding\":\"hex\"}}")); //$NON-NLS-1$
     }
 
     @Test
-    public void rendersTreeTextWithColumnHeaders()
+    public void rendersTreeTextAsCompactTree()
     {
         TreeResultSerializer serializer = new TreeResultSerializer();
 
         String text = serializer.toText(new SampleTree(), new SerializationOptions(10, 8));
 
-        assertTrue(text.startsWith("Name | Depth\n")); //$NON-NLS-1$
-        assertTrue(text.contains("- Root | 1")); //$NON-NLS-1$
+        assertFalse(text.startsWith("Name | Depth\n")); //$NON-NLS-1$
+        assertTrue(text.contains("- Root [Depth=1]")); //$NON-NLS-1$
+        assertTrue(text.contains("  - Leaf [Depth=2]")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void hidesNestedInspectorNullsByDefaultAndShowsThemWhenEnabled() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        CliArgumentParser parser = new CliArgumentParser();
+        ByteArrayOutputStream hiddenOutput = new ByteArrayOutputStream();
+        ByteArrayOutputStream shownOutput = new ByteArrayOutputStream();
+
+        CliArguments hiddenArguments = parser.parse(
+                        new String[] { "inspect-object", "sample.hprof", "--object", "0x2a", "--format", "text" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+        CliArguments shownArguments = parser.parse(new String[] { "inspect-object", "sample.hprof", "--object", "0x2a",
+                        "--format", "text", "--show-nulls" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
+
+        try (PrintStream stream = new PrintStream(hiddenOutput, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serialize(hiddenArguments, CliExecution.result(new InspectorNullTree()), stream);
+        }
+        try (PrintStream stream = new PrintStream(shownOutput, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serialize(shownArguments, CliExecution.result(new InspectorNullTree()), stream);
+        }
+
+        String hiddenText = hiddenOutput.toString(StandardCharsets.UTF_8.name());
+        String shownText = shownOutput.toString(StandardCharsets.UTF_8.name());
+
+        assertTrue(hiddenText.contains("object <object>: sample.Type")); //$NON-NLS-1$
+        assertTrue(hiddenText.contains(".size = 3 : int")); //$NON-NLS-1$
+        assertFalse(hiddenText.contains(".next = null")); //$NON-NLS-1$
+
+        assertTrue(shownText.contains(".size = 3 : int")); //$NON-NLS-1$
+        assertTrue(shownText.contains(".next = null")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void keepsRootNullInspectorRowVisibleWhenNullsAreHidden() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        CliArguments arguments = new CliArgumentParser().parse(
+                        new String[] { "inspect-object", "sample.hprof", "--object", "0x2a", "--format", "text" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serialize(arguments, CliExecution.result(new InspectorRootNullTree()), stream);
+        }
+
+        String text = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(text.contains(".next = null")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void keepsHasChildrenWhenAgentTreeDepthTruncatesChildren()
+    {
+        TreeResultSerializer serializer = new TreeResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeAgentJson(writer, new SampleTree(), new SerializationOptions(10, 1));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertTrue(truncated);
+        assertTrue(json.contains("\"path\":\"<root>\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"hasChildren\":true")); //$NON-NLS-1$
+        assertFalse(json.contains("\"_children\":")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesNullTreeValuesAsNullValueKind()
+    {
+        TreeResultSerializer serializer = new TreeResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeAgentJson(writer, new NullValueTree(), new SerializationOptions(10, 8));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"path\":\"<root>\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"valueKind\":\"null\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"value\":null")); //$NON-NLS-1$
     }
 
     @Test
@@ -831,6 +920,181 @@ public class ResultSerializerTest
         }
     }
 
+    private static final class NullValueTree implements IResultTree
+    {
+        private final Column[] columns = new Column[] { new Column("Name", String.class), new Column("Value", String.class) }; //$NON-NLS-1$ //$NON-NLS-2$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            return columnIndex == 0 ? "Slot" : null; //$NON-NLS-1$
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            return null;
+        }
+
+        public List<?> getElements()
+        {
+            return Collections.singletonList("row"); //$NON-NLS-1$
+        }
+
+        public boolean hasChildren(Object element)
+        {
+            return false;
+        }
+
+        public List<?> getChildren(Object parent)
+        {
+            return Collections.emptyList();
+        }
+    }
+
+    private static final class InspectorNullTree implements IResultTree, TreeTextStyleProvider
+    {
+        private final InspectorNode root = new InspectorNode("object", "<object>", "sample.Type", "sample.Type", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+                        Integer.valueOf(1), Arrays.asList(
+                                        new InspectorNode("field", "next", "java.lang.Object", null, null, //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                                        Collections.<InspectorNode>emptyList()),
+                                        new InspectorNode("field", "size", "int", Integer.valueOf(3), null, //$NON-NLS-1$ //$NON-NLS-2$
+                                                        Collections.<InspectorNode>emptyList())));
+        private final Column[] columns = new Column[] { new Column("Kind", String.class), new Column("Name", String.class), //$NON-NLS-1$ //$NON-NLS-2$
+                        new Column("Type", String.class), new Column("Value", String.class) }; //$NON-NLS-1$ //$NON-NLS-2$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            InspectorNode value = (InspectorNode) row;
+            switch (columnIndex)
+            {
+                case 0:
+                    return value.kind;
+                case 1:
+                    return value.name;
+                case 2:
+                    return value.type;
+                case 3:
+                    return value.value;
+                default:
+                    return null;
+            }
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            final InspectorNode value = (InspectorNode) row;
+            if (value.objectId == null)
+                return null;
+            return new IContextObject()
+            {
+                public int getObjectId()
+                {
+                    return value.objectId.intValue();
+                }
+            };
+        }
+
+        public List<?> getElements()
+        {
+            return Collections.singletonList(root);
+        }
+
+        public boolean hasChildren(Object element)
+        {
+            return !((InspectorNode) element).children.isEmpty();
+        }
+
+        public List<?> getChildren(Object parent)
+        {
+            return ((InspectorNode) parent).children;
+        }
+
+        public TreeTextStyle getTreeTextStyle()
+        {
+            return TreeTextStyle.INSPECTOR;
+        }
+    }
+
+    private static final class InspectorRootNullTree implements IResultTree, TreeTextStyleProvider
+    {
+        private final InspectorNode root = new InspectorNode("field", "next", "java.lang.Object", null, null, //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                        Collections.<InspectorNode>emptyList());
+        private final Column[] columns = new Column[] { new Column("Kind", String.class), new Column("Name", String.class), //$NON-NLS-1$ //$NON-NLS-2$
+                        new Column("Type", String.class), new Column("Value", String.class) }; //$NON-NLS-1$ //$NON-NLS-2$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            InspectorNode value = (InspectorNode) row;
+            switch (columnIndex)
+            {
+                case 0:
+                    return value.kind;
+                case 1:
+                    return value.name;
+                case 2:
+                    return value.type;
+                case 3:
+                    return value.value;
+                default:
+                    return null;
+            }
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            return null;
+        }
+
+        public List<?> getElements()
+        {
+            return Collections.singletonList(root);
+        }
+
+        public boolean hasChildren(Object element)
+        {
+            return false;
+        }
+
+        public List<?> getChildren(Object parent)
+        {
+            return Collections.emptyList();
+        }
+
+        public TreeTextStyle getTreeTextStyle()
+        {
+            return TreeTextStyle.INSPECTOR;
+        }
+    }
+
     private static final class AddressTable implements IResultTable
     {
         private final Column[] columns = new Column[] { new Column("threadAddress", Long.class) }; //$NON-NLS-1$
@@ -877,6 +1141,27 @@ public class ResultSerializerTest
             this.name = name;
             this.value = value;
             this.objectId = objectId;
+        }
+    }
+
+    private static final class InspectorNode
+    {
+        private final String kind;
+        private final String name;
+        private final String type;
+        private final Object value;
+        private final Integer objectId;
+        private final List<InspectorNode> children;
+
+        private InspectorNode(String kind, String name, String type, Object value, Integer objectId,
+                        List<InspectorNode> children)
+        {
+            this.kind = kind;
+            this.name = name;
+            this.type = type;
+            this.value = value;
+            this.objectId = objectId;
+            this.children = children;
         }
     }
 
