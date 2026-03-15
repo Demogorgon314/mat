@@ -1,0 +1,4 @@
+interface:
+  display_name: "MAT CLI Heapdump Investigator"
+  short_description: "Investigate Java heap dumps with MAT CLI"
+  default_prompt: "Use $mat-cli-heapdump-investigator to analyze this heap dump with mat-cli, find leak suspects, inspect retained memory, and explain the results."
