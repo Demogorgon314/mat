@@ -9,7 +9,9 @@
  *******************************************************************************/
 package org.eclipse.mat.cli.internal.serialization;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.eclipse.mat.cli.internal.CliCommandCatalog.CommandDefinition;
 import org.eclipse.mat.cli.internal.CliCommandCatalog.OptionDefinition;
@@ -23,15 +25,9 @@ public class CommandMetadataSerializer
         return result.getKind() == CommandMetadataResult.Kind.DESCRIBE ? "describe" : "schema"; //$NON-NLS-1$ //$NON-NLS-2$
     }
 
-    public boolean writeJson(JsonWriter writer, CommandMetadataResult result, boolean agentProfile)
+    public boolean writeJson(JsonWriter writer, CommandMetadataResult result)
     {
         CommandDefinition definition = result.getDefinition();
-        if (!agentProfile)
-        {
-            writer.name("subject").value(definition.getCommand().getToken()); //$NON-NLS-1$
-            writer.name("resultType").value(resultKind(result)); //$NON-NLS-1$
-        }
-
         writer.name("name").value(definition.getCommand().getToken()); //$NON-NLS-1$
         writer.name("summary").value(definition.getSummary()); //$NON-NLS-1$
         writer.name("usage").value(definition.getUsage()); //$NON-NLS-1$
@@ -39,21 +35,16 @@ public class CommandMetadataSerializer
         writeStrings(writer, "positionalArguments", definition.getPositionalArguments()); //$NON-NLS-1$
         writeOptions(writer, definition.getOptions());
         writeOutputs(writer, definition.getOutputs());
-        if (!agentProfile)
-            writeStrings(writer, "suggestedNextCommands", definition.getSuggestedNextCommands()); //$NON-NLS-1$
         if (result.getKind() == CommandMetadataResult.Kind.SCHEMA)
         {
-            writer.name("agentEnvelope").beginArray(); //$NON-NLS-1$
+            writer.name("jsonEnvelope").beginArray(); //$NON-NLS-1$
             writer.value("schemaVersion"); //$NON-NLS-1$
-            writer.value("profile"); //$NON-NLS-1$
-            writer.value("command"); //$NON-NLS-1$
-            writer.value("heap"); //$NON-NLS-1$
-            writer.value("subject"); //$NON-NLS-1$
             writer.value("resultKind"); //$NON-NLS-1$
             writer.value("truncated"); //$NON-NLS-1$
-            writer.value("suggestedNextCommands"); //$NON-NLS-1$
+            writer.value("note when present"); //$NON-NLS-1$
+            writer.value("suggestedNextCommands when present"); //$NON-NLS-1$
             writer.endArray();
-            writer.name("payloadKind").value(agentPayloadKind(definition)); //$NON-NLS-1$
+            writer.name("payloadKind").value(jsonPayloadKind(definition)); //$NON-NLS-1$
             writer.name("payloadDescription").value(definition.getAgentPayloadDescription()); //$NON-NLS-1$
             writeStrings(writer, "payloadFields", definition.getAgentPayloadFields()); //$NON-NLS-1$
         }
@@ -79,26 +70,26 @@ public class CommandMetadataSerializer
             builder.append(option.getDescription()).append('\n');
         }
         builder.append("Outputs:\n"); //$NON-NLS-1$
-        for (OutputDefinition output : definition.getOutputs())
+        for (OutputDefinition output : uniqueOutputs(definition.getOutputs()))
         {
-            builder.append("  ").append(output.getProfile()).append('/').append(output.getFormat()).append(": "); //$NON-NLS-1$
+            builder.append("  ").append(output.getFormat()).append(": "); //$NON-NLS-1$
             builder.append(output.getResultKind()).append(" - ").append(output.getDescription()).append('\n'); //$NON-NLS-1$
         }
         if (result.getKind() == CommandMetadataResult.Kind.SCHEMA)
         {
-            builder.append("Agent payload kind: ").append(agentPayloadKind(definition)).append('\n'); //$NON-NLS-1$
-            builder.append("Agent payload: ").append(definition.getAgentPayloadDescription()).append('\n'); //$NON-NLS-1$
-            appendStrings(builder, "Agent payload fields", definition.getAgentPayloadFields()); //$NON-NLS-1$
+            builder.append("JSON payload kind: ").append(jsonPayloadKind(definition)).append('\n'); //$NON-NLS-1$
+            builder.append("JSON payload: ").append(definition.getAgentPayloadDescription()).append('\n'); //$NON-NLS-1$
+            appendStrings(builder, "JSON payload fields", definition.getAgentPayloadFields()); //$NON-NLS-1$
         }
         appendStrings(builder, "Suggested next commands", definition.getSuggestedNextCommands()); //$NON-NLS-1$
         return builder.toString();
     }
 
-    private String agentPayloadKind(CommandDefinition definition)
+    private String jsonPayloadKind(CommandDefinition definition)
     {
         for (OutputDefinition output : definition.getOutputs())
         {
-            if ("agent".equals(output.getProfile()) && "json".equals(output.getFormat())) //$NON-NLS-1$ //$NON-NLS-2$
+            if ("json".equals(output.getFormat())) //$NON-NLS-1$
                 return output.getResultKind();
         }
         return "unknown"; //$NON-NLS-1$
@@ -122,16 +113,25 @@ public class CommandMetadataSerializer
     private void writeOutputs(JsonWriter writer, List<OutputDefinition> outputs)
     {
         writer.name("outputs").beginArray(); //$NON-NLS-1$
-        for (OutputDefinition output : outputs)
+        for (OutputDefinition output : uniqueOutputs(outputs))
         {
             writer.beginObject();
-            writer.name("profile").value(output.getProfile()); //$NON-NLS-1$
             writer.name("format").value(output.getFormat()); //$NON-NLS-1$
             writer.name("resultKind").value(output.getResultKind()); //$NON-NLS-1$
             writer.name("description").value(output.getDescription()); //$NON-NLS-1$
             writer.endObject();
         }
         writer.endArray();
+    }
+
+    private List<OutputDefinition> uniqueOutputs(List<OutputDefinition> outputs)
+    {
+        Map<String, OutputDefinition> unique = new LinkedHashMap<String, OutputDefinition>();
+        for (OutputDefinition output : outputs)
+        {
+            unique.put(output.getFormat() + '\u0000' + output.getResultKind(), output);
+        }
+        return java.util.Arrays.asList(unique.values().toArray(new OutputDefinition[0]));
     }
 
     private void writeStrings(JsonWriter writer, String name, List<String> values)

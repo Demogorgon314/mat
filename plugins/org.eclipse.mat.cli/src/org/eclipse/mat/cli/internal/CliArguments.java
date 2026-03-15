@@ -13,20 +13,6 @@ import java.io.File;
 
 public final class CliArguments
 {
-    public enum OutputProfile
-    {
-        DEFAULT, AGENT;
-
-        public static OutputProfile parse(String value) throws CliException
-        {
-            if ("default".equalsIgnoreCase(value)) //$NON-NLS-1$
-                return DEFAULT;
-            if ("agent".equalsIgnoreCase(value)) //$NON-NLS-1$
-                return AGENT;
-            throw CliException.usage("Unsupported profile: " + value); //$NON-NLS-1$
-        }
-    }
-
     public enum OutputFormat
     {
         TEXT, JSON;
@@ -45,7 +31,6 @@ public final class CliArguments
     private final CliCommand subjectCommand;
     private final String subjectName;
     private final File heapFile;
-    private final OutputProfile profile;
     private final OutputFormat format;
     private final boolean verbose;
     private final boolean help;
@@ -59,7 +44,7 @@ public final class CliArguments
     private final String oqlQuery;
     private final String queryCommand;
 
-    CliArguments(CliCommand command, CliCommand subjectCommand, String subjectName, File heapFile, OutputProfile profile,
+    CliArguments(CliCommand command, CliCommand subjectCommand, String subjectName, File heapFile,
                     OutputFormat format, boolean verbose, boolean help, int limit, int treeDepthLimit,
                     String objectAddress, String className, String selectField, String fieldPath,
                     boolean includeSubclasses, String oqlQuery, String queryCommand)
@@ -68,7 +53,6 @@ public final class CliArguments
         this.subjectCommand = subjectCommand;
         this.subjectName = subjectName;
         this.heapFile = heapFile;
-        this.profile = profile;
         this.format = format;
         this.verbose = verbose;
         this.help = help;
@@ -101,16 +85,6 @@ public final class CliArguments
     public File getHeapFile()
     {
         return heapFile;
-    }
-
-    public OutputProfile getProfile()
-    {
-        return profile;
-    }
-
-    public boolean isAgentProfile()
-    {
-        return profile == OutputProfile.AGENT;
     }
 
     public OutputFormat getFormat()

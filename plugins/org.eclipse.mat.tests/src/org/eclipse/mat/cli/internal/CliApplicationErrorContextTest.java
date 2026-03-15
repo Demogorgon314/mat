@@ -21,21 +21,23 @@ import org.junit.Test;
 public class CliApplicationErrorContextTest
 {
     @Test
-    public void partialParsePreservesCommandForAgentUsageErrors() throws Exception
+    public void partialParsePreservesCommandForJsonUsageErrors() throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
-        CliArguments arguments = parser.partialParse(new String[] { "path2gc", "sample.hprof", "--agent" }, //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                        CliArguments.OutputProfile.AGENT, CliArguments.OutputFormat.JSON);
+        CliArguments arguments = parser.partialParse(new String[] { "path2gc", "sample.hprof", "--format", "json" }, //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+                        CliArguments.OutputFormat.JSON);
         ResultSerializer serializer = new ResultSerializer();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
 
         try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
         {
-            serializer.serializeError(arguments, CliArguments.OutputProfile.AGENT, CliExitCodes.USAGE,
+            serializer.serializeError(arguments, CliArguments.OutputFormat.JSON, CliExitCodes.USAGE,
                             CliException.usage("path2gc requires --object 0x..."), stream); //$NON-NLS-1$
         }
 
         String json = output.toString(StandardCharsets.UTF_8.name());
-        assertTrue(json.contains("\"command\":\"path2gc\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"resultKind\":\"error\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"kind\":\"usage\"")); //$NON-NLS-1$
+        assertTrue(json.contains("mat-cli summary")); //$NON-NLS-1$
     }
 }

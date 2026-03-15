@@ -81,8 +81,9 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
-        assertTrue(json.contains("\"schema\":{\"columns\":[{\"id\":\"name\",\"label\":\"Name\",\"jsonType\":\"string\",\"sourceType\":\"java.lang.String\"},{\"id\":\"count\",\"label\":\"Count\",\"jsonType\":\"integer\",\"sourceType\":\"int\"}]}")); //$NON-NLS-1$
-        assertTrue(json.contains("\"items\":[{\"name\":\"Alpha\",\"count\":7,\"_context\":{\"objectId\":42}}]")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{\"name\":\"Alpha\",\"count\":7}]")); //$NON-NLS-1$
+        assertFalse(json.contains("\"schema\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"_context\":")); //$NON-NLS-1$
         assertFalse(json.contains("displayValues")); //$NON-NLS-1$
     }
 
@@ -99,7 +100,8 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
-        assertTrue(json.contains("\"_context\":{\"objectId\":42,\"objectAddress\":\"0x2a\"}")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_address\":\"0x2a\"")); //$NON-NLS-1$
+        assertFalse(json.contains("\"_context\":")); //$NON-NLS-1$
     }
 
     @Test
@@ -132,7 +134,8 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
-        assertTrue(json.contains("\"items\":[{\"name\":\"Alpha\",\"count\":null,\"_context\":{\"objectId\":42},\"_errors\":{\"count\":{\"class\":\"java.lang.IllegalStateException\",\"message\":\"boom\"}}}]")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{\"name\":\"Alpha\",\"count\":null,\"_errors\":{\"count\":{\"class\":\"java.lang.IllegalStateException\",\"message\":\"boom\"}}}]")); //$NON-NLS-1$
+        assertFalse(json.contains("\"_context\":")); //$NON-NLS-1$
     }
 
     @Test
@@ -164,10 +167,11 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
-        assertTrue(json.contains("\"schema\":{\"columns\":[{\"id\":\"name\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"items\":[{\"name\":\"Root\",\"depth\":1,\"_context\":{\"objectId\":77},\"_hasChildren\":true")); //$NON-NLS-1$
-        assertTrue(json.contains("\"_children\":[{\"name\":\"Leaf\",\"depth\":2,\"_context\":{\"objectId\":78},\"_hasChildren\":false")); //$NON-NLS-1$
-        assertTrue(json.contains("\"_childrenTruncated\":false")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{\"name\":\"Root\",\"depth\":1")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_children\":[{\"name\":\"Leaf\",\"depth\":2")); //$NON-NLS-1$
+        assertFalse(json.contains("\"schema\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"_hasChildren\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"_childrenTruncated\":false")); //$NON-NLS-1$
     }
 
     @Test
@@ -182,8 +186,8 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
-        assertTrue(json.contains("\"id\":\"threadaddress\",\"label\":\"threadAddress\",\"jsonType\":\"string\",\"sourceType\":\"java.lang.Long\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"threadaddress\":\"0x2a\"")); //$NON-NLS-1$
+        assertFalse(json.contains("\"schema\":")); //$NON-NLS-1$
     }
 
     @Test
@@ -432,14 +436,13 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertTrue(truncated);
-        assertTrue(
-                        json.contains("\"biggestObjects\":[{\"objectId\":91,\"label\":\"Largest\",\"retainedBytes\":500,\"retainedPercent\":0.5,\"_context\":{\"objectId\":91}}]")
-                                        || json.contains("\"biggestObjects\":[{\"objectId\":91,\"label\":\"Largest\",\"retainedBytes\":500,\"retainedPercent\":0.5,\"_context\":{\"objectId\":91}},{\"objectId\":92")); //$NON-NLS-1$
-        assertTrue(json.contains(
-                        "\"classes\":[{\"objectId\":41,\"label\":\"Alpha\",\"count\":4,\"retainedBytes\":600,\"retainedPercent\":0.6,\"_context\":{\"objectId\":41}}")); //$NON-NLS-1$
+        assertTrue(json.contains("\"biggestObjects\":[{\"label\":\"Largest\",\"retainedBytes\":500,\"retainedPercent\":0.5}")); //$NON-NLS-1$
+        assertTrue(json.contains("\"classes\":[{\"label\":\"Alpha\",\"count\":4,\"retainedBytes\":600,\"retainedPercent\":0.6}")); //$NON-NLS-1$
         assertTrue(json.contains("\"packages\":{\"name\":\"<all>\",\"retainedBytes\":1000,\"retainedPercent\":1.0,\"topDominators\":4")); //$NON-NLS-1$
         assertFalse(json.contains("retainedBytesText")); //$NON-NLS-1$
         assertFalse(json.contains("retainedPercentText")); //$NON-NLS-1$
+        assertFalse(json.contains("\"objectId\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"_context\":")); //$NON-NLS-1$
     }
 
     @Test
@@ -455,7 +458,7 @@ public class ResultSerializerTest
         String json = writer.toString();
         assertTrue(truncated);
         assertTrue(json.contains("\"packages\":{\"name\":\"<all>\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"_children\":[]")); //$NON-NLS-1$
+        assertFalse(json.contains("\"_children\":[]")); //$NON-NLS-1$
         assertTrue(json.contains("\"_childrenTruncated\":true")); //$NON-NLS-1$
     }
 
@@ -518,16 +521,17 @@ public class ResultSerializerTest
         ResultSerializer serializer = new ResultSerializer();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         CliArguments arguments = new CliArgumentParser()
-                        .parse(new String[] { "--agent", "oql", "sample.hprof", "--query", "SELECT * FROM java.lang.String" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+                        .parse(new String[] { "oql", "sample.hprof", "--query", "SELECT * FROM java.lang.String", "--format",
+                                        "json", "--verbose" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
 
         try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
         {
-            serializer.serializeError(arguments, CliArguments.OutputProfile.AGENT, 3, new IllegalStateException( //$NON-NLS-1$
+            serializer.serializeError(arguments, CliArguments.OutputFormat.JSON, 3, new IllegalStateException( //$NON-NLS-1$
                             "wrapper", new NullPointerException("reader is closed")), stream); //$NON-NLS-1$ //$NON-NLS-2$
         }
 
         String json = output.toString(StandardCharsets.UTF_8.name());
-        assertTrue(json.contains("\"schemaVersion\":\"mat-cli/v1\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"schemaVersion\":\"mat-cli/v2\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"resultKind\":\"error\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"exceptionClass\":\"java.lang.IllegalStateException\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"rootCauseClass\":\"java.lang.NullPointerException\"")); //$NON-NLS-1$
@@ -537,12 +541,12 @@ public class ResultSerializerTest
     }
 
     @Test
-    public void serializesThreadsAgentEnvelope() throws Exception
+    public void serializesThreadsJsonEnvelope() throws Exception
     {
         ResultSerializer serializer = new ResultSerializer();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         CliArguments arguments = new CliArgumentParser()
-                        .parse(new String[] { "--agent", "threads", "sample.hprof" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                        .parse(new String[] { "threads", "sample.hprof", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
         try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
         {
@@ -555,7 +559,8 @@ public class ResultSerializerTest
         assertTrue(json.contains("\"summary\":{\"totalThreads\":2")); //$NON-NLS-1$
         assertTrue(json.contains("\"threads\":[{")); //$NON-NLS-1$
         assertTrue(json.contains("\"stackAvailable\":false")); //$NON-NLS-1$
-        assertTrue(json.contains("\"_context\":{\"objectId\":42,\"objectAddress\":\"0x2a\"}")); //$NON-NLS-1$
+        assertTrue(json.contains("\"objectAddress\":\"0x2a\"")); //$NON-NLS-1$
+        assertFalse(json.contains("\"_context\":")); //$NON-NLS-1$
     }
 
     @Test
@@ -564,11 +569,12 @@ public class ResultSerializerTest
         ResultSerializer serializer = new ResultSerializer();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         CliArguments arguments = new CliArgumentParser()
-                        .parse(new String[] { "--agent", "oql", "sample.hprof", "--query", "SELECT * FROM java.lang.String" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+                        .parse(new String[] { "oql", "sample.hprof", "--query", "SELECT * FROM java.lang.String", "--format",
+                                        "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
 
         try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
         {
-            serializer.serializeError(arguments, CliArguments.OutputProfile.AGENT, 3,
+            serializer.serializeError(arguments, CliArguments.OutputFormat.JSON, 3,
                             new IllegalStateException("Problem reported: boom"), stream); //$NON-NLS-1$
         }
 
@@ -582,17 +588,18 @@ public class ResultSerializerTest
         ResultSerializer serializer = new ResultSerializer();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         CliArguments arguments = new CliArgumentParser()
-                        .parse(new String[] { "--agent", "query", "sample.hprof", "--command", "leak_suspects" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+                        .parse(new String[] { "query", "sample.hprof", "--command", "leak_suspects", "--format",
+                                        "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
 
         try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
         {
-            serializer.serializeError(arguments, CliArguments.OutputProfile.AGENT, 3,
+            serializer.serializeError(arguments, CliArguments.OutputFormat.JSON, 3,
                             new IllegalStateException("Command leak_suspects not found."), stream); //$NON-NLS-1$
         }
 
         String json = output.toString(StandardCharsets.UTF_8.name());
         assertTrue(json.contains("\"kind\":\"query_not_found\"")); //$NON-NLS-1$
-        assertTrue(json.contains("mat-cli list-queries --agent")); //$NON-NLS-1$
+        assertTrue(json.contains("mat-cli list-queries --format json")); //$NON-NLS-1$
     }
 
     @Test
@@ -601,11 +608,11 @@ public class ResultSerializerTest
         ResultSerializer serializer = new ResultSerializer();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         CliArguments arguments = new CliArgumentParser()
-                        .parse(new String[] { "--agent", "summary", "/does/not/exist.hprof" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                        .parse(new String[] { "summary", "/does/not/exist.hprof", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
         try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
         {
-            serializer.serializeError(arguments, CliArguments.OutputProfile.AGENT, 3,
+            serializer.serializeError(arguments, CliArguments.OutputFormat.JSON, 3,
                             new IllegalStateException("Heap dump not found: /does/not/exist.hprof"), stream); //$NON-NLS-1$
         }
 
@@ -629,12 +636,12 @@ public class ResultSerializerTest
                                                         "Heap object or class name"))))); //$NON-NLS-1$
         JsonWriter writer = new JsonWriter();
         writer.beginObject();
-        writer.name("resultType").value(serializer.resultKind(result)); //$NON-NLS-1$
+        writer.name("resultKind").value(serializer.resultKind(result)); //$NON-NLS-1$
         serializer.writeJson(writer, result);
         writer.endObject();
 
         String json = writer.toString();
-        assertTrue(json.contains("\"resultType\":\"query-list\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"resultKind\":\"query-list\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"queries\":[{\"identifier\":\"hash_entries\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"arguments\":[{\"name\":\"subject\"")); //$NON-NLS-1$
     }

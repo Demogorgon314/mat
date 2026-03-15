@@ -32,7 +32,6 @@ public class TreeResultSerializer extends StructuredResultSerializer
     public boolean writeAgentJson(JsonWriter writer, IResultTree tree, SerializationOptions options)
     {
         ColumnSchema[] schema = buildColumnSchemas(tree.getColumns());
-        writeAgentSchema(writer, schema);
         writer.name("items").beginArray(); //$NON-NLS-1$
         TruncationState state = new TruncationState(options.getTreeNodeLimit());
         writeAgentNodes(writer, tree, schema, tree.getElements(), 0, options, state, new PathState());
@@ -122,13 +121,13 @@ public class TreeResultSerializer extends StructuredResultSerializer
 
             writer.beginObject();
             writeAgentRow(writer, tree, columns, row, options);
-            writer.name("_hasChildren").value(hasChildren); //$NON-NLS-1$
             Integer objectId = rowObjectId(tree, row);
             boolean cycle = path.isCycle(objectId);
-            writer.name("_cycle").value(cycle); //$NON-NLS-1$
+            if (cycle)
+                writer.name("_cycle").value(true); //$NON-NLS-1$
 
             boolean childrenTruncated = false;
-            writer.name("_children").beginArray(); //$NON-NLS-1$
+            boolean wroteChildren = false;
             if (hasChildren && !cycle)
             {
                 if (depth + 1 >= options.getTreeDepthLimit())
@@ -146,6 +145,12 @@ public class TreeResultSerializer extends StructuredResultSerializer
                         state.truncated = true;
                     }
 
+                    if (childLimit > 0 && state.remainingNodes > 0)
+                    {
+                        writer.name("_children").beginArray(); //$NON-NLS-1$
+                        wroteChildren = true;
+                    }
+
                     for (int childIndex = 0; childIndex < childLimit; childIndex++)
                     {
                         if (state.remainingNodes <= 0)
@@ -161,9 +166,10 @@ public class TreeResultSerializer extends StructuredResultSerializer
                     }
                 }
             }
-            writer.endArray();
-
-            writer.name("_childrenTruncated").value(childrenTruncated); //$NON-NLS-1$
+            if (wroteChildren)
+                writer.endArray();
+            if (childrenTruncated)
+                writer.name("_childrenTruncated").value(true); //$NON-NLS-1$
             writer.endObject();
         }
     }

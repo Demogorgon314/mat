@@ -120,7 +120,7 @@ abstract class StructuredResultSerializer
             writer.name(columns[ii].id);
             writer.rawValue(agentRawValue(columns[ii].column, cells[ii].value));
         }
-        writeAgentContext(writer, result, row, options);
+        writeAgentAddress(writer, result, columns, row, options);
         writeAgentCellMetadata(writer, columns, cells);
         writeAgentCellErrors(writer, columns, cells);
     }
@@ -227,6 +227,18 @@ abstract class StructuredResultSerializer
         if (objectAddress != null)
             writer.name("objectAddress").value(objectAddress); //$NON-NLS-1$
         writer.endObject();
+    }
+
+    protected void writeAgentAddress(JsonWriter writer, IStructuredResult result, ColumnSchema[] columns, Object row,
+                    SerializationOptions options)
+    {
+        if (hasAddressColumn(columns))
+            return;
+
+        Integer objectId = contextObjectId(safeContext(result, row));
+        String objectAddress = resolveObjectAddress(options, objectId);
+        if (objectAddress != null)
+            writer.name("_address").value(objectAddress); //$NON-NLS-1$
     }
 
     protected void writeRowValues(JsonWriter writer, IStructuredResult result, Column[] columns, Object row)
@@ -473,6 +485,16 @@ abstract class StructuredResultSerializer
     private boolean isAddressValue(Column column, Object value)
     {
         return value instanceof Number && isAddressColumn(column);
+    }
+
+    protected boolean hasAddressColumn(ColumnSchema[] columns)
+    {
+        for (ColumnSchema column : columns)
+        {
+            if (isAddressColumn(column.column))
+                return true;
+        }
+        return false;
     }
 
     private boolean isApproximateBytes(Object value)

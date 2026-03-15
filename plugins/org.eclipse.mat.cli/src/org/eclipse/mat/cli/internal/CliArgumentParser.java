@@ -19,23 +19,19 @@ public final class CliArgumentParser
     static final int DEFAULT_LIMIT = 20;
     static final int MAX_LIMIT = 10000;
     static final int DEFAULT_TREE_DEPTH = 8;
-    static final int DEFAULT_AGENT_TREE_DEPTH = 4;
     static final int DEFAULT_INSPECT_OBJECT_TREE_DEPTH = 3;
 
     public CliArguments parse(String[] args) throws CliException
     {
         if (args == null || args.length == 0)
-            return new CliArguments(null, null, null, null, CliArguments.OutputProfile.DEFAULT,
-                            CliArguments.OutputFormat.TEXT, false, true, DEFAULT_LIMIT, DEFAULT_TREE_DEPTH, null, null,
-                            null, null, false, null, null);
+            return new CliArguments(null, null, null, null, CliArguments.OutputFormat.TEXT, false, true,
+                            DEFAULT_LIMIT, DEFAULT_TREE_DEPTH, null, null, null, null, false, null, null);
 
         CliCommand command = null;
         CliCommand subjectCommand = null;
         String subjectName = null;
         File heapFile = null;
-        CliArguments.OutputProfile profile = CliArguments.OutputProfile.DEFAULT;
         CliArguments.OutputFormat format = CliArguments.OutputFormat.TEXT;
-        boolean formatExplicit = false;
         boolean verbose = false;
         boolean help = false;
         int limit = DEFAULT_LIMIT;
@@ -63,25 +59,23 @@ public final class CliArgumentParser
             }
             else if ("--agent".equals(arg)) //$NON-NLS-1$
             {
-                profile = CliArguments.OutputProfile.AGENT;
+                throw removedOption("--agent"); //$NON-NLS-1$
             }
             else if (arg.startsWith("--profile=")) //$NON-NLS-1$
             {
-                profile = CliArguments.OutputProfile.parse(arg.substring("--profile=".length())); //$NON-NLS-1$
+                throw removedOption("--profile"); //$NON-NLS-1$
             }
             else if ("--profile".equals(arg)) //$NON-NLS-1$
             {
-                profile = CliArguments.OutputProfile.parse(nextArg(args, ++ii, "--profile")); //$NON-NLS-1$
+                throw removedOption("--profile"); //$NON-NLS-1$
             }
             else if (arg.startsWith("--format=")) //$NON-NLS-1$
             {
                 format = CliArguments.OutputFormat.parse(arg.substring("--format=".length())); //$NON-NLS-1$
-                formatExplicit = true;
             }
             else if ("--format".equals(arg)) //$NON-NLS-1$
             {
                 format = CliArguments.OutputFormat.parse(nextArg(args, ++ii, "--format")); //$NON-NLS-1$
-                formatExplicit = true;
             }
             else if (arg.startsWith("--limit=")) //$NON-NLS-1$
             {
@@ -210,14 +204,11 @@ public final class CliArgumentParser
             }
         }
 
-        if (profile == CliArguments.OutputProfile.AGENT && !formatExplicit)
-            format = CliArguments.OutputFormat.JSON;
-
         if (command == null)
         {
             if (help)
             {
-                return new CliArguments(null, null, null, null, profile, format, verbose, true, limit,
+                return new CliArguments(null, null, null, null, format, verbose, true, limit,
                                 treeDepthLimit, objectAddress, className, selectField, fieldPath, includeSubclasses,
                                 oqlQuery, queryCommand);
             }
@@ -225,7 +216,7 @@ public final class CliArgumentParser
         }
 
         if (!treeDepthExplicit)
-            treeDepthLimit = defaultTreeDepth(command, profile);
+            treeDepthLimit = defaultTreeDepth(command);
 
         if (command == CliCommand.OQL)
             oqlQuery = resolveExclusiveInput("oql", "--query", oqlQuery, "--query-file", oqlQueryFile, //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
@@ -237,53 +228,14 @@ public final class CliArgumentParser
         if (!limitExplicit)
             limit = defaultLimit(command, queryCommand);
 
-        CliArguments parsed = new CliArguments(command, subjectCommand, subjectName, heapFile, profile, format, verbose,
-                        help, limit, treeDepthLimit, objectAddress, className, selectField, fieldPath,
-                        includeSubclasses, oqlQuery, queryCommand);
+        CliArguments parsed = new CliArguments(command, subjectCommand, subjectName, heapFile, format, verbose, help,
+                        limit, treeDepthLimit, objectAddress, className, selectField, fieldPath, includeSubclasses,
+                        oqlQuery, queryCommand);
         validate(parsed);
         return parsed;
     }
 
-    public CliArguments.OutputProfile detectProfile(String[] args)
-    {
-        if (args == null)
-            return CliArguments.OutputProfile.DEFAULT;
-
-        CliArguments.OutputProfile profile = CliArguments.OutputProfile.DEFAULT;
-        for (int ii = 0; ii < args.length; ii++)
-        {
-            String arg = args[ii];
-            if ("--agent".equals(arg)) //$NON-NLS-1$
-            {
-                profile = CliArguments.OutputProfile.AGENT;
-            }
-            else if (arg.startsWith("--profile=")) //$NON-NLS-1$
-            {
-                try
-                {
-                    profile = CliArguments.OutputProfile.parse(arg.substring("--profile=".length())); //$NON-NLS-1$
-                }
-                catch (CliException ignore)
-                {
-                    return profile;
-                }
-            }
-            else if ("--profile".equals(arg) && ii + 1 < args.length) //$NON-NLS-1$
-            {
-                try
-                {
-                    profile = CliArguments.OutputProfile.parse(args[++ii]);
-                }
-                catch (CliException ignore)
-                {
-                    return profile;
-                }
-            }
-        }
-        return profile;
-    }
-
-    public CliArguments.OutputFormat detectFormat(String[] args, CliArguments.OutputProfile profile)
+    public CliArguments.OutputFormat detectFormat(String[] args)
     {
         if (args != null)
         {
@@ -298,7 +250,7 @@ public final class CliArgumentParser
                     }
                     catch (CliException ignore)
                     {
-                        return defaultFormat(profile);
+                        return defaultFormat();
                     }
                 }
                 else if ("--format".equals(arg) && ii + 1 < args.length) //$NON-NLS-1$
@@ -309,12 +261,12 @@ public final class CliArgumentParser
                     }
                     catch (CliException ignore)
                     {
-                        return defaultFormat(profile);
+                        return defaultFormat();
                     }
                 }
             }
         }
-        return defaultFormat(profile);
+        return defaultFormat();
     }
 
     private void validate(CliArguments arguments) throws CliException
@@ -414,10 +366,9 @@ public final class CliArgumentParser
         }
     }
 
-    private CliArguments.OutputFormat defaultFormat(CliArguments.OutputProfile profile)
+    private CliArguments.OutputFormat defaultFormat()
     {
-        return profile == CliArguments.OutputProfile.AGENT ? CliArguments.OutputFormat.JSON
-                        : CliArguments.OutputFormat.TEXT;
+        return CliArguments.OutputFormat.TEXT;
     }
 
     private int parseLimit(String value) throws CliException
@@ -462,8 +413,7 @@ public final class CliArgumentParser
         return "--help".equals(token) || "-h".equals(token) || "help".equals(token); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
     }
 
-    public CliArguments partialParse(String[] args, CliArguments.OutputProfile profile,
-                    CliArguments.OutputFormat format)
+    public CliArguments partialParse(String[] args, CliArguments.OutputFormat format)
     {
         CliCommand command = null;
         CliCommand subjectCommand = null;
@@ -477,7 +427,7 @@ public final class CliArgumentParser
         boolean includeSubclasses = false;
         String oqlQuery = null;
         String queryCommand = null;
-        int treeDepthLimit = defaultTreeDepth(null, profile);
+        int treeDepthLimit = defaultTreeDepth(null);
         boolean treeDepthExplicit = false;
 
         if (args != null)
@@ -585,9 +535,9 @@ public final class CliArgumentParser
         }
 
         if (!treeDepthExplicit)
-            treeDepthLimit = defaultTreeDepth(command, profile);
+            treeDepthLimit = defaultTreeDepth(command);
 
-        return new CliArguments(command, subjectCommand, subjectName, heapFile, profile, format, false, help,
+        return new CliArguments(command, subjectCommand, subjectName, heapFile, format, false, help,
                         defaultLimit(command, queryCommand), treeDepthLimit, objectAddress, className, selectField,
                         fieldPath, includeSubclasses, oqlQuery, queryCommand);
     }
@@ -619,8 +569,7 @@ public final class CliArgumentParser
 
     private boolean expectsValue(String option)
     {
-        return "--profile".equals(option) || "--format".equals(option) || "--limit".equals(option) //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                        || "--depth".equals(option) //$NON-NLS-1$
+        return "--format".equals(option) || "--limit".equals(option) || "--depth".equals(option) //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         || "--object".equals(option) || "--class".equals(option) //$NON-NLS-1$ //$NON-NLS-2$
                         || "--select-field".equals(option) || "--field-path".equals(option) //$NON-NLS-1$ //$NON-NLS-2$
                         || "--query".equals(option) //$NON-NLS-1$
@@ -628,11 +577,11 @@ public final class CliArgumentParser
                         || "--command".equals(option) || "--command-file".equals(option); //$NON-NLS-1$ //$NON-NLS-2$
     }
 
-    private int defaultTreeDepth(CliCommand command, CliArguments.OutputProfile profile)
+    private int defaultTreeDepth(CliCommand command)
     {
         if (command == CliCommand.INSPECT_OBJECT)
             return DEFAULT_INSPECT_OBJECT_TREE_DEPTH;
-        return profile == CliArguments.OutputProfile.AGENT ? DEFAULT_AGENT_TREE_DEPTH : DEFAULT_TREE_DEPTH;
+        return DEFAULT_TREE_DEPTH;
     }
 
     private boolean hasEmptyPathSegment(String fieldPath)
@@ -650,5 +599,10 @@ public final class CliArgumentParser
         {
             return fallback;
         }
+    }
+
+    private CliException removedOption(String option)
+    {
+        return CliException.usage(option + " has been removed. Use --format json."); //$NON-NLS-1$
     }
 }

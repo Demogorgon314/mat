@@ -44,7 +44,6 @@ public class TableResultSerializer extends StructuredResultSerializer
     {
         Column[] columns = table.getColumns();
         ColumnSchema[] schema = buildColumnSchemas(columns);
-        writeAgentSchema(writer, schema);
 
         int rowCount = table.getRowCount();
         int limit = Math.min(rowCount, options.getLimit());

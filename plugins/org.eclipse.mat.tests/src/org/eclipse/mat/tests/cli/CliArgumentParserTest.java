@@ -36,7 +36,6 @@ public class CliArgumentParserTest
 
         assertEquals(CliCommand.HISTOGRAM, arguments.getCommand());
         assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
-        assertEquals(CliArguments.OutputProfile.DEFAULT, arguments.getProfile());
         assertEquals(5, arguments.getLimit());
         assertEquals("sample.hprof", arguments.getHeapFile().getName()); //$NON-NLS-1$
     }
@@ -89,14 +88,19 @@ public class CliArgumentParserTest
     }
 
     @Test
-    public void defaultsInspectObjectDepthToThreeInAgentProfile() throws Exception
+    public void rejectsRemovedAgentOption() throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
-        CliArguments arguments = parser.parse(
-                        new String[] { "--agent", "inspect-object", "sample.hprof", "--object", "0x2a" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
-
-        assertEquals(3, arguments.getTreeDepthLimit());
-        assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
+        try
+        {
+            parser.parse(new String[] { "--agent", "inspect-object", "sample.hprof", "--object", "0x2a" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+            fail("Expected removed --agent option to be rejected"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertEquals(2, e.getExitCode());
+            assertTrue(e.getMessage().contains("Use --format json")); //$NON-NLS-1$
+        }
     }
 
     @Test
@@ -145,26 +149,29 @@ public class CliArgumentParserTest
     }
 
     @Test
-    public void enablesAgentProfileAndDefaultsToJson() throws Exception
+    public void rejectsRemovedProfileOption() throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
-        CliArguments arguments = parser.parse(new String[] { "--agent", "histogram", "sample.hprof" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-
-        assertEquals(CliCommand.HISTOGRAM, arguments.getCommand());
-        assertEquals(CliArguments.OutputProfile.AGENT, arguments.getProfile());
-        assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
-        assertEquals(4, arguments.getTreeDepthLimit());
+        try
+        {
+            parser.parse(new String[] { "describe", "histogram", "--profile", "agent" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+            fail("Expected removed --profile option to be rejected"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertEquals(2, e.getExitCode());
+            assertTrue(e.getMessage().contains("Use --format json")); //$NON-NLS-1$
+        }
     }
 
     @Test
     public void parsesDescribeCommandWithoutHeap() throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
-        CliArguments arguments = parser.parse(new String[] { "describe", "histogram", "--profile", "agent" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+        CliArguments arguments = parser.parse(new String[] { "describe", "histogram", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
         assertEquals(CliCommand.DESCRIBE, arguments.getCommand());
         assertEquals(CliCommand.HISTOGRAM, arguments.getSubjectCommand());
-        assertEquals(CliArguments.OutputProfile.AGENT, arguments.getProfile());
         assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
     }
 
@@ -172,11 +179,10 @@ public class CliArgumentParserTest
     public void parsesDescribeQueryCommandWithoutHeap() throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
-        CliArguments arguments = parser.parse(new String[] { "describe-query", "hash_entries", "--agent" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+        CliArguments arguments = parser.parse(new String[] { "describe-query", "hash_entries", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
         assertEquals(CliCommand.DESCRIBE_QUERY, arguments.getCommand());
         assertEquals("hash_entries", arguments.getSubjectName()); //$NON-NLS-1$
-        assertEquals(CliArguments.OutputProfile.AGENT, arguments.getProfile());
         assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
     }
 
@@ -224,15 +230,14 @@ public class CliArgumentParserTest
     }
 
     @Test
-    public void detectsRequestedProfileAndFormatBeforeFullParse()
+    public void detectsRequestedFormatBeforeFullParse()
     {
         CliArgumentParser parser = new CliArgumentParser();
 
-        assertEquals(CliArguments.OutputProfile.AGENT,
-                        parser.detectProfile(new String[] { "--agent", "summary", "sample.hprof" })); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-        assertEquals(CliArguments.OutputFormat.TEXT, parser.detectFormat(
-                        new String[] { "--profile", "agent", "--format", "text", "summary", "sample.hprof" }, //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
-                        CliArguments.OutputProfile.AGENT));
+        assertEquals(CliArguments.OutputFormat.JSON,
+                        parser.detectFormat(new String[] { "--format", "json", "summary", "sample.hprof" })); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+        assertEquals(CliArguments.OutputFormat.TEXT,
+                        parser.detectFormat(new String[] { "--agent", "--format", "text", "summary", "sample.hprof" })); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
     }
 
     @Test
@@ -302,7 +307,7 @@ public class CliArgumentParserTest
         assertTrue(help.contains("instances <heap> --class <fqcn> [--include-subclasses] [--limit N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("inspect-object <heap> --object 0x... [--select-field FIELD | --field-path PATH] [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("top-consumers <heap> [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
-        assertTrue(help.contains("--depth N            Maximum tree or section depth (default: 8, agent profile: 4, inspect-object: 3)")); //$NON-NLS-1$
+        assertTrue(help.contains("--depth N            Maximum tree or section depth (default: 8, inspect-object: 3)")); //$NON-NLS-1$
         assertTrue(help.contains("--field-path PATH    Inspect a dotted field path such as cleaner.offsetMap")); //$NON-NLS-1$
         assertTrue(help.contains("Inner class names containing '$' must be quoted or escaped")); //$NON-NLS-1$
     }

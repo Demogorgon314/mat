@@ -56,22 +56,15 @@ public final class CliCommandCatalog
 
     public static final class OutputDefinition
     {
-        private final String profile;
         private final String format;
         private final String resultKind;
         private final String description;
 
-        private OutputDefinition(String profile, String format, String resultKind, String description)
+        private OutputDefinition(String format, String resultKind, String description)
         {
-            this.profile = profile;
             this.format = format;
             this.resultKind = resultKind;
             this.description = description;
-        }
-
-        public String getProfile()
-        {
-            return profile;
         }
 
         public String getFormat()
@@ -208,11 +201,10 @@ public final class CliCommandCatalog
         definitions.put(CliCommand.SUMMARY, new CommandDefinition(CliCommand.SUMMARY,
                         "Read basic heap metadata such as object counts and used heap.",
                         "mat-cli summary <heap> [--format text|json]", true, Collections.singletonList("heap"), FORMAT_OPTION,
-                        Arrays.asList(output("default", "text", "summary", "Human-readable heap summary."),
-                                        output("default", "json", "summary", "Summary JSON envelope."),
-                                        output("agent", "json", "summary", "Stable summary envelope for agents.")),
-                        Arrays.asList("histogram <heap> --agent", "top-consumers <heap> --agent",
-                                        "query <heap> --command \"thread_overview\" --agent"),
+                        Arrays.asList(output("text", "summary", "Human-readable heap summary."),
+                                        output("json", "summary", "Stable summary JSON envelope.")),
+                        Arrays.asList("histogram <heap> --format json", "top-consumers <heap> --format json",
+                                        "query <heap> --command \"thread_overview\" --format json"),
                         "summary object with snapshot-wide counters and heap metadata.",
                         Arrays.asList("summary.path", "summary.heapFormat", "summary.numberOfObjects",
                                         "summary.numberOfClasses", "summary.usedHeapSize")));
@@ -223,46 +215,37 @@ public final class CliCommandCatalog
                         Arrays.asList(option("--limit", "N", false,
                                         "Limit threads returned. Defaults to all threads."),
                                         option("--format", "text|json", false, "Select text or JSON output.")),
-                        Arrays.asList(output("default", "text", "threads",
-                                        "Thread report with overview plus per-thread stack sections."),
-                                        output("default", "json", "threads",
-                                                        "Structured thread report JSON."),
-                                        output("agent", "json", "threads",
-                                                        "Stable thread report schema for agents.")),
-                        Arrays.asList("histogram <heap> --agent", "top-consumers <heap> --agent"),
+                        Arrays.asList(output("text", "threads", "Thread report with overview plus per-thread stack sections."),
+                                        output("json", "threads", "Stable thread report JSON.")),
+                        Arrays.asList("histogram <heap> --format json", "top-consumers <heap> --format json"),
                         "thread report payload with a summary, best-effort notice, and one entry per returned thread.",
                         Arrays.asList("notice", "summary.totalThreads", "summary.returnedThreads",
                                         "summary.stackAvailableThreads", "summary.stateAvailableThreads", "threads[]",
                                         "threads[].name", "threads[].technicalName", "threads[].objectAddress",
                                         "threads[].state", "threads[].retainedBytes", "threads[].stackAvailable",
-                                        "threads[].stackUnavailableReason", "threads[].stackFrames[]",
-                                        "threads[]._context.objectId", "threads[]._context.objectAddress")));
+                                        "threads[].stackUnavailableReason", "threads[].stackFrames[]")));
         definitions.put(CliCommand.HISTOGRAM, new CommandDefinition(CliCommand.HISTOGRAM,
                         "Group objects by class and report shallow heap plus approximate retained heap.",
                         "mat-cli histogram <heap> [--limit N] [--format text|json]", true,
                         Collections.singletonList("heap"), FORMAT_AND_LIMIT_OPTIONS,
-                        Arrays.asList(output("default", "text", "table", "Text table with formatted columns."),
-                                        output("default", "json", "table", "MAT table JSON with columns and rows."),
-                                        output("agent", "json", "table", "Stable table schema plus keyed items.")),
-                        Arrays.asList("top-consumers <heap> --agent", "query <heap> --command \"histogram\" --agent"),
-                        "table payload with stable column ids, normalized byte values, row context, and optional per-cell metadata for approximate retained sizes.",
-                        Arrays.asList("schema.columns[].id", "schema.columns[].jsonType", "items[]",
-                                        "items[]._context.objectId", "items[]._context.objectAddress",
+                        Arrays.asList(output("text", "table", "Text table with formatted columns."),
+                                        output("json", "table", "Stable keyed table JSON.")),
+                        Arrays.asList("top-consumers <heap> --format json",
+                                        "query <heap> --command \"histogram\" --format json"),
+                        "table payload with stable column ids, normalized byte values, optional row addresses, and per-cell metadata for approximate retained sizes.",
+                        Arrays.asList("items[]", "items[]._address when no address column",
                                         "items[]._meta.retained_heap.kind when approximate")));
         definitions.put(CliCommand.INSTANCES, new CommandDefinition(CliCommand.INSTANCES,
                         "List live objects for one class so you can pick a concrete instance to inspect.",
                         "mat-cli instances <heap> --class <fqcn> [--include-subclasses] [--limit N] [--format text|json]",
                         true, Collections.singletonList("heap"), FORMAT_LIMIT_CLASS_OPTIONS,
-                        Arrays.asList(output("default", "text", "table", "Text table of matching objects."),
-                                        output("default", "json", "table", "Structured table JSON."),
-                                        output("agent", "json", "table",
-                                                        "Stable table schema plus keyed items for matching objects.")),
-                        Arrays.asList("inspect-object <heap> --object 0x... --agent",
-                                        "path2gc <heap> --object 0x... --agent"),
-                        "table payload listing matching objects with addresses, previews, heaps, and row context.",
-                        Arrays.asList("schema.columns[].id", "items[]", "items[].object_address",
-                                        "items[].class_name", "items[].preview", "items[]._context.objectId",
-                                        "items[]._context.objectAddress")));
+                        Arrays.asList(output("text", "table", "Text table of matching objects."),
+                                        output("json", "table", "Stable keyed table JSON for matching objects.")),
+                        Arrays.asList("inspect-object <heap> --object 0x... --format json",
+                                        "path2gc <heap> --object 0x... --format json"),
+                        "table payload listing matching objects with addresses, previews, and heap sizes.",
+                        Arrays.asList("items[]", "items[].object_address", "items[].class_name",
+                                        "items[].preview")));
         definitions.put(CliCommand.INSPECT_OBJECT, new CommandDefinition(CliCommand.INSPECT_OBJECT,
                         "Inspect one object like MAT's object inspector, or jump directly to one field path for targeted state checks.",
                         "mat-cli inspect-object <heap> --object 0x... [--select-field FIELD | --field-path PATH] [--limit N] [--depth N] [--format text|json]",
@@ -276,33 +259,31 @@ public final class CliCommandCatalog
                                         option("--depth", "N", false,
                                                         "Limit nested object expansion depth. Defaults to 3 for inspect-object when omitted."),
                                         option("--format", "text|json", false, "Select text or JSON output.")),
-                        Arrays.asList(output("default", "text", "tree", "Indented object-inspector tree."),
-                                        output("default", "json", "tree", "Structured object-inspector tree."),
-                                        output("agent", "json", "tree",
-                                                        "Stable tree schema and keyed nodes for object state.")),
-                        Arrays.asList("path2gc <heap> --object 0x... --agent",
-                                        "oql <heap> --query \"SELECT * FROM OBJECTS 0x...\" --agent"),
-                        "tree payload with field and element nodes, concrete values, targeted field-path roots, referenced object context, preview metadata, and child truncation flags.",
-                        Arrays.asList("schema.columns[].id", "items[]", "items[].kind", "items[].name",
-                                        "items[].value", "items[].object_address", "items[]._children[]",
-                                        "items[]._childrenTruncated", "items[]._context.objectId",
-                                        "items[]._context.objectAddress", "items[]._meta.value.kind when previewed",
+                        Arrays.asList(output("text", "tree", "Indented object-inspector tree."),
+                                        output("json", "tree", "Stable keyed object-inspector tree JSON.")),
+                        Arrays.asList("path2gc <heap> --object 0x... --format json",
+                                        "oql <heap> --query \"SELECT * FROM OBJECTS 0x...\" --format json"),
+                        "tree payload with field and element nodes, concrete values, targeted field-path roots, preview metadata, sparse child arrays, and optional row addresses.",
+                        Arrays.asList("items[]", "items[].kind", "items[].name",
+                                        "items[].value", "items[].object_address", "items[]._children[] when returned",
+                                        "items[]._childrenTruncated when true", "items[]._address when no address column",
+                                        "items[]._meta.value.kind when previewed",
                                         "items[]._meta.value.length when previewed",
                                         "items[]._meta.value.encoding when byte[] previewed")));
         definitions.put(CliCommand.TOP_CONSUMERS, new CommandDefinition(CliCommand.TOP_CONSUMERS,
                         "Show the largest dominators grouped the same way as MAT top consumers.",
                         "mat-cli top-consumers <heap> [--limit N] [--depth N] [--format text|json]", true,
                         Collections.singletonList("heap"), FORMAT_LIMIT_AND_DEPTH_OPTIONS,
-                        Arrays.asList(output("default", "text", "top-consumers", "Text report matching MAT top consumers."),
-                                        output("default", "json", "top-consumers", "Compact aggregated JSON."),
-                                        output("agent", "json", "top-consumers",
+                        Arrays.asList(output("text", "top-consumers", "Text report matching MAT top consumers."),
+                                        output("json", "top-consumers",
                                                         "Stable aggregated JSON without display-only duplicates.")),
-                        Arrays.asList("histogram <heap> --agent", "path2gc <heap> --object 0x... --agent"),
+                        Arrays.asList("histogram <heap> --format json",
+                                        "path2gc <heap> --object 0x... --format json"),
                         "aggregated payload with biggestObjects, classes, classLoaders, and packages.",
                         Arrays.asList("totalRetainedHeap", "biggestObjects[]",
-                                        "biggestObjects[]._context.objectAddress", "biggestObjectsTruncated",
-                                        "classes[]", "classes[]._context.objectAddress", "classesTruncated",
-                                        "classLoaders[]", "classLoaders[]._context.objectAddress",
+                                        "biggestObjects[].objectAddress", "biggestObjectsTruncated",
+                                        "classes[]", "classes[].objectAddress", "classesTruncated",
+                                        "classLoaders[]", "classLoaders[].objectAddress",
                                         "classLoadersTruncated", "packages", "packagesTruncated")));
         definitions.put(CliCommand.PATH2GC, new CommandDefinition(CliCommand.PATH2GC,
                         "Find paths from an object to GC roots using MAT's native query.",
@@ -312,15 +293,13 @@ public final class CliCommandCatalog
                                         option("--limit", "N", false, "Limit children per level."),
                                         option("--depth", "N", false, "Limit nested tree depth."),
                                         option("--format", "text|json", false, "Select text or JSON output.")),
-                        Arrays.asList(output("default", "text", "tree", "Indented tree view."),
-                                        output("default", "json", "tree", "MAT tree JSON with columns and rows."),
-                                        output("agent", "json", "tree", "Stable tree schema and keyed nodes.")),
-                        Arrays.asList("oql <heap> --query \"SELECT * FROM OBJECTS 0x...\" --agent",
-                                        "summary <heap> --agent"),
-                        "tree payload with stable column ids, keyed nodes, and explicit child truncation flags.",
-                        Arrays.asList("schema.columns[].id", "items[]", "items[]._children[]",
-                                        "items[]._childrenTruncated", "items[]._context.objectId",
-                                        "items[]._context.objectAddress")));
+                        Arrays.asList(output("text", "tree", "Indented tree view."),
+                                        output("json", "tree", "Stable keyed tree JSON.")),
+                        Arrays.asList("oql <heap> --query \"SELECT * FROM OBJECTS 0x...\" --format json",
+                                        "summary <heap> --format json"),
+                        "tree payload with keyed nodes, sparse child arrays, and optional row addresses.",
+                        Arrays.asList("items[]", "items[]._children[] when returned",
+                                        "items[]._childrenTruncated when true", "items[]._address when no address column")));
         definitions.put(CliCommand.OQL, new CommandDefinition(CliCommand.OQL,
                         "Run a MAT OQL query directly against the snapshot.",
                         "mat-cli oql <heap> --query \"...\" [--limit N] [--depth N] [--format text|json]", true,
@@ -332,13 +311,13 @@ public final class CliCommandCatalog
                                         option("--limit", "N", false, "Limit rows, sections, or children per level."),
                                         option("--depth", "N", false, "Limit nested tree or section depth."),
                                         option("--format", "text|json", false, "Select text or JSON output.")),
-                        Arrays.asList(output("default", "text", "text|table|tree|pie", "Depends on the OQL result."),
-                                        output("default", "json", "text|table|tree|pie", "Depends on the OQL result."),
-                                        output("agent", "json", "text|table|tree|pie",
+                        Arrays.asList(output("text", "text|table|tree|pie", "Depends on the OQL result."),
+                                        output("json", "text|table|tree|pie",
                                                         "Stable JSON envelope around the resolved result kind.")),
-                        Arrays.asList("histogram <heap> --agent", "query <heap> --command \"histogram\" --agent"),
+                        Arrays.asList("histogram <heap> --format json",
+                                        "query <heap> --command \"histogram\" --format json"),
                         "same payload contract as the resolved result kind returned by the OQL query.",
-                        Arrays.asList("resultKind", "schema.columns[] when table/tree", "items[] when table/tree",
+                        Arrays.asList("resultKind", "items[] when table/tree",
                                         "slices[] when pie", "content when text")));
         definitions.put(CliCommand.QUERY, new CommandDefinition(CliCommand.QUERY,
                         "Run a MAT query command string through SnapshotQuery.parse(...).",
@@ -351,44 +330,40 @@ public final class CliCommandCatalog
                                         option("--limit", "N", false, "Limit rows, sections, or children per level."),
                                         option("--depth", "N", false, "Limit nested tree or section depth."),
                                         option("--format", "text|json", false, "Select text or JSON output.")),
-                        Arrays.asList(output("default", "text", "text|table|tree|section|pie|top-consumers",
+                        Arrays.asList(output("text", "text|table|tree|section|pie|top-consumers",
                                         "Depends on the resolved query result."),
-                                        output("default", "json", "text|table|tree|section|pie|top-consumers",
-                                                        "Depends on the resolved query result."),
-                                        output("agent", "json", "text|table|tree|section|pie|top-consumers",
+                                        output("json", "text|table|tree|section|pie|top-consumers",
                                                         "Stable JSON envelope around the resolved result kind.")),
-                        Arrays.asList("schema histogram --agent", "describe top-consumers --agent"),
+                        Arrays.asList("schema histogram --format json",
+                                        "describe top-consumers --format json"),
                         "same payload contract as the resolved result kind returned by the parsed query.",
-                        Arrays.asList("resultKind", "schema.columns[] when table/tree", "items[] when table/tree",
+                        Arrays.asList("resultKind", "items[] when table/tree",
                                         "slices[] when pie", "sections[] when section")));
         definitions.put(CliCommand.DESCRIBE, new CommandDefinition(CliCommand.DESCRIBE,
                         "Describe a CLI command, its options, and the result kinds it can return.",
                         "mat-cli describe <command> [--format text|json]", false,
                         Collections.singletonList("command"), FORMAT_OPTION,
-                        Arrays.asList(output("default", "text", "describe", "Human-readable command description."),
-                                        output("default", "json", "describe", "Command metadata as JSON."),
-                                        output("agent", "json", "describe", "Stable metadata envelope for agents.")),
-                        Arrays.asList("schema <command> --agent"), "metadata payload for one command definition.",
+                        Arrays.asList(output("text", "describe", "Human-readable command description."),
+                                        output("json", "describe", "Stable command metadata JSON.")),
+                        Arrays.asList("schema <command> --format json"), "metadata payload for one command definition.",
                         Arrays.asList("name", "summary", "usage", "requiresSnapshot", "options[]", "outputs[]",
-                                        "suggestedNextCommands[]")));
+                                        "suggestedNextCommands via top-level envelope")));
         definitions.put(CliCommand.SCHEMA, new CommandDefinition(CliCommand.SCHEMA,
-                        "Describe the stable agent JSON contract for a CLI command.",
+                        "Describe the stable JSON contract for a CLI command.",
                         "mat-cli schema <command> [--format text|json]", false,
                         Collections.singletonList("command"), FORMAT_OPTION,
-                        Arrays.asList(output("default", "text", "schema", "Readable contract summary."),
-                                        output("default", "json", "schema", "Contract metadata as JSON."),
-                                        output("agent", "json", "schema", "Stable schema envelope for agents.")),
-                        Arrays.asList("describe <command> --agent"), "agent envelope and payload contract summary.",
-                        Arrays.asList("agentEnvelope", "payloadKind", "payloadFields[]", "outputs[]")));
+                        Arrays.asList(output("text", "schema", "Readable contract summary."),
+                                        output("json", "schema", "Stable contract metadata JSON.")),
+                        Arrays.asList("describe <command> --format json"), "JSON envelope and payload contract summary.",
+                        Arrays.asList("jsonEnvelope", "payloadKind", "payloadFields[]", "outputs[]")));
         definitions.put(CliCommand.LIST_QUERIES, new CommandDefinition(CliCommand.LIST_QUERIES,
                         "List the registered MAT query commands available through SnapshotQuery/QueryRegistry.",
                         "mat-cli list-queries [--format text|json]", false, Collections.<String>emptyList(),
                         FORMAT_OPTION,
-                        Arrays.asList(output("default", "text", "query-list", "List MAT query identifiers and summaries."),
-                                        output("default", "json", "query-list", "Query registry metadata as JSON."),
-                                        output("agent", "json", "query-list",
-                                                        "Stable query discovery payload for agents.")),
-                        Arrays.asList("describe-query histogram --agent", "query <heap> --command \"histogram\" --agent"),
+                        Arrays.asList(output("text", "query-list", "List MAT query identifiers and summaries."),
+                                        output("json", "query-list", "Stable query registry metadata JSON.")),
+                        Arrays.asList("describe-query histogram --format json",
+                                        "query <heap> --command \"histogram\" --format json"),
                         "array of MAT query descriptors including identifiers, usage, and arguments.",
                         Arrays.asList("queries[]", "queries[].identifier", "queries[].usage",
                                         "queries[].arguments[]")));
@@ -396,12 +371,10 @@ public final class CliCommandCatalog
                         "Describe one registered MAT query, including its arguments and help text.",
                         "mat-cli describe-query <query-id> [--format text|json]", false,
                         Collections.singletonList("query-id"), FORMAT_OPTION,
-                        Arrays.asList(output("default", "text", "query-description",
-                                        "Human-readable MAT query metadata."),
-                                        output("default", "json", "query-description", "MAT query metadata as JSON."),
-                                        output("agent", "json", "query-description",
-                                                        "Stable MAT query metadata envelope for agents.")),
-                        Arrays.asList("list-queries --agent", "query <heap> --command \"<query>\" --agent"),
+                        Arrays.asList(output("text", "query-description", "Human-readable MAT query metadata."),
+                                        output("json", "query-description", "Stable MAT query metadata JSON.")),
+                        Arrays.asList("list-queries --format json",
+                                        "query <heap> --command \"<query>\" --format json"),
                         "single MAT query descriptor with argument metadata, help, and subjects.",
                         Arrays.asList("query.identifier", "query.usage", "query.arguments[]", "query.subjects[]")));
         return definitions;
@@ -420,8 +393,8 @@ public final class CliCommandCatalog
         return Collections.unmodifiableMap(limits);
     }
 
-    private static OutputDefinition output(String profile, String format, String resultKind, String description)
+    private static OutputDefinition output(String format, String resultKind, String description)
     {
-        return new OutputDefinition(profile, format, resultKind, description);
+        return new OutputDefinition(format, resultKind, description);
     }
 }

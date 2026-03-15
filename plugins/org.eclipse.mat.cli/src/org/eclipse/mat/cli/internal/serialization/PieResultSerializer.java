@@ -79,7 +79,7 @@ public class PieResultSerializer
         writer.name("value").value(slice.getValue()); //$NON-NLS-1$
         writer.name("description").value(slice.getDescription()); //$NON-NLS-1$
         if (agentProfile)
-            writeAgentContext(writer, slice.getContext(), options);
+            writeAgentAddress(writer, slice.getContext(), options);
         else
             writeContext(writer, slice.getContext(), options);
         writer.name("color").value(color(slice)); //$NON-NLS-1$
@@ -103,21 +103,14 @@ public class PieResultSerializer
         writer.endObject();
     }
 
-    private void writeAgentContext(JsonWriter writer, IContextObject context, SerializationOptions options)
+    private void writeAgentAddress(JsonWriter writer, IContextObject context, SerializationOptions options)
     {
         Integer objectId = contextObjectId(context);
         if (objectId == null)
-        {
-            writer.name("_context").nullValue(); //$NON-NLS-1$
             return;
-        }
-
-        writer.name("_context").beginObject(); //$NON-NLS-1$
-        writer.name("objectId").value(objectId.intValue()); //$NON-NLS-1$
         String objectAddress = options == null ? null : options.resolveObjectAddress(objectId.intValue());
         if (objectAddress != null)
-            writer.name("objectAddress").value(objectAddress); //$NON-NLS-1$
-        writer.endObject();
+            writer.name("_address").value(objectAddress); //$NON-NLS-1$
     }
 
     private Integer contextObjectId(IContextObject context)

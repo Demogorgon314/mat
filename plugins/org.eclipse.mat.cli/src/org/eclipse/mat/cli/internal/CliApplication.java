@@ -36,11 +36,10 @@ public class CliApplication implements IApplication
     {
         String[] args = (String[]) context.getArguments().get(IApplicationContext.APPLICATION_ARGS);
         CliArguments parsed = null;
-        CliArguments.OutputProfile requestedProfile = parser.detectProfile(args);
-        CliArguments.OutputFormat requestedFormat = parser.detectFormat(args, requestedProfile);
+        CliArguments.OutputFormat requestedFormat = parser.detectFormat(args);
         try
         {
-            if (requestedProfile == CliArguments.OutputProfile.AGENT)
+            if (requestedFormat == CliArguments.OutputFormat.JSON)
                 Locale.setDefault(Locale.ENGLISH);
 
             parsed = parser.parse(args);
@@ -71,32 +70,31 @@ public class CliApplication implements IApplication
         catch (CliException e)
         {
             if (parsed == null)
-                parsed = parser.partialParse(args, requestedProfile, requestedFormat);
-            return exit(e.getExitCode(), parsed, requestedProfile, requestedFormat, e, System.err, System.out);
+                parsed = parser.partialParse(args, requestedFormat);
+            return exit(e.getExitCode(), parsed, requestedFormat, e, System.err, System.out);
         }
         catch (OutOfMemoryError e)
         {
             if (parsed == null)
-                parsed = parser.partialParse(args, requestedProfile, requestedFormat);
-            return exit(CliExitCodes.OUT_OF_MEMORY, parsed, requestedProfile, requestedFormat, e, System.err, System.out);
+                parsed = parser.partialParse(args, requestedFormat);
+            return exit(CliExitCodes.OUT_OF_MEMORY, parsed, requestedFormat, e, System.err, System.out);
         }
         catch (Exception e)
         {
             if (parsed == null)
-                parsed = parser.partialParse(args, requestedProfile, requestedFormat);
-            return exit(CliExitCodes.EXECUTION_ERROR, parsed, requestedProfile, requestedFormat, e, System.err, System.out);
+                parsed = parser.partialParse(args, requestedFormat);
+            return exit(CliExitCodes.EXECUTION_ERROR, parsed, requestedFormat, e, System.err, System.out);
         }
     }
 
-    private Object exit(int code, CliArguments parsed, CliArguments.OutputProfile requestedProfile,
-                    CliArguments.OutputFormat requestedFormat, Throwable error, PrintStream err, PrintStream out)
+    private Object exit(int code, CliArguments parsed, CliArguments.OutputFormat requestedFormat, Throwable error,
+                    PrintStream err, PrintStream out)
     {
-        CliArguments.OutputProfile profile = parsed == null ? requestedProfile : parsed.getProfile();
         CliArguments.OutputFormat format = parsed == null ? requestedFormat : parsed.getFormat();
         boolean json = format == CliArguments.OutputFormat.JSON;
         if (json)
         {
-            serializer.serializeError(parsed, profile, code, error, out);
+            serializer.serializeError(parsed, format, code, error, out);
         }
         else
         {
