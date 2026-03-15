@@ -341,7 +341,7 @@ public class ResultSerializer
                             : arguments.getCommand());
         }
         if (definition == null)
-            return renderSuggestions(arguments, Arrays.asList("mat-cli --help", "mat-cli describe summary --format json"), //$NON-NLS-1$ //$NON-NLS-2$
+            return renderSuggestions(arguments, Arrays.asList("mat-cli --help", "mat-cli describe summary"), //$NON-NLS-1$ //$NON-NLS-2$
                             execution == null ? null : execution.getPrimaryObjectAddress());
         return renderSuggestions(arguments, definition.getSuggestedNextCommands(),
                         execution == null ? null : execution.getPrimaryObjectAddress());
@@ -350,22 +350,22 @@ public class ResultSerializer
     private List<String> suggestedNextCommands(CliArguments arguments, int exitCode, Throwable error)
     {
         if (arguments == null || arguments.getCommand() == null)
-            return renderSuggestions(arguments, Arrays.asList("mat-cli --help", "mat-cli describe summary --format json"), null); //$NON-NLS-1$ //$NON-NLS-2$
+            return renderSuggestions(arguments, Arrays.asList("mat-cli --help", "mat-cli describe summary"), null); //$NON-NLS-1$ //$NON-NLS-2$
 
         String kind = errorKind(arguments, exitCode, error);
         if ("query_not_found".equals(kind)) //$NON-NLS-1$
-            return renderSuggestions(arguments, Arrays.asList("mat-cli list-queries --format json"), null); //$NON-NLS-1$
+            return renderSuggestions(arguments, Arrays.asList("mat-cli list-queries"), null); //$NON-NLS-1$
         if ("missing_file".equals(kind)) //$NON-NLS-1$
-            return renderSuggestions(arguments, Arrays.asList("mat-cli --help", "mat-cli list-queries --format json"), null); //$NON-NLS-1$ //$NON-NLS-2$
+            return renderSuggestions(arguments, Arrays.asList("mat-cli --help", "mat-cli list-queries"), null); //$NON-NLS-1$ //$NON-NLS-2$
         if ("invalid_argument".equals(kind) && arguments.getCommand() == CliCommand.PATH2GC) //$NON-NLS-1$
         {
             return renderSuggestions(arguments,
-                            Arrays.asList("oql <heap> --query \"SELECT * FROM OBJECTS 0x...\" --format json", //$NON-NLS-1$
-                                            "histogram <heap> --format json", "top-consumers <heap> --format json"), //$NON-NLS-1$ //$NON-NLS-2$
+                            Arrays.asList("oql <heap> --query \"SELECT * FROM OBJECTS 0x...\"", //$NON-NLS-1$
+                                            "histogram <heap>", "top-consumers <heap>"), //$NON-NLS-1$ //$NON-NLS-2$
                             arguments.getObjectAddress());
         }
         if ("invalid_argument".equals(kind) && arguments.getCommand() == CliCommand.INSTANCES) //$NON-NLS-1$
-            return renderSuggestions(arguments, Arrays.asList("histogram <heap> --format json", "oql <heap> --query \"SELECT * FROM java.lang.String s\" --format json"), null); //$NON-NLS-1$ //$NON-NLS-2$
+            return renderSuggestions(arguments, Arrays.asList("histogram <heap>", "oql <heap> --query \"SELECT * FROM java.lang.String s\""), null); //$NON-NLS-1$ //$NON-NLS-2$
 
         return suggestedNextCommands(arguments, (CliExecution) null);
     }

@@ -529,6 +529,8 @@ public class CliCommandExecutorTest
         String json = executeJson(new String[] { "summary", heap.getAbsolutePath(), "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
         assertTrue(json.contains("thread_overview")); //$NON-NLS-1$
+        assertTrue(json.contains("mat-cli histogram")); //$NON-NLS-1$
+        assertFalse(json.contains("--format json")); //$NON-NLS-1$
     }
 
     @Test

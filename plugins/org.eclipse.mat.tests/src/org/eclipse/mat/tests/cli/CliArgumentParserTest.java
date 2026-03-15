@@ -10,6 +10,7 @@
 package org.eclipse.mat.tests.cli;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -483,6 +484,8 @@ public class CliArgumentParserTest
         assertTrue(help.contains("Command: path2gc")); //$NON-NLS-1$
         assertTrue(help.contains("Usage: mat-cli path2gc <heap> --object 0x... [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("--object 0x... (required): Object address to resolve from the snapshot.")); //$NON-NLS-1$
+        assertTrue(help.contains("inspect-object <heap> --object 0x...")); //$NON-NLS-1$
+        assertFalse(help.contains("inspect-object <heap> --object 0x... --format json")); //$NON-NLS-1$
         assertTrue(help.contains("Suggested next commands:")); //$NON-NLS-1$
     }
 

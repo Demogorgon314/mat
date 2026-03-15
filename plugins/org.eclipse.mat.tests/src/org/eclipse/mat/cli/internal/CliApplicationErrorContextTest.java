@@ -38,6 +38,7 @@ public class CliApplicationErrorContextTest
         String json = output.toString(StandardCharsets.UTF_8.name());
         assertTrue(json.contains("\"resultKind\":\"error\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"kind\":\"usage\"")); //$NON-NLS-1$
-        assertTrue(json.contains("mat-cli summary")); //$NON-NLS-1$
+        assertTrue(json.contains("mat-cli path2gc --help")); //$NON-NLS-1$
+        assertTrue(json.contains("mat-cli inspect-object")); //$NON-NLS-1$
     }
 }
