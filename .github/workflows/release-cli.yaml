@@ -11,6 +11,8 @@ permissions:
 
 env:
   MAVEN_VERSION: 3.9.12
+  HOMEBREW_TAP_REPO: Demogorgon314/homebrew-mat-cli
+  HOMEBREW_TAP_WORKFLOW: update-formula.yml
 
 jobs:
   release_cli:
@@ -56,3 +58,23 @@ jobs:
           files: release-assets/mat-cli-${{ github.ref_name }}.zip
           generate_release_notes: true
           name: MAT CLI ${{ github.ref_name }}
+
+      - name: Trigger Homebrew tap update
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::warning::HOMEBREW_TAP_TOKEN is not configured; skipping Homebrew tap update."
+            exit 0
+          fi
+
+          curl --fail --silent --show-error \
+            --retry 3 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            "https://api.github.com/repos/${HOMEBREW_TAP_REPO}/actions/workflows/${HOMEBREW_TAP_WORKFLOW}/dispatches" \
+            -d '{"ref":"main"}'
