@@ -1,51 +1,123 @@
-Eclipse Memory Analyzer
-====================
+# mat-cli
 
-The Eclipse Memory Analyzer is a fast and feature-rich Java heap dump analyzer that helps you find memory leaks and reduce memory consumption.
+Standalone CLI-focused fork of [Eclipse Memory Analyzer (MAT)](https://github.com/eclipse-mat/mat).
 
-- Web site: <http://eclipse.dev/mat/>
+This repository is forked from [`eclipse-mat/mat`](https://github.com/eclipse-mat/mat). It keeps the upstream MAT codebase as its foundation, but this fork is maintained specifically for the standalone `mat-cli` experience: headless heap-dump analysis, CLI packaging, GitHub Releases, and Homebrew distribution.
 
-Download
-----------------
+If you are looking for the full Eclipse MAT desktop/RCP distribution, official project website, or upstream project governance, use the upstream project:
 
-- Latest [stable release](https://eclipse.dev/mat/download/)
-- [Snapshot builds](https://eclipse.dev/mat/download/snapshots/)
+- Upstream repository: <https://github.com/eclipse-mat/mat>
+- Upstream website: <https://eclipse.dev/mat/>
 
-Building locally
-----------------
+## Why This Fork Exists
 
-Memory Analyzer can be build using Maven / Tycho. The maven build should be started from the parent directory. So, clone the repository, and then
+- Publish standalone `mat-cli` builds from GitHub Releases
+- Make `mat-cli` easy to install with Homebrew
+- Improve the headless CLI workflow for scripting and local debugging
+- Keep CLI packaging and release automation moving independently from the upstream distribution
 
-    cd parent
-    mvn clean install
+## Features
 
-For detailed build documentation refer to [Building MAT with Maven](dev-doc/Building_MAT_with_Maven.md)
+- Analyze Java heap dumps from the command line
+- Text and JSON output modes
+- Built-in commands such as `summary`, `threads`, `histogram`, `instances`, `inspect-object`, `top-consumers`, `path2gc`, `oql`, and `query`
+- Standalone zip releases and Homebrew installation
+- Built on top of Eclipse MAT internals and query engine
 
-Documentation
-----------------
+## Install
 
-- [Documentation](http://help.eclipse.org/index.jsp?topic=/org.eclipse.mat.ui.help/welcome.html) - online version of the documentation available also from within the tool
-- [Learning](https://wiki.eclipse.org/MemoryAnalyzer/Learning_Material) - learn from presentations, blogs, tutorials
-- [FAQ](http://wiki.eclipse.org/index.php/MemoryAnalyzer/FAQ) - check some of the frequently asked questions
+### Homebrew
 
-Contributing
-----------------
+```bash
+brew install Demogorgon314/mat-cli/mat-cli
+```
 
-- See [CONTRIBUTING.md](CONTRIBUTING.md) in the root of the repository if you would like to contribute to MAT 
-- See [Contributor Reference](dev-doc/Contributor_Reference.md) for information regarding setting up your development environment, building MAT, running tests, coding standards, and more.
+### Release Zip
 
-Issues:
-----------------
+1. Download the latest archive from [GitHub Releases](https://github.com/Demogorgon314/mat-cli/releases/latest).
+2. Unzip it.
+3. Run `./mat-cli --help` from the extracted directory.
 
-This project uses Githib issues to track ongoing development and issues.
+## Requirements
 
-- [List of open issues](https://github.com/eclipse-mat/mat/issues?q=is%3Aopen+is%3Aissue)
-- [Report an issue](https://github.com/eclipse-mat/mat/issues/new)
+- Java 17 or newer to run the standalone release
+- Java 17 and Maven 3.9.x to build from source
 
-In the past the project used Bugzilla. The "archives" are available [here](https://bugs.eclipse.org/bugs/buglist.cgi?order=changeddate%20DESC%2Cpriority%2Cbug_severity&product=MAT&query_format=advanced)
+## Quick Start
 
-Contact:
-----------------
+```bash
+mat-cli --help
+mat-cli summary path/to/heap.hprof
+mat-cli histogram path/to/heap.hprof --format json
+mat-cli oql path/to/heap.hprof --query "SELECT * FROM java.lang.String s"
+```
 
-- Developers [mailing list](https://dev.eclipse.org/mailman/listinfo/mat-dev)
-- Memory Analyzer [Forum](http://www.eclipse.org/forums/eclipse.memory-analyzer) at Eclipse
+Useful discovery commands:
+
+- `mat-cli describe <command>`
+- `mat-cli schema <command> --format json`
+- `mat-cli list-queries --format json`
+- `mat-cli describe-query <query-id> --format json`
+
+## Build From Source
+
+Run builds from [`parent/`](parent):
+
+```bash
+cd parent
+mvn clean package -DskipTests -Dmat-product=mat-cli
+```
+
+The standalone CLI zip is produced at:
+
+```text
+org.eclipse.mat.product/target/extraArtifacts/mat-cli.zip
+```
+
+## Project Scope
+
+This fork is primarily for:
+
+- `mat-cli` behavior and usability
+- Standalone CLI packaging
+- GitHub release automation
+- Homebrew tap integration
+- Headless workflows and documentation for CLI users
+
+This fork is not primarily for:
+
+- The Eclipse MAT desktop/RCP product
+- Upstream-wide project governance
+- General upstream release management for all MAT distributions
+
+## Contributing
+
+Contributions are welcome, especially for:
+
+- CLI UX improvements
+- Packaging and release automation
+- Homebrew integration
+- Documentation for CLI workflows
+- Bug fixes that directly affect `mat-cli`
+
+Before opening a change:
+
+- Read [CONTRIBUTING.md](CONTRIBUTING.md)
+- Follow the build and module guidance in [dev-doc/Building_MAT_with_Maven.md](dev-doc/Building_MAT_with_Maven.md)
+- Add or update tests when behavior changes
+
+## Issues and Support
+
+Open issues in this repository for:
+
+- `mat-cli` packaging or installation problems
+- GitHub Release or Homebrew integration issues
+- CLI-specific behavior in this fork
+
+If you hit a bug that clearly belongs to upstream MAT rather than this fork's CLI-focused work, prefer filing it with the upstream project:
+
+- Upstream issues: <https://github.com/eclipse-mat/mat/issues>
+
+## License
+
+This project remains available under the Eclipse Public License 2.0. See [LICENSE](LICENSE) for details.
