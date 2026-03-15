@@ -29,17 +29,62 @@ if ! CDPATH= cd -- "$DIR"; then
     exit 1
 fi
 
+read_product_version() {
+    if [ -f "$DIR/.eclipseproduct" ]; then
+        version=$(sed -n 's/^version=//p' "$DIR/.eclipseproduct" | sed -n '1p')
+        if [ -n "$version" ]; then
+            printf '%s\n' "$version"
+            return
+        fi
+    fi
+
+    printf '%s\n' "unknown"
+}
+
+normalize_os() {
+    case "$1" in
+        Darwin)
+            printf '%s\n' "macosx"
+            ;;
+        Linux)
+            printf '%s\n' "linux"
+            ;;
+        *)
+            printf '%s\n' "$1" | tr '[:upper:]' '[:lower:]'
+            ;;
+    esac
+}
+
+normalize_arch() {
+    case "$1" in
+        arm64)
+            printf '%s\n' "aarch64"
+            ;;
+        amd64)
+            printf '%s\n' "x86_64"
+            ;;
+        *)
+            printf '%s\n' "$1" | tr '[:upper:]' '[:lower:]'
+            ;;
+    esac
+}
+
+PRODUCT_VERSION=$(read_product_version)
+OS_ID=$(normalize_os "${MAT_CLI_OS_ID:-$(uname -s 2>/dev/null || printf '%s' unknown)}")
+ARCH_ID=$(normalize_arch "${MAT_CLI_ARCH_ID:-$(uname -m 2>/dev/null || printf '%s' unknown)}")
+RUNTIME_ID="v2-${PRODUCT_VERSION}-${OS_ID}-${ARCH_ID}"
+
 if [ -n "$MAT_CLI_CONFIG_DIR" ]; then
     CONFIG_DIR="$MAT_CLI_CONFIG_DIR"
     CONFIG_DIR_EXPLICIT=1
 elif [ -n "$XDG_CACHE_HOME" ]; then
-    CONFIG_DIR="$XDG_CACHE_HOME/mat-cli/configuration"
+    CONFIG_DIR="$XDG_CACHE_HOME/mat-cli/$RUNTIME_ID/configuration"
     CONFIG_DIR_EXPLICIT=0
 elif [ -n "$HOME" ]; then
-    CONFIG_DIR="$HOME/.cache/mat-cli/configuration"
+    CONFIG_DIR="$HOME/.cache/mat-cli/$RUNTIME_ID/configuration"
     CONFIG_DIR_EXPLICIT=0
 else
-    CONFIG_DIR="${TMPDIR:-/tmp}/mat-cli-${USER:-user}/configuration"
+    CONFIG_DIR="${TMPDIR:-/tmp}/mat-cli-${USER:-user}/$RUNTIME_ID/configuration"
     CONFIG_DIR_EXPLICIT=0
 fi
 
@@ -47,13 +92,13 @@ if [ -n "$MAT_CLI_DATA_DIR" ]; then
     DATA_DIR="$MAT_CLI_DATA_DIR"
     DATA_DIR_EXPLICIT=1
 elif [ -n "$XDG_STATE_HOME" ]; then
-    DATA_DIR="$XDG_STATE_HOME/mat-cli/workspace"
+    DATA_DIR="$XDG_STATE_HOME/mat-cli/$RUNTIME_ID/workspace"
     DATA_DIR_EXPLICIT=0
 elif [ -n "$HOME" ]; then
-    DATA_DIR="$HOME/.local/state/mat-cli/workspace"
+    DATA_DIR="$HOME/.local/state/mat-cli/$RUNTIME_ID/workspace"
     DATA_DIR_EXPLICIT=0
 else
-    DATA_DIR="${TMPDIR:-/tmp}/mat-cli-${USER:-user}/workspace"
+    DATA_DIR="${TMPDIR:-/tmp}/mat-cli-${USER:-user}/$RUNTIME_ID/workspace"
     DATA_DIR_EXPLICIT=0
 fi
 
@@ -63,8 +108,8 @@ if ! mkdir -p "$CONFIG_DIR" "$DATA_DIR" 2>/dev/null; then
         exit 1
     fi
 
-    CONFIG_DIR="${TMPDIR:-/tmp}/mat-cli-${USER:-user}/configuration"
-    DATA_DIR="${TMPDIR:-/tmp}/mat-cli-${USER:-user}/workspace"
+    CONFIG_DIR="${TMPDIR:-/tmp}/mat-cli-${USER:-user}/$RUNTIME_ID/configuration"
+    DATA_DIR="${TMPDIR:-/tmp}/mat-cli-${USER:-user}/$RUNTIME_ID/workspace"
 fi
 
 if ! mkdir -p "$CONFIG_DIR" "$DATA_DIR"; then

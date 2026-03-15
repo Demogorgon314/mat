@@ -29,6 +29,20 @@ if errorlevel 1 (
   exit /b 1
 )
 
+set "_PRODUCT_VERSION=unknown"
+if exist "%_DIRNAME%.eclipseproduct" (
+  for /f "usebackq tokens=1,* delims==" %%A in (`type "%_DIRNAME%.eclipseproduct"`) do (
+    if /I "%%A"=="version" set "_PRODUCT_VERSION=%%B"
+  )
+)
+
+set "_OS_ID=win32"
+set "_ARCH_ID=%PROCESSOR_ARCHITECTURE%"
+if /I "%_ARCH_ID%"=="AMD64" set "_ARCH_ID=x86_64"
+if /I "%_ARCH_ID%"=="ARM64" set "_ARCH_ID=aarch64"
+if /I "%_ARCH_ID%"=="X86" set "_ARCH_ID=x86"
+set "_RUNTIME_ID=v2-%_PRODUCT_VERSION%-%_OS_ID%-%_ARCH_ID%"
+
 if defined MAT_CLI_CONFIG_DIR (
   set "_CONFIG_DIR=%MAT_CLI_CONFIG_DIR%"
   set "_CONFIG_EXPLICIT=1"
@@ -39,7 +53,7 @@ if defined MAT_CLI_CONFIG_DIR (
   if not defined _CONFIG_BASE if defined APPDATA set "_CONFIG_BASE=%APPDATA%"
   if not defined _CONFIG_BASE if defined TEMP set "_CONFIG_BASE=%TEMP%"
   if not defined _CONFIG_BASE set "_CONFIG_BASE=%_DIRNAME%runtime"
-  set "_CONFIG_DIR=%_CONFIG_BASE%\mat-cli\configuration"
+  set "_CONFIG_DIR=%_CONFIG_BASE%\mat-cli\%_RUNTIME_ID%\configuration"
 )
 
 if defined MAT_CLI_DATA_DIR (
@@ -52,12 +66,12 @@ if defined MAT_CLI_DATA_DIR (
   if not defined _DATA_BASE if defined APPDATA set "_DATA_BASE=%APPDATA%"
   if not defined _DATA_BASE if defined TEMP set "_DATA_BASE=%TEMP%"
   if not defined _DATA_BASE set "_DATA_BASE=%_DIRNAME%runtime"
-  set "_DATA_DIR=%_DATA_BASE%\mat-cli\workspace"
+  set "_DATA_DIR=%_DATA_BASE%\mat-cli\%_RUNTIME_ID%\workspace"
 )
 
 if not exist "%_CONFIG_DIR%" mkdir "%_CONFIG_DIR%" >nul 2>&1
 if not exist "%_CONFIG_DIR%" if "%_CONFIG_EXPLICIT%"=="0" (
-  set "_CONFIG_DIR=%TEMP%\mat-cli\configuration"
+  set "_CONFIG_DIR=%TEMP%\mat-cli\%_RUNTIME_ID%\configuration"
   if not exist "%_CONFIG_DIR%" mkdir "%_CONFIG_DIR%" >nul 2>&1
 )
 if not exist "%_CONFIG_DIR%" (
@@ -68,7 +82,7 @@ if not exist "%_CONFIG_DIR%" (
 
 if not exist "%_DATA_DIR%" mkdir "%_DATA_DIR%" >nul 2>&1
 if not exist "%_DATA_DIR%" if "%_DATA_EXPLICIT%"=="0" (
-  set "_DATA_DIR=%TEMP%\mat-cli\workspace"
+  set "_DATA_DIR=%TEMP%\mat-cli\%_RUNTIME_ID%\workspace"
   if not exist "%_DATA_DIR%" mkdir "%_DATA_DIR%" >nul 2>&1
 )
 if not exist "%_DATA_DIR%" (

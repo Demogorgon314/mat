@@ -41,6 +41,8 @@
 		<standaloneCliSourceDir>${project.build.directory}/products/${productId}/linux/gtk/x86_64/${productRootFolder}</standaloneCliSourceDir>
 		<standaloneCliWorkDir>${project.build.directory}/standalone-cli</standaloneCliWorkDir>
 		<standaloneCliDir>${standaloneCliWorkDir}/${productRootFolder}</standaloneCliDir>
+		<standaloneCliBundlesInfo>${standaloneCliDir}/configuration/org.eclipse.equinox.simpleconfigurator/bundles.info</standaloneCliBundlesInfo>
+		<standaloneCliFilteredBundlesInfo>${standaloneCliWorkDir}/bundles.info</standaloneCliFilteredBundlesInfo>
 		<standaloneCliArchive>${project.build.directory}/extraArtifacts/${productRootFolder}.zip</standaloneCliArchive>
 	</properties>
 	<build>
@@ -180,6 +182,14 @@
 												<exclude name="org.eclipse.equinox.launcher_*.jar" />
 											</fileset>
 										</delete>
+										<copy file="${standaloneCliBundlesInfo}" tofile="${standaloneCliFilteredBundlesInfo}" overwrite="true">
+											<filterchain>
+												<linecontainsregexp negate="true">
+													<regexp pattern="^org\.eclipse\.equinox\.launcher\.[^,]+," />
+												</linecontainsregexp>
+											</filterchain>
+										</copy>
+										<move file="${standaloneCliFilteredBundlesInfo}" tofile="${standaloneCliBundlesInfo}" overwrite="true" />
 										<delete file="${standaloneCliArchive}" quiet="true" />
 										<zip destfile="${standaloneCliArchive}">
 											<zipfileset dir="${standaloneCliWorkDir}" includes="${productRootFolder}/mat-cli" filemode="755" />
