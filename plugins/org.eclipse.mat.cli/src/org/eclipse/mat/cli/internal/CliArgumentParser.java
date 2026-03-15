@@ -19,6 +19,7 @@ public final class CliArgumentParser
     static final int DEFAULT_LIMIT = 20;
     static final int MAX_LIMIT = 10000;
     static final int DEFAULT_TREE_DEPTH = 8;
+    static final int DEFAULT_AGENT_TREE_DEPTH = 4;
 
     public CliArguments parse(String[] args) throws CliException
     {
@@ -38,6 +39,8 @@ public final class CliArgumentParser
         boolean help = false;
         int limit = DEFAULT_LIMIT;
         boolean limitExplicit = false;
+        int treeDepthLimit = DEFAULT_TREE_DEPTH;
+        boolean treeDepthExplicit = false;
         String objectAddress = null;
         String oqlQuery = null;
         String oqlQueryFile = null;
@@ -84,6 +87,16 @@ public final class CliArgumentParser
             {
                 limit = parseLimit(nextArg(args, ++ii, "--limit")); //$NON-NLS-1$
                 limitExplicit = true;
+            }
+            else if (arg.startsWith("--depth=")) //$NON-NLS-1$
+            {
+                treeDepthLimit = parseDepth(arg.substring("--depth=".length())); //$NON-NLS-1$
+                treeDepthExplicit = true;
+            }
+            else if ("--depth".equals(arg)) //$NON-NLS-1$
+            {
+                treeDepthLimit = parseDepth(nextArg(args, ++ii, "--depth")); //$NON-NLS-1$
+                treeDepthExplicit = true;
             }
             else if (arg.startsWith("--object=")) //$NON-NLS-1$
             {
@@ -166,13 +179,15 @@ public final class CliArgumentParser
 
         if (profile == CliArguments.OutputProfile.AGENT && !formatExplicit)
             format = CliArguments.OutputFormat.JSON;
+        if (!treeDepthExplicit)
+            treeDepthLimit = defaultTreeDepth(profile);
 
         if (command == null)
         {
             if (help)
             {
                 return new CliArguments(null, null, null, null, profile, format, verbose, true, limit,
-                                DEFAULT_TREE_DEPTH, objectAddress, oqlQuery, queryCommand);
+                                treeDepthLimit, objectAddress, oqlQuery, queryCommand);
             }
             throw CliException.usage("Missing command"); //$NON-NLS-1$
         }
@@ -188,7 +203,7 @@ public final class CliArgumentParser
             limit = defaultLimit(command, queryCommand);
 
         CliArguments parsed = new CliArguments(command, subjectCommand, subjectName, heapFile, profile, format, verbose,
-                        help, limit, DEFAULT_TREE_DEPTH, objectAddress, oqlQuery, queryCommand);
+                        help, limit, treeDepthLimit, objectAddress, oqlQuery, queryCommand);
         validate(parsed);
         return parsed;
     }
@@ -369,6 +384,21 @@ public final class CliArgumentParser
         }
     }
 
+    private int parseDepth(String value) throws CliException
+    {
+        try
+        {
+            int depth = Integer.parseInt(value);
+            if (depth < 1)
+                throw CliException.usage("Depth must be >= 1"); //$NON-NLS-1$
+            return depth;
+        }
+        catch (NumberFormatException e)
+        {
+            throw CliException.usage("Invalid depth: " + value); //$NON-NLS-1$
+        }
+    }
+
     private String nextArg(String[] args, int index, String option) throws CliException
     {
         if (index >= args.length)
@@ -392,6 +422,7 @@ public final class CliArgumentParser
         String objectAddress = null;
         String oqlQuery = null;
         String queryCommand = null;
+        int treeDepthLimit = defaultTreeDepth(profile);
 
         if (args != null)
         {
@@ -409,6 +440,8 @@ public final class CliArgumentParser
                         String value = args[++ii];
                         if ("--object".equals(arg)) //$NON-NLS-1$
                             objectAddress = value;
+                        else if ("--depth".equals(arg)) //$NON-NLS-1$
+                            treeDepthLimit = safePartialDepth(value, treeDepthLimit);
                         else if ("--query".equals(arg)) //$NON-NLS-1$
                             oqlQuery = value;
                         else if ("--command".equals(arg)) //$NON-NLS-1$
@@ -422,6 +455,10 @@ public final class CliArgumentParser
                 else if (arg.startsWith("--query=")) //$NON-NLS-1$
                 {
                     oqlQuery = arg.substring("--query=".length()); //$NON-NLS-1$
+                }
+                else if (arg.startsWith("--depth=")) //$NON-NLS-1$
+                {
+                    treeDepthLimit = safePartialDepth(arg.substring("--depth=".length()), treeDepthLimit); //$NON-NLS-1$
                 }
                 else if (arg.startsWith("--command=")) //$NON-NLS-1$
                 {
@@ -466,7 +503,7 @@ public final class CliArgumentParser
         }
 
         return new CliArguments(command, subjectCommand, subjectName, heapFile, profile, format, false, help,
-                        defaultLimit(command, queryCommand), DEFAULT_TREE_DEPTH, objectAddress, oqlQuery, queryCommand);
+                        defaultLimit(command, queryCommand), treeDepthLimit, objectAddress, oqlQuery, queryCommand);
     }
 
     private int defaultLimit(CliCommand command, String queryCommand)
@@ -494,7 +531,25 @@ public final class CliArgumentParser
     private boolean expectsValue(String option)
     {
         return "--profile".equals(option) || "--format".equals(option) || "--limit".equals(option) //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                        || "--depth".equals(option) //$NON-NLS-1$
                         || "--object".equals(option) || "--query".equals(option) || "--query-file".equals(option) //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         || "--command".equals(option) || "--command-file".equals(option); //$NON-NLS-1$ //$NON-NLS-2$
+    }
+
+    private int defaultTreeDepth(CliArguments.OutputProfile profile)
+    {
+        return profile == CliArguments.OutputProfile.AGENT ? DEFAULT_AGENT_TREE_DEPTH : DEFAULT_TREE_DEPTH;
+    }
+
+    private int safePartialDepth(String value, int fallback)
+    {
+        try
+        {
+            return parseDepth(value);
+        }
+        catch (CliException e)
+        {
+            return fallback;
+        }
     }
 }

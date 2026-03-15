@@ -43,6 +43,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
     public String toText(IResultTree tree, SerializationOptions options)
     {
         StringBuilder builder = new StringBuilder();
+        appendColumnHeader(builder, tree.getColumns());
         TruncationState state = new TruncationState(Integer.MAX_VALUE);
         appendNodes(builder, tree, tree.getColumns(), tree.getElements(), 0, options, state, new PathState());
         return builder.toString();
@@ -219,6 +220,28 @@ public class TreeResultSerializer extends StructuredResultSerializer
             builder.append(value == null ? "" : value); //$NON-NLS-1$
         }
         return builder.toString();
+    }
+
+    private void appendColumnHeader(StringBuilder builder, Column[] columns)
+    {
+        if (columns == null || columns.length <= 1)
+            return;
+
+        int headerLength = 0;
+        for (int ii = 0; ii < columns.length; ii++)
+        {
+            if (ii > 0)
+            {
+                builder.append(" | "); //$NON-NLS-1$
+                headerLength += 3;
+            }
+            builder.append(columns[ii].getLabel());
+            headerLength += columns[ii].getLabel().length();
+        }
+        builder.append('\n');
+        for (int ii = 0; ii < headerLength; ii++)
+            builder.append('-');
+        builder.append('\n');
     }
 
     private static final class TruncationState

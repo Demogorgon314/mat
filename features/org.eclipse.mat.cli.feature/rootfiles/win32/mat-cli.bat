@@ -36,12 +36,22 @@ if exist "%_DIRNAME%.eclipseproduct" (
   )
 )
 
+set "_INSTALL_TOKEN=%_PRODUCT_VERSION%"
+for %%I in ("%_DIRNAME%plugins\org.eclipse.mat.cli_*.jar") do (
+  if exist "%%~fI" (
+    for /f "tokens=2 delims=_" %%J in ("%%~nI") do set "_INSTALL_TOKEN=%%J"
+    goto install_token_found
+  )
+)
+
+:install_token_found
+
 set "_OS_ID=win32"
 set "_ARCH_ID=%PROCESSOR_ARCHITECTURE%"
 if /I "%_ARCH_ID%"=="AMD64" set "_ARCH_ID=x86_64"
 if /I "%_ARCH_ID%"=="ARM64" set "_ARCH_ID=aarch64"
 if /I "%_ARCH_ID%"=="X86" set "_ARCH_ID=x86"
-set "_RUNTIME_ID=v2-%_PRODUCT_VERSION%-%_OS_ID%-%_ARCH_ID%"
+set "_RUNTIME_ID=v3-%_PRODUCT_VERSION%-%_INSTALL_TOKEN%-%_OS_ID%-%_ARCH_ID%"
 
 if defined MAT_CLI_CONFIG_DIR (
   set "_CONFIG_DIR=%MAT_CLI_CONFIG_DIR%"

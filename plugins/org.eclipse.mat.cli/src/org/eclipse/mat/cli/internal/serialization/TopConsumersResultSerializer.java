@@ -93,7 +93,7 @@ public class TopConsumersResultSerializer
         }
         else
         {
-            writeAgentPackageNode(writer, result.getPackages(), options, packageState);
+            writeAgentPackageNode(writer, result.getPackages(), options, packageState, 0);
         }
         writer.name("packagesTruncated").value(packageState.truncated); //$NON-NLS-1$
         return biggestObjectsTruncated || classesTruncated || classLoadersTruncated || packageState.truncated;
@@ -172,7 +172,7 @@ public class TopConsumersResultSerializer
         if (root == null)
             writer.nullValue();
         else
-            writePackageNode(writer, root, options, state, true);
+            writePackageNode(writer, root, options, state, true, 0);
         writer.name("truncated").value(state.truncated); //$NON-NLS-1$
         writer.endObject();
         return state.truncated;
@@ -190,7 +190,7 @@ public class TopConsumersResultSerializer
     }
 
     private void writeAgentPackageNode(JsonWriter writer, TopConsumersResult.PackageNode node, SerializationOptions options,
-                    PackageTruncationState state)
+                    PackageTruncationState state, int depth)
     {
         if (state.remainingNodes <= 0)
         {
@@ -212,15 +212,26 @@ public class TopConsumersResultSerializer
         writer.name("topDominators").value(node.getTopDominators()); //$NON-NLS-1$
         writer.name("_hasChildren").value(!children.isEmpty()); //$NON-NLS-1$
         writer.name("_children").beginArray(); //$NON-NLS-1$
-        for (int ii = 0; ii < limit; ii++)
+        if (depth + 1 >= options.getTreeDepthLimit())
         {
-            if (state.remainingNodes <= 0)
+            if (!children.isEmpty())
             {
                 state.truncated = true;
                 childrenTruncated = true;
-                break;
             }
-            writeAgentPackageNode(writer, children.get(ii), options, state);
+        }
+        else
+        {
+            for (int ii = 0; ii < limit; ii++)
+            {
+                if (state.remainingNodes <= 0)
+                {
+                    state.truncated = true;
+                    childrenTruncated = true;
+                    break;
+                }
+                writeAgentPackageNode(writer, children.get(ii), options, state, depth + 1);
+            }
         }
         writer.endArray();
         writer.name("_childrenTruncated").value(childrenTruncated); //$NON-NLS-1$
@@ -228,7 +239,7 @@ public class TopConsumersResultSerializer
     }
 
     private void writePackageNode(JsonWriter writer, TopConsumersResult.PackageNode node, SerializationOptions options,
-                    PackageTruncationState state, boolean includeChildren)
+                    PackageTruncationState state, boolean includeChildren, int depth)
     {
         if (state.remainingNodes <= 0)
         {
@@ -252,14 +263,22 @@ public class TopConsumersResultSerializer
             int limit = Math.min(children.size(), options.getLimit());
             if (children.size() > limit)
                 state.truncated = true;
-            for (int ii = 0; ii < limit; ii++)
+            if (depth + 1 >= options.getTreeDepthLimit())
             {
-                if (state.remainingNodes <= 0)
-                {
+                if (!children.isEmpty())
                     state.truncated = true;
-                    break;
+            }
+            else
+            {
+                for (int ii = 0; ii < limit; ii++)
+                {
+                    if (state.remainingNodes <= 0)
+                    {
+                        state.truncated = true;
+                        break;
+                    }
+                    writePackageNode(writer, children.get(ii), options, state, true, depth + 1);
                 }
-                writePackageNode(writer, children.get(ii), options, state, true);
             }
         }
         writer.endArray();
@@ -309,12 +328,12 @@ public class TopConsumersResultSerializer
         }
 
         PackageTruncationState state = new PackageTruncationState(options.getTreeNodeLimit());
-        appendPackageNode(builder, root, new StringBuilder(), options, state);
+        appendPackageNode(builder, root, new StringBuilder(), options, state, 0);
         builder.append('\n');
     }
 
     private void appendPackageNode(StringBuilder builder, TopConsumersResult.PackageNode node, StringBuilder prefix,
-                    SerializationOptions options, PackageTruncationState state)
+                    SerializationOptions options, PackageTruncationState state, int depth)
     {
         if (state.remainingNodes <= 0)
         {
@@ -333,6 +352,12 @@ public class TopConsumersResultSerializer
         int limit = Math.min(children.size(), options.getLimit());
         if (children.size() > limit)
             state.truncated = true;
+        if (depth + 1 >= options.getTreeDepthLimit())
+        {
+            if (!children.isEmpty())
+                state.truncated = true;
+            return;
+        }
 
         for (int ii = 0; ii < limit; ii++)
         {
@@ -353,7 +378,7 @@ public class TopConsumersResultSerializer
                 prefix.append('|');
             prefix.append("- "); //$NON-NLS-1$
 
-            appendPackageNode(builder, children.get(ii), prefix, options, state);
+            appendPackageNode(builder, children.get(ii), prefix, options, state, depth + 1);
             prefix.setLength(originalLength);
         }
     }

@@ -41,6 +41,21 @@ read_product_version() {
     printf '%s\n' "unknown"
 }
 
+read_install_token() {
+    for candidate in "$DIR"/plugins/org.eclipse.mat.cli_*.jar
+    do
+        if [ -f "$candidate" ]; then
+            token=${candidate##*/}
+            token=${token#org.eclipse.mat.cli_}
+            token=${token%.jar}
+            printf '%s\n' "$token"
+            return
+        fi
+    done
+
+    printf '%s\n' "$PRODUCT_VERSION"
+}
+
 normalize_os() {
     case "$1" in
         Darwin)
@@ -70,9 +85,10 @@ normalize_arch() {
 }
 
 PRODUCT_VERSION=$(read_product_version)
+INSTALL_TOKEN=$(read_install_token)
 OS_ID=$(normalize_os "${MAT_CLI_OS_ID:-$(uname -s 2>/dev/null || printf '%s' unknown)}")
 ARCH_ID=$(normalize_arch "${MAT_CLI_ARCH_ID:-$(uname -m 2>/dev/null || printf '%s' unknown)}")
-RUNTIME_ID="v2-${PRODUCT_VERSION}-${OS_ID}-${ARCH_ID}"
+RUNTIME_ID="v3-${PRODUCT_VERSION}-${INSTALL_TOKEN}-${OS_ID}-${ARCH_ID}"
 
 if [ -n "$MAT_CLI_CONFIG_DIR" ]; then
     CONFIG_DIR="$MAT_CLI_CONFIG_DIR"

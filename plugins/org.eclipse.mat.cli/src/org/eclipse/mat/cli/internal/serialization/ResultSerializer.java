@@ -335,7 +335,7 @@ public class ResultSerializer
             writer.name("stackTrace").value(stackTrace(error)); //$NON-NLS-1$
         writer.endObject();
         writer.name("truncated").value(false); //$NON-NLS-1$
-        writeSuggestedNextCommands(writer, suggestedNextCommands(arguments, null));
+        writeSuggestedNextCommands(writer, suggestedNextCommands(arguments, exitCode, error));
         writer.endObject();
         out.println(writer.toString());
     }
@@ -404,6 +404,27 @@ public class ResultSerializer
                         execution == null ? null : execution.getPrimaryObjectAddress());
     }
 
+    private List<String> suggestedNextCommands(CliArguments arguments, int exitCode, Throwable error)
+    {
+        if (arguments == null || arguments.getCommand() == null)
+            return renderSuggestions(arguments, Arrays.asList("mat-cli --help", "mat-cli describe summary --agent"), null); //$NON-NLS-1$ //$NON-NLS-2$
+
+        String kind = errorKind(arguments, exitCode, error);
+        if ("query_not_found".equals(kind)) //$NON-NLS-1$
+            return renderSuggestions(arguments, Arrays.asList("mat-cli list-queries --agent"), null); //$NON-NLS-1$
+        if ("missing_file".equals(kind)) //$NON-NLS-1$
+            return renderSuggestions(arguments, Arrays.asList("mat-cli --help", "mat-cli list-queries --agent"), null); //$NON-NLS-1$ //$NON-NLS-2$
+        if ("invalid_argument".equals(kind) && arguments.getCommand() == CliCommand.PATH2GC) //$NON-NLS-1$
+        {
+            return renderSuggestions(arguments,
+                            Arrays.asList("oql <heap> --query \"SELECT * FROM OBJECTS 0x...\" --agent", //$NON-NLS-1$
+                                            "histogram <heap> --agent", "top-consumers <heap> --agent"), //$NON-NLS-1$ //$NON-NLS-2$
+                            arguments.getObjectAddress());
+        }
+
+        return suggestedNextCommands(arguments, (CliExecution) null);
+    }
+
     private List<String> renderSuggestions(CliArguments arguments, List<String> suggestions, String objectAddress)
     {
         java.util.ArrayList<String> rendered = new java.util.ArrayList<String>(suggestions.size());
@@ -455,6 +476,8 @@ public class ResultSerializer
             return "permission"; //$NON-NLS-1$
         if (lower.contains("no object found at address") || lower.contains("invalid object address")) //$NON-NLS-1$ //$NON-NLS-2$
             return "invalid_argument"; //$NON-NLS-1$
+        if (lower.contains("unknown mat query") || (lower.contains("command") && lower.contains("not found"))) //$NON-NLS-1$ //$NON-NLS-2$
+            return "query_not_found"; //$NON-NLS-1$
         if (rootClass.endsWith("ParseException") || lower.contains("encountered ") || lower.contains("syntax")) //$NON-NLS-1$ //$NON-NLS-2$
             return "query_syntax"; //$NON-NLS-1$
         if (arguments != null && arguments.getCommand() == CliCommand.OQL && lower.contains("problem reported:")) //$NON-NLS-1$
@@ -475,6 +498,8 @@ public class ResultSerializer
             return "Retry with a larger heap, for example MAT_CLI_VMARGS=\"-Xmx2g\"."; //$NON-NLS-1$
         if (exitCode == CliExitCodes.USAGE)
             return "Run `mat-cli --help` or `mat-cli describe <command> --agent` for the expected arguments."; //$NON-NLS-1$
+        if ("query_not_found".equals(kind)) //$NON-NLS-1$
+            return "Run `mat-cli list-queries --agent` to discover valid MAT query identifiers."; //$NON-NLS-1$
         if ("missing_file".equals(kind)) //$NON-NLS-1$
             return "Verify that the heap path exists and is readable."; //$NON-NLS-1$
         if ("permission".equals(kind)) //$NON-NLS-1$

@@ -21,6 +21,7 @@ import org.eclipse.mat.query.IResult;
 import org.eclipse.mat.query.IResultPie;
 import org.eclipse.mat.query.IResultTable;
 import org.eclipse.mat.query.IResultTree;
+import org.eclipse.mat.query.refined.RefinedResultBuilder;
 import org.eclipse.mat.query.results.CompositeResult;
 import org.eclipse.mat.query.results.TextResult;
 import org.eclipse.mat.report.QuerySpec;
@@ -29,6 +30,7 @@ import org.eclipse.mat.report.Spec;
 import org.eclipse.mat.snapshot.ISnapshot;
 import org.eclipse.mat.snapshot.SnapshotFactory;
 import org.eclipse.mat.snapshot.model.GCRootInfo;
+import org.eclipse.mat.snapshot.query.RetainedSizeDerivedData;
 import org.eclipse.mat.snapshot.query.SnapshotQuery;
 import org.eclipse.mat.util.ConsoleProgressListener;
 import org.eclipse.mat.util.IProgressListener;
@@ -97,7 +99,9 @@ public class CliCommandExecutor
             case SUMMARY:
                 return CliExecution.summary(SnapshotSummary.from(snapshot.getSnapshotInfo()));
             case HISTOGRAM:
-                return CliExecution.result(SnapshotQuery.lookup("histogram", snapshot).refine(listener).build()); //$NON-NLS-1$
+                RefinedResultBuilder histogram = SnapshotQuery.lookup("histogram", snapshot).refine(listener); //$NON-NLS-1$
+                histogram.addDefaultContextDerivedColumn(RetainedSizeDerivedData.APPROXIMATE);
+                return CliExecution.result(histogram.build());
             case TOP_CONSUMERS:
                 return CliExecution.result(new TopConsumersResultBuilder().build(snapshot, listener));
             case PATH2GC:

@@ -55,6 +55,7 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"resultType\":\"table\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"columns\":")); //$NON-NLS-1$
         assertTrue(json.contains("\"rows\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"label\":\"Retained Heap\"")); //$NON-NLS-1$
     }
 
     @Test
@@ -128,6 +129,7 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"schemaVersion\":\"mat-cli/v1\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"resultKind\":\"table\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"schema\":{\"columns\":[{\"id\":\"class_name\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"id\":\"retained_heap\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"items\":[{")); //$NON-NLS-1$
         assertTrue(json.contains("\"_context\":{\"objectId\":")); //$NON-NLS-1$
         assertTrue(json.contains("\"suggestedNextCommands\":")); //$NON-NLS-1$
@@ -266,6 +268,17 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"command\":\"path2gc\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"kind\":\"invalid_argument\"")); //$NON-NLS-1$
         assertTrue(json.contains("No object found at address 0xdeadbeef")); //$NON-NLS-1$
+        assertTrue(json.contains("mat-cli histogram")); //$NON-NLS-1$
+        assertTrue(json.contains("mat-cli top-consumers")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void summaryAgentSuggestionsIncludeThreadOverview() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String json = executeJson(new String[] { "summary", heap.getAbsolutePath(), "--agent" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+
+        assertTrue(json.contains("thread_overview")); //$NON-NLS-1$
     }
 
     @Test

@@ -27,10 +27,10 @@ public final class CliHelp
         help.append("Commands:\n"); //$NON-NLS-1$
         help.append("  summary <heap>\n"); //$NON-NLS-1$
         help.append("  histogram <heap> [--limit N] [--format text|json]\n"); //$NON-NLS-1$
-        help.append("  top-consumers <heap> [--format text|json]\n"); //$NON-NLS-1$
-        help.append("  path2gc <heap> --object 0x... [--format text|json]\n"); //$NON-NLS-1$
-        help.append("  oql <heap> --query \"...\" [--format text|json]\n"); //$NON-NLS-1$
-        help.append("  query <heap> --command \"...\" [--format text|json]\n"); //$NON-NLS-1$
+        help.append("  top-consumers <heap> [--limit N] [--depth N] [--format text|json]\n"); //$NON-NLS-1$
+        help.append("  path2gc <heap> --object 0x... [--limit N] [--depth N] [--format text|json]\n"); //$NON-NLS-1$
+        help.append("  oql <heap> --query \"...\" [--limit N] [--depth N] [--format text|json]\n"); //$NON-NLS-1$
+        help.append("  query <heap> --command \"...\" [--limit N] [--depth N] [--format text|json]\n"); //$NON-NLS-1$
         help.append("  describe <command> [--format text|json]\n"); //$NON-NLS-1$
         help.append("  schema <command> [--format text|json]\n"); //$NON-NLS-1$
         help.append("  list-queries [--format text|json]\n"); //$NON-NLS-1$
@@ -38,6 +38,7 @@ public final class CliHelp
         help.append("Global options:\n"); //$NON-NLS-1$
         help.append("  --format text|json   Output format (default: text, agent profile: json)\n"); //$NON-NLS-1$
         help.append("  --limit N            Maximum rows or children per level (default: 20, max: 10000)\n"); //$NON-NLS-1$
+        help.append("  --depth N            Maximum tree or section depth (default: 8, agent profile: 4)\n"); //$NON-NLS-1$
         help.append("  --profile default|agent  Output profile (default: default)\n"); //$NON-NLS-1$
         help.append("  --agent              Shortcut for --profile agent\n"); //$NON-NLS-1$
         help.append("  --verbose            Print detailed diagnostics on failure\n"); //$NON-NLS-1$

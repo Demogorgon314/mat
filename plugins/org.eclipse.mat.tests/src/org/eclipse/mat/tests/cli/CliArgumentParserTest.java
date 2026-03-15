@@ -11,6 +11,7 @@ package org.eclipse.mat.tests.cli;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -21,6 +22,8 @@ import java.nio.file.Path;
 import org.eclipse.mat.cli.internal.CliArgumentParser;
 import org.eclipse.mat.cli.internal.CliArguments;
 import org.eclipse.mat.cli.internal.CliCommand;
+import org.eclipse.mat.cli.internal.CliException;
+import org.eclipse.mat.cli.internal.CliHelp;
 import org.junit.Test;
 
 public class CliArgumentParserTest
@@ -57,6 +60,7 @@ public class CliArgumentParserTest
         assertEquals(CliCommand.HISTOGRAM, arguments.getCommand());
         assertEquals(CliArguments.OutputProfile.AGENT, arguments.getProfile());
         assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
+        assertEquals(4, arguments.getTreeDepthLimit());
     }
 
     @Test
@@ -159,11 +163,49 @@ public class CliArgumentParserTest
     }
 
     @Test
+    public void parsesExplicitDepth()
+                    throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(
+                        new String[] { "query", "sample.hprof", "--command", "gc_roots", "--depth", "3" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertEquals(3, arguments.getTreeDepthLimit());
+    }
+
+    @Test
+    public void rejectsInvalidDepth()
+                    throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        try
+        {
+            parser.parse(new String[] { "query", "sample.hprof", "--command", "gc_roots", "--depth", "0" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+            fail("Expected invalid depth"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertEquals(2, e.getExitCode());
+            assertTrue(e.getMessage().contains("Depth must be >= 1")); //$NON-NLS-1$
+        }
+    }
+
+    @Test
     public void parsesHelpWithoutCommand() throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
         CliArguments arguments = parser.parse(new String[0]);
 
         assertTrue(arguments.isHelp());
+    }
+
+    @Test
+    public void helpIncludesDepthAndTopConsumersLimit()
+    {
+        String help = CliHelp.generalHelp();
+
+        assertTrue(help.contains("top-consumers <heap> [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("--depth N            Maximum tree or section depth")); //$NON-NLS-1$
     }
 }

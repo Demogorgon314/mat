@@ -176,6 +176,10 @@ public final class CliCommandCatalog
     private static final List<OptionDefinition> FORMAT_AND_LIMIT_OPTIONS = Arrays.asList(
                     option("--limit", "N", false, "Limit rows or children per level."),
                     option("--format", "text|json", false, "Select text or JSON output."));
+    private static final List<OptionDefinition> FORMAT_LIMIT_AND_DEPTH_OPTIONS = Arrays.asList(
+                    option("--limit", "N", false, "Limit rows, sections, or children per level."),
+                    option("--depth", "N", false, "Limit nested tree or section depth."),
+                    option("--format", "text|json", false, "Select text or JSON output."));
     private static final Map<String, Integer> QUERY_LIMIT_OVERRIDES = queryLimitOverrides();
 
     private static final Map<CliCommand, CommandDefinition> DEFINITIONS = definitions();
@@ -202,12 +206,13 @@ public final class CliCommandCatalog
                         Arrays.asList(output("default", "text", "summary", "Human-readable heap summary."),
                                         output("default", "json", "summary", "Summary JSON envelope."),
                                         output("agent", "json", "summary", "Stable summary envelope for agents.")),
-                        Arrays.asList("histogram <heap> --agent", "top-consumers <heap> --agent"),
+                        Arrays.asList("histogram <heap> --agent", "top-consumers <heap> --agent",
+                                        "query <heap> --command \"thread_overview\" --agent"),
                         "summary object with snapshot-wide counters and heap metadata.",
                         Arrays.asList("summary.path", "summary.heapFormat", "summary.numberOfObjects",
                                         "summary.numberOfClasses", "summary.usedHeapSize")));
         definitions.put(CliCommand.HISTOGRAM, new CommandDefinition(CliCommand.HISTOGRAM,
-                        "Group objects by class and report retained and shallow heap.",
+                        "Group objects by class and report shallow heap plus approximate retained heap.",
                         "mat-cli histogram <heap> [--limit N] [--format text|json]", true,
                         Collections.singletonList("heap"), FORMAT_AND_LIMIT_OPTIONS,
                         Arrays.asList(output("default", "text", "table", "Text table with formatted columns."),
@@ -219,8 +224,8 @@ public final class CliCommandCatalog
                                         "items[]._context.objectId")));
         definitions.put(CliCommand.TOP_CONSUMERS, new CommandDefinition(CliCommand.TOP_CONSUMERS,
                         "Show the largest dominators grouped the same way as MAT top consumers.",
-                        "mat-cli top-consumers <heap> [--limit N] [--format text|json]", true,
-                        Collections.singletonList("heap"), FORMAT_AND_LIMIT_OPTIONS,
+                        "mat-cli top-consumers <heap> [--limit N] [--depth N] [--format text|json]", true,
+                        Collections.singletonList("heap"), FORMAT_LIMIT_AND_DEPTH_OPTIONS,
                         Arrays.asList(output("default", "text", "top-consumers", "Text report matching MAT top consumers."),
                                         output("default", "json", "top-consumers", "Compact aggregated JSON."),
                                         output("agent", "json", "top-consumers",
@@ -232,11 +237,12 @@ public final class CliCommandCatalog
                                         "packagesTruncated")));
         definitions.put(CliCommand.PATH2GC, new CommandDefinition(CliCommand.PATH2GC,
                         "Find paths from an object to GC roots using MAT's native query.",
-                        "mat-cli path2gc <heap> --object 0x... [--format text|json]", true,
+                        "mat-cli path2gc <heap> --object 0x... [--limit N] [--depth N] [--format text|json]", true,
                         Collections.singletonList("heap"), Arrays.asList(option("--object", "0x...", true,
                                         "Object address to resolve from the snapshot."),
-                                        option("--format", "text|json", false, "Select text or JSON output."),
-                                        option("--limit", "N", false, "Limit children per level.")),
+                                        option("--limit", "N", false, "Limit children per level."),
+                                        option("--depth", "N", false, "Limit nested tree depth."),
+                                        option("--format", "text|json", false, "Select text or JSON output.")),
                         Arrays.asList(output("default", "text", "tree", "Indented tree view."),
                                         output("default", "json", "tree", "MAT tree JSON with columns and rows."),
                                         output("agent", "json", "tree", "Stable tree schema and keyed nodes.")),
@@ -247,14 +253,15 @@ public final class CliCommandCatalog
                                         "items[]._childrenTruncated", "items[]._context.objectId")));
         definitions.put(CliCommand.OQL, new CommandDefinition(CliCommand.OQL,
                         "Run a MAT OQL query directly against the snapshot.",
-                        "mat-cli oql <heap> --query \"...\" [--format text|json]", true,
+                        "mat-cli oql <heap> --query \"...\" [--limit N] [--depth N] [--format text|json]", true,
                         Collections.singletonList("heap"), Arrays.asList(option("--query", "\"...\"", true,
                                         "OQL query string."),
                                         option("--query-file", "PATH", false,
                                                         "Read OQL text from a UTF-8 file."),
                                         option("--query-stdin", null, false, "Read OQL text from stdin."),
-                                        option("--format", "text|json", false, "Select text or JSON output."),
-                                        option("--limit", "N", false, "Limit rows or children per level.")),
+                                        option("--limit", "N", false, "Limit rows, sections, or children per level."),
+                                        option("--depth", "N", false, "Limit nested tree or section depth."),
+                                        option("--format", "text|json", false, "Select text or JSON output.")),
                         Arrays.asList(output("default", "text", "text|table|tree|pie", "Depends on the OQL result."),
                                         output("default", "json", "text|table|tree|pie", "Depends on the OQL result."),
                                         output("agent", "json", "text|table|tree|pie",
@@ -265,14 +272,15 @@ public final class CliCommandCatalog
                                         "slices[] when pie", "content when text")));
         definitions.put(CliCommand.QUERY, new CommandDefinition(CliCommand.QUERY,
                         "Run a MAT query command string through SnapshotQuery.parse(...).",
-                        "mat-cli query <heap> --command \"...\" [--format text|json]", true,
+                        "mat-cli query <heap> --command \"...\" [--limit N] [--depth N] [--format text|json]", true,
                         Collections.singletonList("heap"), Arrays.asList(option("--command", "\"...\"", true,
                                         "MAT query command string."),
                                         option("--command-file", "PATH", false,
                                                         "Read MAT query text from a UTF-8 file."),
                                         option("--command-stdin", null, false, "Read MAT query text from stdin."),
-                                        option("--format", "text|json", false, "Select text or JSON output."),
-                                        option("--limit", "N", false, "Limit rows or children per level.")),
+                                        option("--limit", "N", false, "Limit rows, sections, or children per level."),
+                                        option("--depth", "N", false, "Limit nested tree or section depth."),
+                                        option("--format", "text|json", false, "Select text or JSON output.")),
                         Arrays.asList(output("default", "text", "text|table|tree|section|pie|top-consumers",
                                         "Depends on the resolved query result."),
                                         output("default", "json", "text|table|tree|section|pie|top-consumers",

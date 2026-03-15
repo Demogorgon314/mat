@@ -57,10 +57,16 @@ public class SpecResultSerializer
 
     public boolean writeJson(JsonWriter writer, Spec spec, SerializationOptions options) throws CliException
     {
+        return writeJson(writer, spec, options, 0);
+    }
+
+    private boolean writeJson(JsonWriter writer, Spec spec, SerializationOptions options, int sectionDepth)
+                    throws CliException
+    {
         if (spec instanceof SectionSpec)
-            return writeSection(writer, (SectionSpec) spec, options);
+            return writeSection(writer, (SectionSpec) spec, options, sectionDepth);
         if (spec instanceof QuerySpec)
-            return writeQuery(writer, (QuerySpec) spec, options);
+            return writeQuery(writer, (QuerySpec) spec, options, sectionDepth);
 
         writeSpecMetadata(writer, spec);
         writer.name("sections").beginArray().endArray(); //$NON-NLS-1$
@@ -70,7 +76,7 @@ public class SpecResultSerializer
     public String toText(Spec spec, SerializationOptions options)
     {
         StringBuilder builder = new StringBuilder();
-        appendText(builder, spec, options, 0);
+        appendText(builder, spec, options, 0, 0);
         return builder.toString();
     }
 
@@ -125,23 +131,36 @@ public class SpecResultSerializer
         return section;
     }
 
-    private boolean writeSection(JsonWriter writer, SectionSpec spec, SerializationOptions options) throws CliException
+    private boolean writeSection(JsonWriter writer, SectionSpec spec, SerializationOptions options, int sectionDepth)
+                    throws CliException
     {
         writeSpecMetadata(writer, spec);
-        return writeSectionContents(writer, spec, options);
+        if (sectionDepth >= options.getTreeDepthLimit())
+        {
+            writer.name("sections").beginArray().endArray(); //$NON-NLS-1$
+            return !spec.getChildren().isEmpty();
+        }
+        return writeSectionContents(writer, spec, options, sectionDepth);
     }
 
-    private boolean writeSectionContents(JsonWriter writer, SectionSpec spec, SerializationOptions options)
+    private boolean writeSectionContents(JsonWriter writer, SectionSpec spec, SerializationOptions options,
+                    int sectionDepth)
                     throws CliException
     {
         boolean truncated = false;
+        List<Spec> children = spec.getChildren();
+        int limit = Math.min(children.size(), options.getLimit());
+        if (children.size() > limit)
+            truncated = true;
 
         writer.name("sections").beginArray(); //$NON-NLS-1$
-        for (Spec child : spec.getChildren())
+        for (int ii = 0; ii < limit; ii++)
         {
+            Spec child = children.get(ii);
             writer.beginObject();
             writer.name("kind").value(rootResultType(child)); //$NON-NLS-1$
-            boolean childTruncated = writeJson(writer, child, options);
+            int childSectionDepth = child instanceof SectionSpec ? sectionDepth + 1 : sectionDepth;
+            boolean childTruncated = writeJson(writer, child, options, childSectionDepth);
             writer.name("truncated").value(childTruncated); //$NON-NLS-1$
             writer.endObject();
             truncated |= childTruncated;
@@ -151,14 +170,22 @@ public class SpecResultSerializer
         return truncated;
     }
 
-    private boolean writeQuery(JsonWriter writer, QuerySpec spec, SerializationOptions options) throws CliException
+    private boolean writeQuery(JsonWriter writer, QuerySpec spec, SerializationOptions options, int sectionDepth)
+                    throws CliException
     {
         writeSpecMetadata(writer, spec);
         writer.name("queryCommand").value(spec.getCommand()); //$NON-NLS-1$
-        return writeResult(writer, spec.getResult(), options, spec.getName());
+        return writeResult(writer, spec.getResult(), options, spec.getName(), sectionDepth);
     }
 
     private boolean writeResult(JsonWriter writer, IResult result, SerializationOptions options, String fallbackName)
+                    throws CliException
+    {
+        return writeResult(writer, result, options, fallbackName, 0);
+    }
+
+    private boolean writeResult(JsonWriter writer, IResult result, SerializationOptions options, String fallbackName,
+                    int sectionDepth)
                     throws CliException
     {
         if (result == null)
@@ -201,17 +228,17 @@ public class SpecResultSerializer
         if (result instanceof CompositeResult)
         {
             writer.name("resultType").value("section"); //$NON-NLS-1$ //$NON-NLS-2$
-            return writeSectionContents(writer, asSection((CompositeResult) result, fallbackName), options);
+            return writeNestedSection(writer, asSection((CompositeResult) result, fallbackName), options, sectionDepth);
         }
         if (result instanceof SectionSpec)
         {
             writer.name("resultType").value("section"); //$NON-NLS-1$ //$NON-NLS-2$
-            return writeSectionContents(writer, (SectionSpec) result, options);
+            return writeNestedSection(writer, (SectionSpec) result, options, sectionDepth);
         }
         if (result instanceof Spec)
         {
             writer.name("resultType").value("section"); //$NON-NLS-1$ //$NON-NLS-2$
-            return writeSectionContents(writer, wrapSpec((Spec) result, fallbackName), options);
+            return writeNestedSection(writer, wrapSpec((Spec) result, fallbackName), options, sectionDepth);
         }
 
         writer.name("resultType").value("unsupported"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -233,17 +260,48 @@ public class SpecResultSerializer
         writer.endObject();
     }
 
-    private void appendText(StringBuilder builder, Spec spec, SerializationOptions options, int depth)
+    private boolean writeNestedSection(JsonWriter writer, SectionSpec spec, SerializationOptions options, int sectionDepth)
+                    throws CliException
+    {
+        if (sectionDepth + 1 >= options.getTreeDepthLimit())
+        {
+            writer.name("sections").beginArray().endArray(); //$NON-NLS-1$
+            return !spec.getChildren().isEmpty();
+        }
+        return writeSectionContents(writer, spec, options, sectionDepth + 1);
+    }
+
+    private void appendText(StringBuilder builder, Spec spec, SerializationOptions options, int depth, int sectionDepth)
     {
         indent(builder, depth);
         builder.append(spec.getName() == null ? "<unnamed>" : spec.getName()).append('\n'); //$NON-NLS-1$
 
         if (spec instanceof SectionSpec)
         {
-            for (Spec child : ((SectionSpec) spec).getChildren())
+            List<Spec> children = ((SectionSpec) spec).getChildren();
+            if (sectionDepth >= options.getTreeDepthLimit())
+            {
+                if (!children.isEmpty())
+                {
+                    builder.append('\n');
+                    indent(builder, depth + 1);
+                    builder.append("[section truncated by depth]\n"); //$NON-NLS-1$
+                }
+                return;
+            }
+            int limit = Math.min(children.size(), options.getLimit());
+            for (int ii = 0; ii < limit; ii++)
             {
                 builder.append('\n');
-                appendText(builder, child, options, depth + 1);
+                Spec child = children.get(ii);
+                int childSectionDepth = child instanceof SectionSpec ? sectionDepth + 1 : sectionDepth;
+                appendText(builder, child, options, depth + 1, childSectionDepth);
+            }
+            if (children.size() > limit)
+            {
+                builder.append('\n');
+                indent(builder, depth + 1);
+                builder.append("... ").append(children.size() - limit).append(" more sections\n"); //$NON-NLS-1$ //$NON-NLS-2$
             }
             return;
         }
@@ -251,11 +309,11 @@ public class SpecResultSerializer
         if (!(spec instanceof QuerySpec))
             return;
 
-        appendResultText(builder, ((QuerySpec) spec).getResult(), options, depth, spec.getName());
+        appendResultText(builder, ((QuerySpec) spec).getResult(), options, depth, spec.getName(), sectionDepth);
     }
 
     private void appendResultText(StringBuilder builder, IResult result, SerializationOptions options, int depth,
-                    String fallbackName)
+                    String fallbackName, int sectionDepth)
     {
         if (result == null)
             return;
@@ -280,17 +338,29 @@ public class SpecResultSerializer
         else if (result instanceof CompositeResult)
         {
             builder.append('\n');
-            appendText(builder, asSection((CompositeResult) result, fallbackName), options, depth + 1);
+            appendNestedSection(builder, asSection((CompositeResult) result, fallbackName), options, depth, sectionDepth);
         }
         else if (result instanceof Spec)
         {
             builder.append('\n');
-            appendText(builder, wrapSpec((Spec) result, fallbackName), options, depth + 1);
+            appendNestedSection(builder, wrapSpec((Spec) result, fallbackName), options, depth, sectionDepth);
         }
         else
         {
             builder.append("[unsupported result: ").append(result.getClass().getName()).append("]\n"); //$NON-NLS-1$ //$NON-NLS-2$
         }
+    }
+
+    private void appendNestedSection(StringBuilder builder, SectionSpec spec, SerializationOptions options, int depth,
+                    int sectionDepth)
+    {
+        if (sectionDepth + 1 >= options.getTreeDepthLimit())
+        {
+            indent(builder, depth + 1);
+            builder.append("[section truncated by depth]\n"); //$NON-NLS-1$
+            return;
+        }
+        appendText(builder, spec, options, depth + 1, sectionDepth + 1);
     }
 
     private SectionSpec wrapSpec(Spec spec, String fallbackName)

@@ -13,21 +13,21 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.awt.Color;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import org.eclipse.mat.cli.internal.CliArgumentParser;
 import org.eclipse.mat.cli.internal.CliArguments;
 import org.eclipse.mat.cli.internal.QueryMetadataResult;
 import org.eclipse.mat.cli.internal.TopConsumersResult;
-import org.eclipse.mat.cli.internal.serialization.ResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.JsonWriter;
-import org.eclipse.mat.cli.internal.serialization.QueryMetadataSerializer;
 import org.eclipse.mat.cli.internal.serialization.PieResultSerializer;
+import org.eclipse.mat.cli.internal.serialization.QueryMetadataSerializer;
+import org.eclipse.mat.cli.internal.serialization.ResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.SerializationOptions;
 import org.eclipse.mat.cli.internal.serialization.SpecResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.TableResultSerializer;
@@ -152,6 +152,17 @@ public class ResultSerializerTest
     }
 
     @Test
+    public void rendersTreeTextWithColumnHeaders()
+    {
+        TreeResultSerializer serializer = new TreeResultSerializer();
+
+        String text = serializer.toText(new SampleTree(), new SerializationOptions(10, 8));
+
+        assertTrue(text.startsWith("Name | Depth\n")); //$NON-NLS-1$
+        assertTrue(text.contains("- Root | 1")); //$NON-NLS-1$
+    }
+
+    @Test
     public void truncatesTreeJsonByTotalNodeBudget()
     {
         TreeResultSerializer serializer = new TreeResultSerializer();
@@ -188,6 +199,69 @@ public class ResultSerializerTest
         assertTrue(json.contains("\"resultType\":\"tree\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"Overview\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"resultType\":\"text\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void truncatesSectionChildrenByLimit() throws Exception
+    {
+        SpecResultSerializer serializer = new SpecResultSerializer(new TableResultSerializer(), new TreeResultSerializer(),
+                        new TextResultSerializer(), new PieResultSerializer());
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeJson(writer, sampleSection(), new SerializationOptions(2, 8));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertTrue(truncated);
+        assertTrue(json.contains("\"name\":\"Overview\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"Sample Table\"")); //$NON-NLS-1$
+        assertFalse(json.contains("\"name\":\"Sample Tree\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void truncatesNestedSectionsByDepth() throws Exception
+    {
+        SpecResultSerializer serializer = new SpecResultSerializer(new TableResultSerializer(), new TreeResultSerializer(),
+                        new TextResultSerializer(), new PieResultSerializer());
+        SectionSpec outer = new SectionSpec("Outer"); //$NON-NLS-1$
+        SectionSpec inner = new SectionSpec("Inner"); //$NON-NLS-1$
+        inner.add(new QuerySpec("Leaf", new TextResult("value", false))); //$NON-NLS-1$ //$NON-NLS-2$
+        outer.add(new QuerySpec("Nested", inner)); //$NON-NLS-1$
+
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeJson(writer, outer, new SerializationOptions(10, 1));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertTrue(truncated);
+        assertTrue(json.contains("\"name\":\"Nested\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"sections\":[]")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void truncatesDirectSectionChildrenByDepth() throws Exception
+    {
+        SpecResultSerializer serializer = new SpecResultSerializer(new TableResultSerializer(), new TreeResultSerializer(),
+                        new TextResultSerializer(), new PieResultSerializer());
+        SectionSpec outer = new SectionSpec("Outer"); //$NON-NLS-1$
+        SectionSpec inner = new SectionSpec("Inner"); //$NON-NLS-1$
+        inner.add(new QuerySpec("Leaf", new TextResult("value", false))); //$NON-NLS-1$ //$NON-NLS-2$
+        outer.add(inner);
+
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeJson(writer, outer, new SerializationOptions(10, 1));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertTrue(truncated);
+        assertTrue(json.contains("\"name\":\"Inner\"")); //$NON-NLS-1$
+        assertFalse(json.contains("\"name\":\"Leaf\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"sections\":[]")); //$NON-NLS-1$
     }
 
     @Test
@@ -286,6 +360,23 @@ public class ResultSerializerTest
     }
 
     @Test
+    public void truncatesTopConsumersPackagesByDepth() throws Exception
+    {
+        TopConsumersResultSerializer serializer = new TopConsumersResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeAgentJson(writer, sampleTopConsumersResult(), new SerializationOptions(2, 1, 20));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertTrue(truncated);
+        assertTrue(json.contains("\"packages\":{\"name\":\"<all>\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_children\":[]")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_childrenTruncated\":true")); //$NON-NLS-1$
+    }
+
+    @Test
     public void serializesTopConsumersJsonWithoutNullPackageNodes() throws Exception
     {
         TopConsumersResultSerializer serializer = new TopConsumersResultSerializer();
@@ -378,6 +469,45 @@ public class ResultSerializerTest
 
         String json = output.toString(StandardCharsets.UTF_8.name());
         assertTrue(json.contains("\"kind\":\"query_error\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void classifiesQueryNotFoundErrors() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        CliArguments arguments = new CliArgumentParser()
+                        .parse(new String[] { "--agent", "query", "sample.hprof", "--command", "leak_suspects" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serializeError(arguments, CliArguments.OutputProfile.AGENT, 3,
+                            new IllegalStateException("Command leak_suspects not found."), stream); //$NON-NLS-1$
+        }
+
+        String json = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(json.contains("\"kind\":\"query_not_found\"")); //$NON-NLS-1$
+        assertTrue(json.contains("mat-cli list-queries --agent")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void omitsMissingHeapPathFromErrorSuggestions() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        CliArguments arguments = new CliArgumentParser()
+                        .parse(new String[] { "--agent", "summary", "/does/not/exist.hprof" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serializeError(arguments, CliArguments.OutputProfile.AGENT, 3,
+                            new IllegalStateException("Heap dump not found: /does/not/exist.hprof"), stream); //$NON-NLS-1$
+        }
+
+        String json = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(json.contains("\"kind\":\"missing_file\"")); //$NON-NLS-1$
+        assertTrue(json.contains("mat-cli --help")); //$NON-NLS-1$
+        assertFalse(json.contains("mat-cli histogram \"/does/not/exist.hprof\"")); //$NON-NLS-1$
     }
 
     @Test
