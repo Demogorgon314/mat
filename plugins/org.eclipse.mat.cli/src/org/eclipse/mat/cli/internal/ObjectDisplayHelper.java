@@ -84,6 +84,14 @@ final class ObjectDisplayHelper
         return field != null && field.getName() != null && field.getName().startsWith("<"); //$NON-NLS-1$
     }
 
+    static DisplayValue quotedTextValue(String text)
+    {
+        if (text == null)
+            return null;
+
+        return quotedTextValue(text, Integer.valueOf(text.length()), null, text.length() > TEXT_PREVIEW_LIMIT);
+    }
+
     private static Object primitiveArrayPreview(IPrimitiveArray array)
     {
         if (array == null)
@@ -158,6 +166,16 @@ final class ObjectDisplayHelper
                         Boolean.valueOf(truncated), encoding));
     }
 
+    private static DisplayValue quotedTextValue(String text, Integer length, String encoding, boolean truncated)
+    {
+        String sample = text == null ? null : text.substring(0, Math.min(text.length(), TEXT_PREVIEW_LIMIT));
+        String rendered = escapeText(sample, true);
+        if (truncated)
+            rendered = rendered + "..."; //$NON-NLS-1$
+        return new DisplayValue("\"" + rendered + "\"", new DisplayValue.Metadata("text_preview", length, //$NON-NLS-1$ //$NON-NLS-2$
+                        Boolean.valueOf(truncated), encoding));
+    }
+
     private static String decodeUtf8(byte[] bytes)
     {
         CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder();
@@ -190,6 +208,11 @@ final class ObjectDisplayHelper
 
     private static String escapeText(String value)
     {
+        return escapeText(value, false);
+    }
+
+    private static String escapeText(String value, boolean escapeQuotes)
+    {
         if (value == null)
             return null;
 
@@ -201,6 +224,12 @@ final class ObjectDisplayHelper
             {
                 case '\\':
                     builder.append("\\\\"); //$NON-NLS-1$
+                    break;
+                case '"':
+                    if (escapeQuotes)
+                        builder.append("\\\""); //$NON-NLS-1$
+                    else
+                        builder.append(ch);
                     break;
                 case '\n':
                     builder.append("\\n"); //$NON-NLS-1$

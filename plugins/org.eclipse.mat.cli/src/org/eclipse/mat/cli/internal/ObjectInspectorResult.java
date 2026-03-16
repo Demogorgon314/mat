@@ -310,6 +310,10 @@ final class ObjectInspectorResult implements IResultTree, TreeTextStyleProvider
 
     private Node objectNode(String kind, String name, IObject object)
     {
+        Object inlineValue = ObjectInspectorDisplayHelper.inlineValue(object);
+        if (inlineValue != null)
+            return new Node(kind, name, object.getClazz().getName(), inlineValue, null);
+
         return new Node(kind, name, object.getClazz().getName(), ObjectDisplayHelper.previewValue(object), object);
     }
 

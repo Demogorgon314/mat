@@ -20,6 +20,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 import java.util.Collection;
 
 import org.eclipse.mat.cli.internal.CliArgumentParser;
@@ -190,15 +191,16 @@ public class CliCommandExecutorTest
 
         assertTrue(json.contains("\"resultKind\":\"tree\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"path\":\"<root>\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"valueKind\":\"reference\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"hasChildren\":true")); //$NON-NLS-1$
+        assertTrue(json.contains("\"valueKind\":\"preview\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"hasChildren\":false")); //$NON-NLS-1$
         assertTrue(json.contains("\"kind\":\"object\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"<object>\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"object_address\":\"" + address + "\"")); //$NON-NLS-1$ //$NON-NLS-2$
-        assertTrue(json.contains("\"_children\":[{")); //$NON-NLS-1$
-        assertTrue(json.contains("\"path\":\"<root>.value\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"name\":\"value\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"type\":\"java.lang.String\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"value\":\"\\\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"object_address\":null")); //$NON-NLS-1$
         assertTrue(json.contains("\"_meta\":{\"value\":{\"kind\":\"text_preview\"")); //$NON-NLS-1$
+        assertFalse(json.contains("\"_children\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"path\":\"<root>.value\"")); //$NON-NLS-1$
         assertFalse(json.contains("\"schema\":")); //$NON-NLS-1$
     }
 
@@ -209,9 +211,56 @@ public class CliCommandExecutorTest
         String text = execute(new String[] { "inspect-object", heap.getAbsolutePath(), "--object",
                         firstObjectAddress(heap, "java.lang.String"), "--format", "text", "--depth", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
 
-        assertTrue(text.contains("object <object>: java.lang.String")); //$NON-NLS-1$
-        assertTrue(text.contains("  .value -> char[] @0x")); //$NON-NLS-1$
+        assertTrue(text.contains("object <object> = \"")); //$NON-NLS-1$
+        assertTrue(text.contains(" : java.lang.String")); //$NON-NLS-1$
+        assertFalse(text.contains(".value -> char[]")); //$NON-NLS-1$
+        assertFalse(text.contains(".value -> byte[]")); //$NON-NLS-1$
         assertFalse(text.contains("Kind | Name")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void inlinesNestedStringFieldsWhenInspectingFileAsText() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String text = execute(new String[] { "inspect-object", heap.getAbsolutePath(), "--object",
+                        firstObjectAddress(heap, "java.io.File"), "--format", "text", "--depth", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertTrue(text, text.contains(".path = \"")); //$NON-NLS-1$
+        assertTrue(text, text.contains("\" : java.lang.String")); //$NON-NLS-1$
+        assertFalse(text.contains(".path -> java.lang.String")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesInspectObjectCommandAgainstWrapperObjectAsText() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String text = execute(new String[] { "inspect-object", heap.getAbsolutePath(), "--object",
+                        firstObjectAddress(heap, "java.lang.Integer"), "--format", "text" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+
+        assertTrue(text.matches("(?s).*object <object> = -?\\d+ : java\\.lang\\.Integer.*")); //$NON-NLS-1$
+        assertFalse(text.contains(".value = ")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesInspectObjectCommandAgainstEnumAsTextAndJson() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.ORACLE_JDK8_05_64BIT);
+        String className = "java.io.File$PathStatus"; //$NON-NLS-1$
+        String objectAddress = firstObjectAddress(heap, className);
+
+        String text = execute(new String[] { "inspect-object", heap.getAbsolutePath(), "--object", objectAddress, "--format",
+                        "text" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+        assertTrue(text, text.matches("(?s).*object <object> = [A-Z_]+ : " + className.replace("$", "\\$") + ".*")); //$NON-NLS-1$ //$NON-NLS-2$
+        assertFalse(text.contains("-> " + className)); //$NON-NLS-1$
+
+        String json = executeJson(new String[] { "inspect-object", heap.getAbsolutePath(), "--format", "json",
+                        "--object", objectAddress }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+        assertTrue(json.contains("\"valueKind\":\"primitive\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"hasChildren\":false")); //$NON-NLS-1$
+        assertTrue(json.contains("\"object_address\":null")); //$NON-NLS-1$
+        assertTrue(json.contains("\"type\":\"" + className + "\"")); //$NON-NLS-1$ //$NON-NLS-2$
+        assertTrue(json.matches("(?s).*\"value\":\"[A-Z_]+\".*")); //$NON-NLS-1$
+        assertFalse(json.contains("\"_children\":")); //$NON-NLS-1$
     }
 
     @Test
@@ -650,16 +699,47 @@ public class CliCommandExecutorTest
 
     private String firstObjectAddress(File heap, String className) throws Exception
     {
+        return firstResolvedObjectAddress(heap, className).objectAddress;
+    }
+
+    private ResolvedObjectAddress firstResolvedObjectAddress(File heap, String... classNames) throws Exception
+    {
         CliCommandExecutor executor = new CliCommandExecutor();
         CliArguments arguments = new CliArgumentParser().parse(new String[] { "summary", heap.getAbsolutePath() }); //$NON-NLS-1$ //$NON-NLS-2$
         try (SnapshotSession session = executor.openSnapshot(arguments))
         {
             ISnapshot snapshot = session.getSnapshot();
-            Collection<IClass> classes = snapshot.getClassesByName(className, false);
-            assertTrue(classes != null && !classes.isEmpty());
-            int[] objectIds = classes.iterator().next().getObjectIds();
-            assertTrue(objectIds.length > 0);
-            return "0x" + Long.toHexString(snapshot.mapIdToAddress(objectIds[0])); //$NON-NLS-1$
+            for (String className : classNames)
+            {
+                Collection<IClass> classes = snapshot.getClassesByName(className, false);
+                if (classes == null || classes.isEmpty())
+                    continue;
+
+                for (IClass clazz : classes)
+                {
+                    int[] objectIds = clazz.getObjectIds();
+                    if (objectIds.length > 0)
+                    {
+                        return new ResolvedObjectAddress(className,
+                                        "0x" + Long.toHexString(snapshot.mapIdToAddress(objectIds[0]))); //$NON-NLS-1$
+                    }
+                }
+            }
+        }
+
+        fail("Expected at least one instance for " + Arrays.toString(classNames)); //$NON-NLS-1$
+        return null;
+    }
+
+    private static final class ResolvedObjectAddress
+    {
+        private final String className;
+        private final String objectAddress;
+
+        private ResolvedObjectAddress(String className, String objectAddress)
+        {
+            this.className = className;
+            this.objectAddress = objectAddress;
         }
     }
 

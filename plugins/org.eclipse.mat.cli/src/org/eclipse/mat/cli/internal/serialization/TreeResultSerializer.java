@@ -364,11 +364,18 @@ public class TreeResultSerializer extends StructuredResultSerializer
         {
             builder.append("object "); //$NON-NLS-1$
             builder.append(name == null ? "<object>" : name); //$NON-NLS-1$
-            if (type != null && type.length() > 0)
-                builder.append(": ").append(type); //$NON-NLS-1$
-            if (address != null && address.length() > 0)
-                builder.append(" @").append(address); //$NON-NLS-1$
-            appendInspectorHeap(builder, columns, schema, cells);
+            if ("reference".equals(valueKind)) //$NON-NLS-1$
+            {
+                if (type != null && type.length() > 0)
+                    builder.append(": ").append(type); //$NON-NLS-1$
+                if (address != null && address.length() > 0)
+                    builder.append(" @").append(address); //$NON-NLS-1$
+                appendInspectorHeap(builder, columns, schema, cells);
+            }
+            else
+            {
+                appendInspectorValue(builder, type, value, valueKind);
+            }
             return builder.toString();
         }
 
@@ -402,6 +409,12 @@ public class TreeResultSerializer extends StructuredResultSerializer
             return builder.toString();
         }
 
+        appendInspectorValue(builder, type, value, valueKind);
+        return builder.toString();
+    }
+
+    private void appendInspectorValue(StringBuilder builder, String type, String value, String valueKind)
+    {
         builder.append(" = "); //$NON-NLS-1$
         if ("null".equals(valueKind)) //$NON-NLS-1$
             builder.append("null"); //$NON-NLS-1$
@@ -409,7 +422,6 @@ public class TreeResultSerializer extends StructuredResultSerializer
             builder.append(value == null ? "<value>" : value); //$NON-NLS-1$
         if (type != null && type.length() > 0 && !"null".equals(valueKind)) //$NON-NLS-1$
             builder.append(" : ").append(type); //$NON-NLS-1$
-        return builder.toString();
     }
 
     private void appendInspectorHeap(StringBuilder builder, Column[] columns, ColumnSchema[] schema, CellValue[] cells)

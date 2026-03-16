@@ -353,6 +353,18 @@ public class ResultSerializerTest
     }
 
     @Test
+    public void rendersInlineInspectorRootValuesWithoutReferenceSyntax()
+    {
+        TreeResultSerializer serializer = new TreeResultSerializer();
+
+        String text = serializer.toText(new InspectorInlineRootTree(), new SerializationOptions(10, 8), false);
+
+        assertTrue(text.contains("object <object> = \"sample\" : java.lang.String")); //$NON-NLS-1$
+        assertFalse(text.contains("object <object>: java.lang.String")); //$NON-NLS-1$
+        assertFalse(text.contains("-> java.lang.String")); //$NON-NLS-1$
+    }
+
+    @Test
     public void keepsHasChildrenWhenAgentTreeDepthTruncatesChildren()
     {
         TreeResultSerializer serializer = new TreeResultSerializer();
@@ -1198,6 +1210,68 @@ public class ResultSerializerTest
     {
         private final InspectorNode root = new InspectorNode("field", "next", "java.lang.Object", null, null, //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Collections.<InspectorNode>emptyList());
+        private final Column[] columns = new Column[] { new Column("Kind", String.class), new Column("Name", String.class), //$NON-NLS-1$ //$NON-NLS-2$
+                        new Column("Type", String.class), new Column("Value", String.class) }; //$NON-NLS-1$ //$NON-NLS-2$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            InspectorNode value = (InspectorNode) row;
+            switch (columnIndex)
+            {
+                case 0:
+                    return value.kind;
+                case 1:
+                    return value.name;
+                case 2:
+                    return value.type;
+                case 3:
+                    return value.value;
+                default:
+                    return null;
+            }
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            return null;
+        }
+
+        public List<?> getElements()
+        {
+            return Collections.singletonList(root);
+        }
+
+        public boolean hasChildren(Object element)
+        {
+            return false;
+        }
+
+        public List<?> getChildren(Object parent)
+        {
+            return Collections.emptyList();
+        }
+
+        public TreeTextStyle getTreeTextStyle()
+        {
+            return TreeTextStyle.INSPECTOR;
+        }
+    }
+
+    private static final class InspectorInlineRootTree implements IResultTree, TreeTextStyleProvider
+    {
+        private final InspectorNode root = new InspectorNode("object", "<object>", "java.lang.String", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                        new DisplayValue("\"sample\"", new DisplayValue.Metadata("text_preview", Integer.valueOf(6), //$NON-NLS-1$ //$NON-NLS-2$
+                                        Boolean.FALSE, null)), null, Collections.<InspectorNode>emptyList());
         private final Column[] columns = new Column[] { new Column("Kind", String.class), new Column("Name", String.class), //$NON-NLS-1$ //$NON-NLS-2$
                         new Column("Type", String.class), new Column("Value", String.class) }; //$NON-NLS-1$ //$NON-NLS-2$
 
