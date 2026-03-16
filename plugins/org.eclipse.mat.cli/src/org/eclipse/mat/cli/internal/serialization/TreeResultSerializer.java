@@ -155,7 +155,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
                 builder.append("  "); //$NON-NLS-1$
             if (style == TreeTextStyle.COMPACT)
                 builder.append("- "); //$NON-NLS-1$
-            builder.append(formatRow(style, columns, schema, row, cells, objectId, node.valueKind)).append('\n');
+            builder.append(formatRow(style, columns, schema, row, cells, objectId, node.valueKind, options)).append('\n');
 
             if (path.isCycle(objectId))
             {
@@ -185,11 +185,11 @@ public class TreeResultSerializer extends StructuredResultSerializer
     }
 
     private String formatRow(TreeTextStyle style, Column[] columns, ColumnSchema[] schema, Object row, CellValue[] cells,
-                    Integer objectId, String valueKind)
+                    Integer objectId, String valueKind, SerializationOptions options)
     {
         if (style == TreeTextStyle.INSPECTOR)
-            return formatInspectorRow(columns, schema, row, cells, valueKind);
-        return formatCompactRow(columns, schema, row, cells);
+            return formatInspectorRow(columns, schema, row, cells, valueKind, options);
+        return formatCompactRow(columns, schema, row, cells, options);
     }
 
     private List<TextNode> visibleRows(IResultTree tree, Column[] columns, ColumnSchema[] schema, List<?> rows,
@@ -231,7 +231,13 @@ public class TreeResultSerializer extends StructuredResultSerializer
 
     private String formatCompactRow(Column[] columns, ColumnSchema[] schema, Object row, CellValue[] cells)
     {
-        List<Integer> primaryColumns = primaryColumns(columns, schema, row, cells);
+        return formatCompactRow(columns, schema, row, cells, new SerializationOptions(Integer.MAX_VALUE, Integer.MAX_VALUE));
+    }
+
+    private String formatCompactRow(Column[] columns, ColumnSchema[] schema, Object row, CellValue[] cells,
+                    SerializationOptions options)
+    {
+        List<Integer> primaryColumns = primaryColumns(columns, schema, row, cells, options);
         StringBuilder builder = new StringBuilder();
 
         if (primaryColumns.isEmpty())
@@ -245,7 +251,8 @@ public class TreeResultSerializer extends StructuredResultSerializer
                 if (ii > 0)
                     builder.append(" | "); //$NON-NLS-1$
                 int columnIndex = primaryColumns.get(ii).intValue();
-                builder.append(displayText(columns[columnIndex], schema[columnIndex], row, cells[columnIndex], true));
+                builder.append(displayText(columns[columnIndex], schema[columnIndex], row, cells[columnIndex], true,
+                                options));
             }
         }
 
@@ -255,7 +262,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
             if (primaryColumns.contains(Integer.valueOf(ii)))
                 continue;
 
-            String display = displayText(columns[ii], schema[ii], row, cells[ii], false);
+            String display = displayText(columns[ii], schema[ii], row, cells[ii], false, options);
             if (display == null || display.length() == 0)
                 continue;
             annotations.add(columns[ii].getLabel() + "=" + display); //$NON-NLS-1$
@@ -276,13 +283,13 @@ public class TreeResultSerializer extends StructuredResultSerializer
     }
 
     private String formatInspectorRow(Column[] columns, ColumnSchema[] schema, Object row, CellValue[] cells,
-                    String valueKind)
+                    String valueKind, SerializationOptions options)
     {
-        String kind = columnDisplay(columns, schema, row, cells, "kind", false); //$NON-NLS-1$
-        String name = columnDisplay(columns, schema, row, cells, "name", false); //$NON-NLS-1$
-        String type = columnDisplay(columns, schema, row, cells, "type", false); //$NON-NLS-1$
-        String address = columnDisplay(columns, schema, row, cells, "object_address", false); //$NON-NLS-1$
-        String value = columnDisplay(columns, schema, row, cells, "value", true); //$NON-NLS-1$
+        String kind = columnDisplay(columns, schema, row, cells, "kind", false, options); //$NON-NLS-1$
+        String name = columnDisplay(columns, schema, row, cells, "name", false, options); //$NON-NLS-1$
+        String type = columnDisplay(columns, schema, row, cells, "type", false, options); //$NON-NLS-1$
+        String address = columnDisplay(columns, schema, row, cells, "object_address", false, options); //$NON-NLS-1$
+        String value = columnDisplay(columns, schema, row, cells, "value", true, options); //$NON-NLS-1$
 
         StringBuilder builder = new StringBuilder();
         if ("object".equals(kind)) //$NON-NLS-1$
@@ -295,7 +302,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
                     builder.append(": ").append(type); //$NON-NLS-1$
                 if (address != null && address.length() > 0)
                     builder.append(" @").append(address); //$NON-NLS-1$
-                appendInspectorHeap(builder, columns, schema, cells);
+                appendInspectorHeap(builder, schema, cells, options);
             }
             else
             {
@@ -330,7 +337,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
                 builder.append("<object>"); //$NON-NLS-1$
             if (address != null && address.length() > 0)
                 builder.append(" @").append(address); //$NON-NLS-1$
-            appendInspectorHeap(builder, columns, schema, cells);
+            appendInspectorHeap(builder, schema, cells, options);
             return builder.toString();
         }
 
@@ -349,12 +356,13 @@ public class TreeResultSerializer extends StructuredResultSerializer
             builder.append(" : ").append(type); //$NON-NLS-1$
     }
 
-    private void appendInspectorHeap(StringBuilder builder, Column[] columns, ColumnSchema[] schema, CellValue[] cells)
+    private void appendInspectorHeap(StringBuilder builder, ColumnSchema[] schema, CellValue[] cells,
+                    SerializationOptions options)
     {
         int shallowIndex = columnIndex(schema, "shallow_heap"); //$NON-NLS-1$
         int retainedIndex = columnIndex(schema, "retained_heap"); //$NON-NLS-1$
-        String shallow = shallowIndex < 0 ? null : bytesText(cellValue(cells[shallowIndex]));
-        String retained = retainedIndex < 0 ? null : bytesText(cellValue(cells[retainedIndex]));
+        String shallow = shallowIndex < 0 ? null : bytesText(cellValue(cells[shallowIndex]), options);
+        String retained = retainedIndex < 0 ? null : bytesText(cellValue(cells[retainedIndex]), options);
         if (shallow == null && retained == null)
             return;
 
@@ -374,19 +382,20 @@ public class TreeResultSerializer extends StructuredResultSerializer
         builder.append(']');
     }
 
-    private String bytesText(Object value)
+    private String bytesText(Object value, SerializationOptions options)
     {
         if (!(value instanceof Bytes))
             return null;
-        return ((Bytes) value).getValue() + "B"; //$NON-NLS-1$
+        return options.getBytesFormatter().format(value);
     }
 
-    private List<Integer> primaryColumns(Column[] columns, ColumnSchema[] schema, Object row, CellValue[] cells)
+    private List<Integer> primaryColumns(Column[] columns, ColumnSchema[] schema, Object row, CellValue[] cells,
+                    SerializationOptions options)
     {
         List<Integer> primary = new ArrayList<Integer>(2);
         for (int ii = 0; ii < columns.length && primary.size() < 2; ii++)
         {
-            String display = displayText(columns[ii], schema[ii], row, cells[ii], false);
+            String display = displayText(columns[ii], schema[ii], row, cells[ii], false, options);
             if (display == null || display.length() == 0)
                 continue;
             if (isPrimaryTextColumn(columns[ii], cells[ii]))
@@ -397,7 +406,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
         {
             for (int ii = 0; ii < columns.length; ii++)
             {
-                String display = displayText(columns[ii], schema[ii], row, cells[ii], true);
+                String display = displayText(columns[ii], schema[ii], row, cells[ii], true, options);
                 if (display != null && display.length() > 0)
                 {
                     primary.add(Integer.valueOf(ii));
@@ -417,44 +426,46 @@ public class TreeResultSerializer extends StructuredResultSerializer
         return cellValue(cell) instanceof CharSequence || displayMetadata(cellValue(cell)) != null;
     }
 
-    private String displayText(Column column, ColumnSchema schema, Object row, CellValue cell, boolean renderNullLiteral)
+    private String displayText(Column column, ColumnSchema schema, Object row, CellValue cell, boolean renderNullLiteral,
+                    SerializationOptions options)
     {
-        return renderText(column, schema, row, cell, renderNullLiteral, true);
+        return renderText(column, schema, row, cell, renderNullLiteral, true, options);
     }
 
-    private String pathText(Column column, ColumnSchema schema, Object row, CellValue cell, boolean renderNullLiteral)
+    private String pathText(Column column, ColumnSchema schema, Object row, CellValue cell, boolean renderNullLiteral,
+                    SerializationOptions options)
     {
-        return renderText(column, schema, row, cell, renderNullLiteral, false);
+        return renderText(column, schema, row, cell, renderNullLiteral, false, options);
     }
 
     private String renderText(Column column, ColumnSchema schema, Object row, CellValue cell, boolean renderNullLiteral,
-                    boolean spacedDecorator)
+                    boolean spacedDecorator, SerializationOptions options)
     {
         if (cellError(cell) != null)
             return formatCellError(cellError(cell));
         if (cellValue(cell) == null)
             return renderNullLiteral && "value".equals(columnId(schema)) ? "null" : null; //$NON-NLS-1$ //$NON-NLS-2$
-        String display = spacedDecorator ? displayValue(column, row, cellValue(cell))
-                        : pathDisplayValue(column, row, cellValue(cell));
+        String display = spacedDecorator ? displayValue(column, row, cellValue(cell), options)
+                        : pathDisplayValue(column, row, cellValue(cell), options);
         return display == null ? null : display.trim();
     }
 
     private String columnDisplay(Column[] columns, ColumnSchema[] schema, Object row, CellValue[] cells, String id,
-                    boolean renderNullLiteral)
+                    boolean renderNullLiteral, SerializationOptions options)
     {
         int index = columnIndex(schema, id);
         if (index < 0)
             return null;
-        return displayText(columns[index], schema[index], row, cells[index], renderNullLiteral);
+        return displayText(columns[index], schema[index], row, cells[index], renderNullLiteral, options);
     }
 
     private String pathColumnDisplay(Column[] columns, ColumnSchema[] schema, Object row, CellValue[] cells, String id,
-                    boolean renderNullLiteral)
+                    boolean renderNullLiteral, SerializationOptions options)
     {
         int index = columnIndex(schema, id);
         if (index < 0)
             return null;
-        return pathText(columns[index], schema[index], row, cells[index], renderNullLiteral);
+        return pathText(columns[index], schema[index], row, cells[index], renderNullLiteral, options);
     }
 
     private int columnIndex(ColumnSchema[] schema, String id)
@@ -526,7 +537,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
 
     private String pathSegment(Column[] columns, ColumnSchema[] schema, Object row, CellValue[] cells, int index)
     {
-        String name = pathColumnDisplay(columns, schema, row, cells, "name", false); //$NON-NLS-1$
+        String name = pathColumnDisplay(columns, schema, row, cells, "name", false, null); //$NON-NLS-1$
         if (name == null || name.length() == 0)
         {
             for (int ii = 0; ii < columns.length; ii++)
@@ -657,7 +668,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
         if (rawIndex == visibleIndex)
             return false;
 
-        String name = pathColumnDisplay(columns, schema, row, cells, "name", false); //$NON-NLS-1$
+        String name = pathColumnDisplay(columns, schema, row, cells, "name", false, null); //$NON-NLS-1$
         if (name == null)
             return false;
         if (!name.startsWith("[") || !name.endsWith("]")) //$NON-NLS-1$ //$NON-NLS-2$

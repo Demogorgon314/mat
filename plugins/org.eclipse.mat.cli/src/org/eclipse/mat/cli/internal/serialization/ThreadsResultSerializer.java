@@ -12,15 +12,12 @@ package org.eclipse.mat.cli.internal.serialization;
 import java.util.List;
 
 import org.eclipse.mat.cli.internal.ThreadsResult;
-import org.eclipse.mat.query.BytesFormat;
 
 public class ThreadsResultSerializer
 {
     private static final String AVAILABLE = "available"; //$NON-NLS-1$
     private static final String UNAVAILABLE = "unavailable"; //$NON-NLS-1$
     private static final String EMPTY_STACK = "<empty stack>"; //$NON-NLS-1$
-
-    private final BytesFormat bytesFormatter = BytesFormat.getInstance();
 
     public boolean writeJson(JsonWriter writer, ThreadsResult result)
     {
@@ -57,6 +54,11 @@ public class ThreadsResultSerializer
 
     public String toText(ThreadsResult result)
     {
+        return toText(result, new SerializationOptions(Integer.MAX_VALUE, Integer.MAX_VALUE));
+    }
+
+    public String toText(ThreadsResult result, SerializationOptions options)
+    {
         StringBuilder builder = new StringBuilder(4096);
         builder.append("Threads\n"); //$NON-NLS-1$
         builder.append(result.getNotice()).append('\n').append('\n');
@@ -69,7 +71,7 @@ public class ThreadsResultSerializer
         builder.append('\n');
 
         builder.append("Overview\n"); //$NON-NLS-1$
-        appendOverview(builder, result.getThreads());
+        appendOverview(builder, result.getThreads(), options);
 
         if (!result.getThreads().isEmpty())
             builder.append('\n');
@@ -78,7 +80,7 @@ public class ThreadsResultSerializer
         {
             if (ii > 0)
                 builder.append('\n');
-            appendThreadSection(builder, result.getThreads().get(ii));
+            appendThreadSection(builder, result.getThreads().get(ii), options);
         }
 
         return builder.toString();
@@ -101,7 +103,7 @@ public class ThreadsResultSerializer
         writer.name(name).value(value);
     }
 
-    private void appendOverview(StringBuilder builder, List<ThreadsResult.ThreadEntry> threads)
+    private void appendOverview(StringBuilder builder, List<ThreadsResult.ThreadEntry> threads, SerializationOptions options)
     {
         if (threads.isEmpty())
         {
@@ -119,7 +121,7 @@ public class ThreadsResultSerializer
         {
             threadWidth = Math.max(threadWidth, entry.getName().length());
             stateWidth = Math.max(stateWidth, entry.getState().length());
-            retainedWidth = Math.max(retainedWidth, formatBytes(entry.getRetainedBytes()).length());
+            retainedWidth = Math.max(retainedWidth, formatBytes(entry.getRetainedBytes(), options).length());
             addressWidth = Math.max(addressWidth, entry.getObjectAddress().length());
             stackWidth = Math.max(stackWidth, stackLabel(entry).length());
         }
@@ -128,18 +130,18 @@ public class ThreadsResultSerializer
                         threadWidth, stateWidth, retainedWidth, addressWidth, stackWidth);
         for (ThreadsResult.ThreadEntry entry : threads)
         {
-            appendRow(builder, entry.getName(), entry.getState(), formatBytes(entry.getRetainedBytes()),
+            appendRow(builder, entry.getName(), entry.getState(), formatBytes(entry.getRetainedBytes(), options),
                             entry.getObjectAddress(), stackLabel(entry), threadWidth, stateWidth, retainedWidth,
                             addressWidth, stackWidth);
         }
     }
 
-    private void appendThreadSection(StringBuilder builder, ThreadsResult.ThreadEntry entry)
+    private void appendThreadSection(StringBuilder builder, ThreadsResult.ThreadEntry entry, SerializationOptions options)
     {
         builder.append('"').append(entry.getName().replace("\"", "\\\"")).append('"'); //$NON-NLS-1$ //$NON-NLS-2$
         builder.append(" @ ").append(entry.getObjectAddress()).append('\n'); //$NON-NLS-1$
         builder.append("  State: ").append(entry.getState()).append('\n'); //$NON-NLS-1$
-        builder.append("  Retained Heap: ").append(formatBytes(entry.getRetainedBytes())).append('\n'); //$NON-NLS-1$
+        builder.append("  Retained Heap: ").append(formatBytes(entry.getRetainedBytes(), options)).append('\n'); //$NON-NLS-1$
         builder.append("  Stack:"); //$NON-NLS-1$
         if (!entry.isStackAvailable())
         {
@@ -186,8 +188,8 @@ public class ThreadsResultSerializer
         return builder.toString();
     }
 
-    private String formatBytes(long value)
+    private String formatBytes(long value, SerializationOptions options)
     {
-        return bytesFormatter.format(value);
+        return options.getBytesFormatter().format(value);
     }
 }

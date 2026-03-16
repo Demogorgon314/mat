@@ -16,6 +16,7 @@ import java.util.Map;
 
 import org.eclipse.mat.cli.internal.DisplayValue;
 import org.eclipse.mat.query.Bytes;
+import org.eclipse.mat.query.BytesFormat;
 import org.eclipse.mat.query.Column;
 import org.eclipse.mat.query.IContextObject;
 import org.eclipse.mat.query.IContextObjectSet;
@@ -24,6 +25,8 @@ import org.eclipse.mat.query.IStructuredResult;
 
 abstract class StructuredResultSerializer
 {
+    private static final String APPROXIMATE_BYTES_PREFIX = ">= "; //$NON-NLS-1$
+
     protected static final class CellError
     {
         private final String className;
@@ -160,12 +163,28 @@ abstract class StructuredResultSerializer
         return displayValue(column, row, value, true);
     }
 
+    protected String displayValue(Column column, Object row, Object value, SerializationOptions options)
+    {
+        return displayValue(column, row, value, true, options);
+    }
+
     protected String pathDisplayValue(Column column, Object row, Object value)
     {
         return displayValue(column, row, value, false);
     }
 
+    protected String pathDisplayValue(Column column, Object row, Object value, SerializationOptions options)
+    {
+        return displayValue(column, row, value, false, options);
+    }
+
     private String displayValue(Column column, Object row, Object value, boolean spacedDecorator)
+    {
+        return displayValue(column, row, value, spacedDecorator, null);
+    }
+
+    private String displayValue(Column column, Object row, Object value, boolean spacedDecorator,
+                    SerializationOptions options)
     {
         if (value == null)
             return null;
@@ -178,13 +197,20 @@ abstract class StructuredResultSerializer
         else
         {
             Format formatter = column.getFormatter();
-            if (formatter != null)
+            if (options != null && shouldFormatBytes(value, formatter))
             {
-                rendered = formatter.format(value);
+                rendered = formatBytesDisplay(value, options);
             }
             else
             {
-                rendered = String.valueOf(rawValue(column, value));
+                if (formatter != null)
+                {
+                    rendered = formatter.format(value);
+                }
+                else
+                {
+                    rendered = String.valueOf(rawValue(column, value));
+                }
             }
         }
 
@@ -202,6 +228,21 @@ abstract class StructuredResultSerializer
         else if (suffix != null)
             return spacedDecorator ? rendered + " " + suffix : rendered + suffix; //$NON-NLS-1$
         return rendered;
+    }
+
+    private boolean shouldFormatBytes(Object value, Format formatter)
+    {
+        if (value instanceof Bytes)
+            return true;
+        return formatter instanceof BytesFormat && value instanceof Number;
+    }
+
+    private String formatBytesDisplay(Object value, SerializationOptions options)
+    {
+        long bytes = value instanceof Bytes ? ((Bytes) value).getValue() : ((Number) value).longValue();
+        if (bytes < 0)
+            return APPROXIMATE_BYTES_PREFIX + options.getBytesFormatter().format(new Bytes(-bytes));
+        return options.getBytesFormatter().format(new Bytes(bytes));
     }
 
     protected void writeContext(JsonWriter writer, IStructuredResult result, Object row, SerializationOptions options)

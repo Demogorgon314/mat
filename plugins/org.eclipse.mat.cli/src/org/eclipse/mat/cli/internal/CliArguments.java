@@ -14,6 +14,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.eclipse.mat.query.BytesDisplay;
+
 public final class CliArguments
 {
     public enum OutputFormat
@@ -34,6 +36,7 @@ public final class CliArguments
     private final CliCommand subjectCommand;
     private final String subjectName;
     private final File heapFile;
+    private final BytesDisplay bytesDisplay;
     private final OutputFormat format;
     private final boolean verbose;
     private final boolean help;
@@ -51,7 +54,7 @@ public final class CliArguments
     private final String queryCommand;
 
     CliArguments(CliCommand command, CliCommand subjectCommand, String subjectName, File heapFile,
-                    OutputFormat format, boolean verbose, boolean help, boolean showNulls, int limit,
+                    BytesDisplay bytesDisplay, OutputFormat format, boolean verbose, boolean help, boolean showNulls, int limit,
                     int treeDepthLimit,
                     String objectAddress, String className, String classRegex, String classContains,
                     List<String> selectFields, List<String> fieldPaths, boolean includeSubclasses, String oqlQuery,
@@ -61,6 +64,7 @@ public final class CliArguments
         this.subjectCommand = subjectCommand;
         this.subjectName = subjectName;
         this.heapFile = heapFile;
+        this.bytesDisplay = bytesDisplay;
         this.format = format;
         this.verbose = verbose;
         this.help = help;
@@ -106,6 +110,11 @@ public final class CliArguments
     public OutputFormat getFormat()
     {
         return format;
+    }
+
+    public BytesDisplay getBytesDisplay()
+    {
+        return bytesDisplay;
     }
 
     public boolean isVerbose()

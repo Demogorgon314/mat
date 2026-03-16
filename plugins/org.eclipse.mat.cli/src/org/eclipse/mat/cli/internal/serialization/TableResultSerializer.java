@@ -62,7 +62,7 @@ public class TableResultSerializer extends StructuredResultSerializer
             String[] values = new String[columns.length];
             for (int jj = 0; jj < columns.length; jj++)
             {
-                values[jj] = safe(displayValue(columns[jj], row, safeColumnValue(table, row, jj)));
+                values[jj] = safe(displayValue(columns[jj], row, safeColumnValue(table, row, jj), options));
                 widths[jj] = Math.min(Math.max(widths[jj], values[jj].length()), 80);
             }
             rows.add(values);

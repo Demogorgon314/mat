@@ -95,12 +95,13 @@ public class ResultSerializer
     {
         if (execution.isSummary())
         {
-            out.print(execution.getSummary().asText());
+            out.print(execution.getSummary().asText(arguments.getBytesDisplay()));
             return;
         }
 
         IResult result = execution.getResult();
-        SerializationOptions options = new SerializationOptions(arguments.getLimit(), arguments.getTreeDepthLimit());
+        SerializationOptions options = new SerializationOptions(arguments.getLimit(), arguments.getTreeDepthLimit(),
+                        false, null, arguments.getBytesDisplay());
         if (result instanceof TextResult)
         {
             out.println(textSerializer.toText((TextResult) result));
@@ -119,7 +120,7 @@ public class ResultSerializer
         }
         else if (result instanceof ThreadsResult)
         {
-            out.print(threadsSerializer.toText((ThreadsResult) result));
+            out.print(threadsSerializer.toText((ThreadsResult) result, options));
         }
         else if (result instanceof IResultTable)
         {
@@ -163,7 +164,8 @@ public class ResultSerializer
         else
         {
             SerializationOptions options = new SerializationOptions(arguments.getLimit(),
-                            arguments.getTreeDepthLimit(), true, execution.getObjectAddressResolver());
+                            arguments.getTreeDepthLimit(), true, execution.getObjectAddressResolver(),
+                            arguments.getBytesDisplay());
             IResult result = execution.getResult();
             if (result instanceof TextResult)
             {

@@ -304,7 +304,7 @@ public class TopConsumersResultSerializer
         {
             TopConsumersResult.ObjectRow row = rows.get(ii);
             builder.append(formatPercent(row.getRetainedPercent())).append("  "); //$NON-NLS-1$
-            builder.append(formatBytes(row.getRetainedBytes())).append("  "); //$NON-NLS-1$
+            builder.append(formatBytes(row.getRetainedBytes(), options)).append("  "); //$NON-NLS-1$
             builder.append(row.getLabel()).append('\n');
         }
         builder.append('\n');
@@ -319,7 +319,7 @@ public class TopConsumersResultSerializer
         {
             TopConsumersResult.DominatorRow row = rows.get(ii);
             builder.append(formatPercent(row.getRetainedPercent())).append("  "); //$NON-NLS-1$
-            builder.append(formatBytes(row.getRetainedBytes())).append("  "); //$NON-NLS-1$
+            builder.append(formatBytes(row.getRetainedBytes(), options)).append("  "); //$NON-NLS-1$
             builder.append(numberFormatter.format(row.getCount())).append("  "); //$NON-NLS-1$
             builder.append(row.getLabel()).append('\n');
         }
@@ -355,7 +355,7 @@ public class TopConsumersResultSerializer
         builder.append(prefix);
         builder.append(node.getName());
         builder.append("  (").append(formatPercent(node.getRetainedPercent())).append(")  "); //$NON-NLS-1$ //$NON-NLS-2$
-        builder.append(formatBytes(node.getRetainedBytes())).append("  "); //$NON-NLS-1$
+        builder.append(formatBytes(node.getRetainedBytes(), options)).append("  "); //$NON-NLS-1$
         builder.append(numberFormatter.format(node.getTopDominators())).append('\n');
 
         List<TopConsumersResult.PackageNode> children = node.getChildren();
@@ -403,6 +403,11 @@ public class TopConsumersResultSerializer
     private String formatBytes(long bytes)
     {
         return bytesFormatter.format(bytes);
+    }
+
+    private String formatBytes(long bytes, SerializationOptions options)
+    {
+        return options.getBytesFormatter().format(bytes);
     }
 
     private String formatPercent(double fraction)
