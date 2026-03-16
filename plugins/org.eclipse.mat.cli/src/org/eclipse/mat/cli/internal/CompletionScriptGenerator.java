@@ -14,6 +14,329 @@ import java.util.List;
 
 public final class CompletionScriptGenerator
 {
+    private static final String BASH_TEMPLATE = """
+# bash completion for mat-cli
+_mat_cli_is_command() {
+    case "$1" in
+__COMMAND_CASE__            return 0
+            ;;
+    esac
+    return 1
+}
+
+__KIND_HELPERS____OPTION_KIND_FUNCTIONS____OPTIONS_FOR_COMMAND_FUNCTION____POSITIONAL_KIND_FUNCTION___mat_cli_set_word_replies() {
+    local prefix="$1"
+    local current="$2"
+    local values="$3"
+    local i
+    COMPREPLY=( $(compgen -W "$values" -- "$current") )
+    if [ -n "$prefix" ]; then
+        for ((i=0; i<${#COMPREPLY[@]}; i++)); do
+            COMPREPLY[i]="$prefix${COMPREPLY[i]}"
+        done
+    fi
+}
+
+_mat_cli_set_file_replies() {
+    local prefix="$1"
+    local current="$2"
+    local line
+    COMPREPLY=()
+    while IFS= read -r line; do
+        if [ -n "$prefix" ]; then
+            COMPREPLY+=("$prefix$line")
+        else
+            COMPREPLY+=("$line")
+        fi
+    done < <(compgen -f -- "$current")
+    if type compopt >/dev/null 2>&1; then
+        compopt -o filenames 2>/dev/null
+    fi
+}
+
+_mat_cli_complete_kind() {
+    local kind="$1"
+    local current="$2"
+    local prefix="$3"
+    case "$kind" in
+        enum:*)
+            _mat_cli_set_word_replies "$prefix" "$current" "${kind#enum:}"
+            ;;
+        file)
+            _mat_cli_set_file_replies "$prefix" "$current"
+            ;;
+        *)
+            COMPREPLY=()
+            ;;
+    esac
+}
+
+_mat_cli_find_command_index() {
+    local i word pending_kind=""
+    for ((i=1; i<COMP_CWORD; i++)); do
+        word="${COMP_WORDS[i]}"
+        if [ -n "$pending_kind" ]; then
+            pending_kind=""
+            continue
+        fi
+        if _mat_cli_is_command "$word"; then
+            printf '%s\\n' "$i"
+            return 0
+        fi
+        if [[ "$word" == --*=* ]]; then
+            continue
+        fi
+        pending_kind="$(_mat_cli_option_kind_global "$word")"
+        if ! _mat_cli_kind_expects_value "$pending_kind"; then
+            pending_kind=""
+        fi
+    done
+}
+
+_mat_cli_completion() {
+    local cur prev cmd_index cmd position_index pending_kind inline_option inline_prefix kind options
+    local i word positional_kind
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    cmd_index="$(_mat_cli_find_command_index)"
+
+    if [ -z "$cmd_index" ]; then
+        if [[ "$cur" == --*=* ]]; then
+            inline_option="${cur%%=*}"
+            inline_prefix="$inline_option="
+            kind="$(_mat_cli_option_kind_global "$inline_option")"
+            if _mat_cli_kind_expects_value "$kind"; then
+                _mat_cli_complete_kind "$kind" "${cur#*=}" "$inline_prefix"
+                return 0
+            fi
+        fi
+        kind="$(_mat_cli_option_kind_global "$prev")"
+        if _mat_cli_kind_expects_value "$kind"; then
+            _mat_cli_complete_kind "$kind" "$cur" ""
+            return 0
+        fi
+        _mat_cli_set_word_replies "" "$cur" "__TOP_LEVEL_WORDS__"
+        return 0
+    fi
+
+    cmd="${COMP_WORDS[cmd_index]}"
+    if [[ "$cur" == --*=* ]]; then
+        inline_option="${cur%%=*}"
+        inline_prefix="$inline_option="
+        kind="$(_mat_cli_option_kind "$cmd" "$inline_option")"
+        if _mat_cli_kind_expects_value "$kind"; then
+            _mat_cli_complete_kind "$kind" "${cur#*=}" "$inline_prefix"
+            return 0
+        fi
+    fi
+    kind="$(_mat_cli_option_kind "$cmd" "$prev")"
+    if _mat_cli_kind_expects_value "$kind"; then
+        _mat_cli_complete_kind "$kind" "$cur" ""
+        return 0
+    fi
+
+    position_index=0
+    pending_kind=""
+    for ((i=cmd_index+1; i<COMP_CWORD; i++)); do
+        word="${COMP_WORDS[i]}"
+        if [ -n "$pending_kind" ]; then
+            pending_kind=""
+            continue
+        fi
+        if [[ "$word" == --*=* ]]; then
+            continue
+        fi
+        kind="$(_mat_cli_option_kind "$cmd" "$word")"
+        if [ -n "$kind" ]; then
+            if _mat_cli_kind_expects_value "$kind"; then
+                pending_kind="$kind"
+            fi
+            continue
+        fi
+        position_index=$((position_index + 1))
+    done
+
+    if [[ "$cur" == -* ]]; then
+        options="$(_mat_cli_options_for_command "$cmd")"
+        _mat_cli_set_word_replies "" "$cur" "$options"
+        return 0
+    fi
+
+    positional_kind="$(_mat_cli_positional_kind "$cmd" "$position_index")"
+    case "$positional_kind" in
+        enum:*|file)
+            _mat_cli_complete_kind "$positional_kind" "$cur" ""
+            ;;
+        *)
+            options="$(_mat_cli_options_for_command "$cmd")"
+            _mat_cli_set_word_replies "" "$cur" "$options"
+            ;;
+    esac
+}
+
+complete -F _mat_cli_completion mat-cli
+"""; //$NON-NLS-1$
+
+    private static final String ZSH_TEMPLATE = """
+#compdef mat-cli
+# zsh completion for mat-cli
+_mat_cli_is_command() {
+    case "$1" in
+__COMMAND_CASE__            return 0
+            ;;
+    esac
+    return 1
+}
+
+__KIND_HELPERS____OPTION_KIND_FUNCTIONS____OPTIONS_FOR_COMMAND_FUNCTION____POSITIONAL_KIND_FUNCTION___mat_cli_complete_words() {
+    local prefix="$1"
+    shift
+    if [[ -n "$prefix" ]]; then
+        compadd -Q -P "$prefix" -- "$@"
+    else
+        compadd -Q -- "$@"
+    fi
+}
+
+_mat_cli_complete_kind() {
+    local kind="$1"
+    local prefix="$2"
+    local values_string
+    local -a values
+    case "$kind" in
+        enum:*)
+            values_string="${kind#enum:}"
+            values=(${=values_string})
+            _mat_cli_complete_words "$prefix" "${values[@]}"
+            ;;
+        file)
+            if [[ -n "$prefix" ]]; then
+                compset -P "$prefix" >/dev/null 2>&1
+                _files -P "$prefix"
+            else
+                _files
+            fi
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+_mat_cli_find_command() {
+    local i word pending_kind=""
+    reply=()
+    for ((i=2; i<CURRENT; i++)); do
+        word="$words[i]"
+        if [[ -n "$pending_kind" ]]; then
+            pending_kind=""
+            continue
+        fi
+        if _mat_cli_is_command "$word"; then
+            reply=("$word" "$i")
+            return 0
+        fi
+        if [[ "$word" == --*=* ]]; then
+            continue
+        fi
+        pending_kind="$(_mat_cli_option_kind_global "$word")"
+        if ! _mat_cli_kind_expects_value "$pending_kind"; then
+            pending_kind=""
+        fi
+    done
+    return 1
+}
+
+_mat-cli() {
+    local cur prev cmd cmd_index position_index pending_kind inline_option inline_prefix kind positional_kind options_string
+    local i word values_string
+    local -a values matches options
+    cur="$words[CURRENT]"
+    prev="$words[CURRENT-1]"
+
+    if ! _mat_cli_find_command; then
+        if [[ "$cur" == --*=* ]]; then
+            inline_option="${cur%%=*}"
+            inline_prefix="$inline_option="
+            kind="$(_mat_cli_option_kind_global "$inline_option")"
+            if [[ "$kind" == enum:* ]]; then
+                compset -P "$inline_prefix" >/dev/null 2>&1
+                _mat_cli_complete_kind "$kind" "$inline_prefix"
+                return 0
+            fi
+        fi
+        kind="$(_mat_cli_option_kind_global "$prev")"
+        if _mat_cli_kind_expects_value "$kind"; then
+            _mat_cli_complete_kind "$kind" ""
+            return 0
+        fi
+        _mat_cli_complete_words "" __TOP_LEVEL_WORDS__
+        return 0
+    fi
+
+    cmd="$reply[1]"
+    cmd_index="$reply[2]"
+    if [[ "$cur" == --*=* ]]; then
+        inline_option="${cur%%=*}"
+        inline_prefix="$inline_option="
+        kind="$(_mat_cli_option_kind "$cmd" "$inline_option")"
+        if [[ "$kind" == enum:* || "$kind" == file ]]; then
+            compset -P "$inline_prefix" >/dev/null 2>&1
+            _mat_cli_complete_kind "$kind" "$inline_prefix"
+            return 0
+        fi
+    fi
+    kind="$(_mat_cli_option_kind "$cmd" "$prev")"
+    if _mat_cli_kind_expects_value "$kind"; then
+        _mat_cli_complete_kind "$kind" ""
+        return 0
+    fi
+
+    position_index=0
+    pending_kind=""
+    for ((i=cmd_index+1; i<CURRENT; i++)); do
+        word="$words[i]"
+        if [[ -n "$pending_kind" ]]; then
+            pending_kind=""
+            continue
+        fi
+        if [[ "$word" == --*=* ]]; then
+            continue
+        fi
+        kind="$(_mat_cli_option_kind "$cmd" "$word")"
+        if [[ -n "$kind" ]]; then
+            if _mat_cli_kind_expects_value "$kind"; then
+                pending_kind="$kind"
+            fi
+            continue
+        fi
+        position_index=$((position_index + 1))
+    done
+
+    if [[ "$cur" == -* ]]; then
+        options_string="$(_mat_cli_options_for_command "$cmd")"
+        options=(${=options_string})
+        _mat_cli_complete_words "" "${options[@]}"
+        return 0
+    fi
+
+    positional_kind="$(_mat_cli_positional_kind "$cmd" "$position_index")"
+    case "$positional_kind" in
+        enum:*|file)
+            _mat_cli_complete_kind "$positional_kind" ""
+            ;;
+        *)
+            options_string="$(_mat_cli_options_for_command "$cmd")"
+            options=(${=options_string})
+            _mat_cli_complete_words "" "${options[@]}"
+            ;;
+    esac
+}
+
+compdef _mat-cli mat-cli 2>/dev/null
+"""; //$NON-NLS-1$
+
     public String generate(String shell) throws CliException
     {
         if ("bash".equals(shell)) //$NON-NLS-1$
@@ -25,356 +348,44 @@ public final class CompletionScriptGenerator
 
     private String generateBash()
     {
-        StringBuilder builder = new StringBuilder(16384);
-        builder.append("# bash completion for mat-cli\n"); //$NON-NLS-1$
-        builder.append("_mat_cli_is_command() {\n"); //$NON-NLS-1$
-        builder.append("    case \"$1\" in\n"); //$NON-NLS-1$
-        builder.append("        ").append(joinWithPipe(CliCommandCatalog.commandTokens())).append(")\n"); //$NON-NLS-1$
-        builder.append("            return 0\n"); //$NON-NLS-1$
-        builder.append("            ;;\n"); //$NON-NLS-1$
-        builder.append("    esac\n"); //$NON-NLS-1$
-        builder.append("    return 1\n"); //$NON-NLS-1$
-        builder.append("}\n\n"); //$NON-NLS-1$
-
-        appendKindHelpers(builder, false);
-        appendOptionKindFunctions(builder, false);
-        appendOptionsForCommandFunction(builder, false);
-        appendPositionalKindFunction(builder, false);
-
-        builder.append("_mat_cli_set_word_replies() {\n"); //$NON-NLS-1$
-        builder.append("    local prefix=\"$1\"\n"); //$NON-NLS-1$
-        builder.append("    local current=\"$2\"\n"); //$NON-NLS-1$
-        builder.append("    local values=\"$3\"\n"); //$NON-NLS-1$
-        builder.append("    local i\n"); //$NON-NLS-1$
-        builder.append("    COMPREPLY=( $(compgen -W \"$values\" -- \"$current\") )\n"); //$NON-NLS-1$
-        builder.append("    if [ -n \"$prefix\" ]; then\n"); //$NON-NLS-1$
-        builder.append("        for ((i=0; i<${#COMPREPLY[@]}; i++)); do\n"); //$NON-NLS-1$
-        builder.append("            COMPREPLY[i]=\"$prefix${COMPREPLY[i]}\"\n"); //$NON-NLS-1$
-        builder.append("        done\n"); //$NON-NLS-1$
-        builder.append("    fi\n"); //$NON-NLS-1$
-        builder.append("}\n\n"); //$NON-NLS-1$
-
-        builder.append("_mat_cli_set_file_replies() {\n"); //$NON-NLS-1$
-        builder.append("    local prefix=\"$1\"\n"); //$NON-NLS-1$
-        builder.append("    local current=\"$2\"\n"); //$NON-NLS-1$
-        builder.append("    local line\n"); //$NON-NLS-1$
-        builder.append("    COMPREPLY=()\n"); //$NON-NLS-1$
-        builder.append("    while IFS= read -r line; do\n"); //$NON-NLS-1$
-        builder.append("        if [ -n \"$prefix\" ]; then\n"); //$NON-NLS-1$
-        builder.append("            COMPREPLY+=(\"$prefix$line\")\n"); //$NON-NLS-1$
-        builder.append("        else\n"); //$NON-NLS-1$
-        builder.append("            COMPREPLY+=(\"$line\")\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("    done < <(compgen -f -- \"$current\")\n"); //$NON-NLS-1$
-        builder.append("    if type compopt >/dev/null 2>&1; then\n"); //$NON-NLS-1$
-        builder.append("        compopt -o filenames 2>/dev/null\n"); //$NON-NLS-1$
-        builder.append("    fi\n"); //$NON-NLS-1$
-        builder.append("}\n\n"); //$NON-NLS-1$
-
-        builder.append("_mat_cli_complete_kind() {\n"); //$NON-NLS-1$
-        builder.append("    local kind=\"$1\"\n"); //$NON-NLS-1$
-        builder.append("    local current=\"$2\"\n"); //$NON-NLS-1$
-        builder.append("    local prefix=\"$3\"\n"); //$NON-NLS-1$
-        builder.append("    case \"$kind\" in\n"); //$NON-NLS-1$
-        builder.append("        enum:*)\n"); //$NON-NLS-1$
-        builder.append("            _mat_cli_set_word_replies \"$prefix\" \"$current\" \"${kind#enum:}\"\n"); //$NON-NLS-1$
-        builder.append("            ;;\n"); //$NON-NLS-1$
-        builder.append("        file)\n"); //$NON-NLS-1$
-        builder.append("            _mat_cli_set_file_replies \"$prefix\" \"$current\"\n"); //$NON-NLS-1$
-        builder.append("            ;;\n"); //$NON-NLS-1$
-        builder.append("        *)\n"); //$NON-NLS-1$
-        builder.append("            COMPREPLY=()\n"); //$NON-NLS-1$
-        builder.append("            ;;\n"); //$NON-NLS-1$
-        builder.append("    esac\n"); //$NON-NLS-1$
-        builder.append("}\n\n"); //$NON-NLS-1$
-
-        builder.append("_mat_cli_find_command_index() {\n"); //$NON-NLS-1$
-        builder.append("    local i word pending_kind=\"\"\n"); //$NON-NLS-1$
-        builder.append("    for ((i=1; i<COMP_CWORD; i++)); do\n"); //$NON-NLS-1$
-        builder.append("        word=\"${COMP_WORDS[i]}\"\n"); //$NON-NLS-1$
-        builder.append("        if [ -n \"$pending_kind\" ]; then\n"); //$NON-NLS-1$
-        builder.append("            pending_kind=\"\"\n"); //$NON-NLS-1$
-        builder.append("            continue\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("        if _mat_cli_is_command \"$word\"; then\n"); //$NON-NLS-1$
-        builder.append("            printf '%s\\n' \"$i\"\n"); //$NON-NLS-1$
-        builder.append("            return 0\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("        if [[ \"$word\" == --*=* ]]; then\n"); //$NON-NLS-1$
-        builder.append("            continue\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("        pending_kind=\"$(_mat_cli_option_kind_global \"$word\")\"\n"); //$NON-NLS-1$
-        builder.append("        if ! _mat_cli_kind_expects_value \"$pending_kind\"; then\n"); //$NON-NLS-1$
-        builder.append("            pending_kind=\"\"\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("    done\n"); //$NON-NLS-1$
-        builder.append("}\n\n"); //$NON-NLS-1$
-
-        builder.append("_mat_cli_completion() {\n"); //$NON-NLS-1$
-        builder.append("    local cur prev cmd_index cmd position_index pending_kind inline_option inline_prefix kind options\n"); //$NON-NLS-1$
-        builder.append("    local i word positional_kind\n"); //$NON-NLS-1$
-        builder.append("    COMPREPLY=()\n"); //$NON-NLS-1$
-        builder.append("    cur=\"${COMP_WORDS[COMP_CWORD]}\"\n"); //$NON-NLS-1$
-        builder.append("    prev=\"${COMP_WORDS[COMP_CWORD-1]}\"\n"); //$NON-NLS-1$
-        builder.append("    cmd_index=\"$(_mat_cli_find_command_index)\"\n"); //$NON-NLS-1$
-        builder.append("\n"); //$NON-NLS-1$
-        builder.append("    if [ -z \"$cmd_index\" ]; then\n"); //$NON-NLS-1$
-        builder.append("        if [[ \"$cur\" == --*=* ]]; then\n"); //$NON-NLS-1$
-        builder.append("            inline_option=\"${cur%%=*}\"\n"); //$NON-NLS-1$
-        builder.append("            inline_prefix=\"$inline_option=\"\n"); //$NON-NLS-1$
-        builder.append("            kind=\"$(_mat_cli_option_kind_global \"$inline_option\")\"\n"); //$NON-NLS-1$
-        builder.append("            if _mat_cli_kind_expects_value \"$kind\"; then\n"); //$NON-NLS-1$
-        builder.append("                _mat_cli_complete_kind \"$kind\" \"${cur#*=}\" \"$inline_prefix\"\n"); //$NON-NLS-1$
-        builder.append("                return 0\n"); //$NON-NLS-1$
-        builder.append("            fi\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("        kind=\"$(_mat_cli_option_kind_global \"$prev\")\"\n"); //$NON-NLS-1$
-        builder.append("        if _mat_cli_kind_expects_value \"$kind\"; then\n"); //$NON-NLS-1$
-        builder.append("            _mat_cli_complete_kind \"$kind\" \"$cur\" \"\"\n"); //$NON-NLS-1$
-        builder.append("            return 0\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("        _mat_cli_set_word_replies \"\" \"$cur\" \"") //$NON-NLS-1$
-                        .append(joinWords(topLevelWords())).append("\"\n"); //$NON-NLS-1$
-        builder.append("        return 0\n"); //$NON-NLS-1$
-        builder.append("    fi\n\n"); //$NON-NLS-1$
-
-        builder.append("    cmd=\"${COMP_WORDS[cmd_index]}\"\n"); //$NON-NLS-1$
-        builder.append("    if [[ \"$cur\" == --*=* ]]; then\n"); //$NON-NLS-1$
-        builder.append("        inline_option=\"${cur%%=*}\"\n"); //$NON-NLS-1$
-        builder.append("        inline_prefix=\"$inline_option=\"\n"); //$NON-NLS-1$
-        builder.append("        kind=\"$(_mat_cli_option_kind \"$cmd\" \"$inline_option\")\"\n"); //$NON-NLS-1$
-        builder.append("        if _mat_cli_kind_expects_value \"$kind\"; then\n"); //$NON-NLS-1$
-        builder.append("            _mat_cli_complete_kind \"$kind\" \"${cur#*=}\" \"$inline_prefix\"\n"); //$NON-NLS-1$
-        builder.append("            return 0\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("    fi\n"); //$NON-NLS-1$
-        builder.append("    kind=\"$(_mat_cli_option_kind \"$cmd\" \"$prev\")\"\n"); //$NON-NLS-1$
-        builder.append("    if _mat_cli_kind_expects_value \"$kind\"; then\n"); //$NON-NLS-1$
-        builder.append("        _mat_cli_complete_kind \"$kind\" \"$cur\" \"\"\n"); //$NON-NLS-1$
-        builder.append("        return 0\n"); //$NON-NLS-1$
-        builder.append("    fi\n\n"); //$NON-NLS-1$
-
-        builder.append("    position_index=0\n"); //$NON-NLS-1$
-        builder.append("    pending_kind=\"\"\n"); //$NON-NLS-1$
-        builder.append("    for ((i=cmd_index+1; i<COMP_CWORD; i++)); do\n"); //$NON-NLS-1$
-        builder.append("        word=\"${COMP_WORDS[i]}\"\n"); //$NON-NLS-1$
-        builder.append("        if [ -n \"$pending_kind\" ]; then\n"); //$NON-NLS-1$
-        builder.append("            pending_kind=\"\"\n"); //$NON-NLS-1$
-        builder.append("            continue\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("        if [[ \"$word\" == --*=* ]]; then\n"); //$NON-NLS-1$
-        builder.append("            continue\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("        kind=\"$(_mat_cli_option_kind \"$cmd\" \"$word\")\"\n"); //$NON-NLS-1$
-        builder.append("        if [ -n \"$kind\" ]; then\n"); //$NON-NLS-1$
-        builder.append("            if _mat_cli_kind_expects_value \"$kind\"; then\n"); //$NON-NLS-1$
-        builder.append("                pending_kind=\"$kind\"\n"); //$NON-NLS-1$
-        builder.append("            fi\n"); //$NON-NLS-1$
-        builder.append("            continue\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("        position_index=$((position_index + 1))\n"); //$NON-NLS-1$
-        builder.append("    done\n\n"); //$NON-NLS-1$
-
-        builder.append("    if [[ \"$cur\" == -* ]]; then\n"); //$NON-NLS-1$
-        builder.append("        options=\"$(_mat_cli_options_for_command \"$cmd\")\"\n"); //$NON-NLS-1$
-        builder.append("        _mat_cli_set_word_replies \"\" \"$cur\" \"$options\"\n"); //$NON-NLS-1$
-        builder.append("        return 0\n"); //$NON-NLS-1$
-        builder.append("    fi\n\n"); //$NON-NLS-1$
-
-        builder.append("    positional_kind=\"$(_mat_cli_positional_kind \"$cmd\" \"$position_index\")\"\n"); //$NON-NLS-1$
-        builder.append("    case \"$positional_kind\" in\n"); //$NON-NLS-1$
-        builder.append("        enum:*|file)\n"); //$NON-NLS-1$
-        builder.append("            _mat_cli_complete_kind \"$positional_kind\" \"$cur\" \"\"\n"); //$NON-NLS-1$
-        builder.append("            ;;\n"); //$NON-NLS-1$
-        builder.append("        *)\n"); //$NON-NLS-1$
-        builder.append("            options=\"$(_mat_cli_options_for_command \"$cmd\")\"\n"); //$NON-NLS-1$
-        builder.append("            _mat_cli_set_word_replies \"\" \"$cur\" \"$options\"\n"); //$NON-NLS-1$
-        builder.append("            ;;\n"); //$NON-NLS-1$
-        builder.append("    esac\n"); //$NON-NLS-1$
-        builder.append("}\n\n"); //$NON-NLS-1$
-        builder.append("complete -F _mat_cli_completion mat-cli\n"); //$NON-NLS-1$
-        return builder.toString();
+        return BASH_TEMPLATE.replace("__COMMAND_CASE__", renderCommandCase()) //$NON-NLS-1$ //$NON-NLS-2$
+                        .replace("__KIND_HELPERS__", renderKindHelpers(false)) //$NON-NLS-1$
+                        .replace("__OPTION_KIND_FUNCTIONS__", renderOptionKindFunctions(false)) //$NON-NLS-1$
+                        .replace("__OPTIONS_FOR_COMMAND_FUNCTION__", renderOptionsForCommandFunction(false)) //$NON-NLS-1$
+                        .replace("__POSITIONAL_KIND_FUNCTION__", renderPositionalKindFunction(false)) //$NON-NLS-1$
+                        .replace("__TOP_LEVEL_WORDS__", joinWords(topLevelWords())); //$NON-NLS-1$
     }
 
     private String generateZsh()
     {
-        StringBuilder builder = new StringBuilder(16384);
-        builder.append("#compdef mat-cli\n"); //$NON-NLS-1$
-        builder.append("# zsh completion for mat-cli\n"); //$NON-NLS-1$
-        builder.append("_mat_cli_is_command() {\n"); //$NON-NLS-1$
-        builder.append("    case \"$1\" in\n"); //$NON-NLS-1$
-        builder.append("        ").append(joinWithPipe(CliCommandCatalog.commandTokens())).append(")\n"); //$NON-NLS-1$
-        builder.append("            return 0\n"); //$NON-NLS-1$
-        builder.append("            ;;\n"); //$NON-NLS-1$
-        builder.append("    esac\n"); //$NON-NLS-1$
-        builder.append("    return 1\n"); //$NON-NLS-1$
-        builder.append("}\n\n"); //$NON-NLS-1$
-
-        appendKindHelpers(builder, true);
-        appendOptionKindFunctions(builder, true);
-        appendOptionsForCommandFunction(builder, true);
-        appendPositionalKindFunction(builder, true);
-
-        builder.append("_mat_cli_complete_words() {\n"); //$NON-NLS-1$
-        builder.append("    local prefix=\"$1\"\n"); //$NON-NLS-1$
-        builder.append("    shift\n"); //$NON-NLS-1$
-        builder.append("    if [[ -n \"$prefix\" ]]; then\n"); //$NON-NLS-1$
-        builder.append("        compadd -Q -P \"$prefix\" -- \"$@\"\n"); //$NON-NLS-1$
-        builder.append("    else\n"); //$NON-NLS-1$
-        builder.append("        compadd -Q -- \"$@\"\n"); //$NON-NLS-1$
-        builder.append("    fi\n"); //$NON-NLS-1$
-        builder.append("}\n\n"); //$NON-NLS-1$
-
-        builder.append("_mat_cli_complete_kind() {\n"); //$NON-NLS-1$
-        builder.append("    local kind=\"$1\"\n"); //$NON-NLS-1$
-        builder.append("    local prefix=\"$2\"\n"); //$NON-NLS-1$
-        builder.append("    local values_string\n"); //$NON-NLS-1$
-        builder.append("    local -a values\n"); //$NON-NLS-1$
-        builder.append("    case \"$kind\" in\n"); //$NON-NLS-1$
-        builder.append("        enum:*)\n"); //$NON-NLS-1$
-        builder.append("            values_string=\"${kind#enum:}\"\n"); //$NON-NLS-1$
-        builder.append("            values=(${=values_string})\n"); //$NON-NLS-1$
-        builder.append("            _mat_cli_complete_words \"$prefix\" \"${values[@]}\"\n"); //$NON-NLS-1$
-        builder.append("            ;;\n"); //$NON-NLS-1$
-        builder.append("        file)\n"); //$NON-NLS-1$
-        builder.append("            if [[ -n \"$prefix\" ]]; then\n"); //$NON-NLS-1$
-        builder.append("                compset -P \"$prefix\" >/dev/null 2>&1\n"); //$NON-NLS-1$
-        builder.append("                _files -P \"$prefix\"\n"); //$NON-NLS-1$
-        builder.append("            else\n"); //$NON-NLS-1$
-        builder.append("                _files\n"); //$NON-NLS-1$
-        builder.append("            fi\n"); //$NON-NLS-1$
-        builder.append("            ;;\n"); //$NON-NLS-1$
-        builder.append("        *)\n"); //$NON-NLS-1$
-        builder.append("            return 1\n"); //$NON-NLS-1$
-        builder.append("            ;;\n"); //$NON-NLS-1$
-        builder.append("    esac\n"); //$NON-NLS-1$
-        builder.append("}\n\n"); //$NON-NLS-1$
-
-        builder.append("_mat_cli_find_command() {\n"); //$NON-NLS-1$
-        builder.append("    local i word pending_kind=\"\"\n"); //$NON-NLS-1$
-        builder.append("    reply=()\n"); //$NON-NLS-1$
-        builder.append("    for ((i=2; i<CURRENT; i++)); do\n"); //$NON-NLS-1$
-        builder.append("        word=\"$words[i]\"\n"); //$NON-NLS-1$
-        builder.append("        if [[ -n \"$pending_kind\" ]]; then\n"); //$NON-NLS-1$
-        builder.append("            pending_kind=\"\"\n"); //$NON-NLS-1$
-        builder.append("            continue\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("        if _mat_cli_is_command \"$word\"; then\n"); //$NON-NLS-1$
-        builder.append("            reply=(\"$word\" \"$i\")\n"); //$NON-NLS-1$
-        builder.append("            return 0\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("        if [[ \"$word\" == --*=* ]]; then\n"); //$NON-NLS-1$
-        builder.append("            continue\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("        pending_kind=\"$(_mat_cli_option_kind_global \"$word\")\"\n"); //$NON-NLS-1$
-        builder.append("        if ! _mat_cli_kind_expects_value \"$pending_kind\"; then\n"); //$NON-NLS-1$
-        builder.append("            pending_kind=\"\"\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("    done\n"); //$NON-NLS-1$
-        builder.append("    return 1\n"); //$NON-NLS-1$
-        builder.append("}\n\n"); //$NON-NLS-1$
-
-        builder.append("_mat-cli() {\n"); //$NON-NLS-1$
-        builder.append("    local cur prev cmd cmd_index position_index pending_kind inline_option inline_prefix kind positional_kind options_string\n"); //$NON-NLS-1$
-        builder.append("    local i word values_string\n"); //$NON-NLS-1$
-        builder.append("    local -a values matches options\n"); //$NON-NLS-1$
-        builder.append("    cur=\"$words[CURRENT]\"\n"); //$NON-NLS-1$
-        builder.append("    prev=\"$words[CURRENT-1]\"\n"); //$NON-NLS-1$
-        builder.append("\n"); //$NON-NLS-1$
-        builder.append("    if ! _mat_cli_find_command; then\n"); //$NON-NLS-1$
-        builder.append("        if [[ \"$cur\" == --*=* ]]; then\n"); //$NON-NLS-1$
-        builder.append("            inline_option=\"${cur%%=*}\"\n"); //$NON-NLS-1$
-        builder.append("            inline_prefix=\"$inline_option=\"\n"); //$NON-NLS-1$
-        builder.append("            kind=\"$(_mat_cli_option_kind_global \"$inline_option\")\"\n"); //$NON-NLS-1$
-        builder.append("            if [[ \"$kind\" == enum:* ]]; then\n"); //$NON-NLS-1$
-        builder.append("                compset -P \"$inline_prefix\" >/dev/null 2>&1\n"); //$NON-NLS-1$
-        builder.append("                _mat_cli_complete_kind \"$kind\" \"$inline_prefix\"\n"); //$NON-NLS-1$
-        builder.append("                return 0\n"); //$NON-NLS-1$
-        builder.append("            fi\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("        kind=\"$(_mat_cli_option_kind_global \"$prev\")\"\n"); //$NON-NLS-1$
-        builder.append("        if _mat_cli_kind_expects_value \"$kind\"; then\n"); //$NON-NLS-1$
-        builder.append("            _mat_cli_complete_kind \"$kind\" \"\"\n"); //$NON-NLS-1$
-        builder.append("            return 0\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("        _mat_cli_complete_words \"\" ").append(quotedWords(topLevelWords())).append('\n');
-        builder.append("        return 0\n"); //$NON-NLS-1$
-        builder.append("    fi\n\n"); //$NON-NLS-1$
-
-        builder.append("    cmd=\"$reply[1]\"\n"); //$NON-NLS-1$
-        builder.append("    cmd_index=\"$reply[2]\"\n"); //$NON-NLS-1$
-        builder.append("    if [[ \"$cur\" == --*=* ]]; then\n"); //$NON-NLS-1$
-        builder.append("        inline_option=\"${cur%%=*}\"\n"); //$NON-NLS-1$
-        builder.append("        inline_prefix=\"$inline_option=\"\n"); //$NON-NLS-1$
-        builder.append("        kind=\"$(_mat_cli_option_kind \"$cmd\" \"$inline_option\")\"\n"); //$NON-NLS-1$
-        builder.append("        if [[ \"$kind\" == enum:* || \"$kind\" == file ]]; then\n"); //$NON-NLS-1$
-        builder.append("            compset -P \"$inline_prefix\" >/dev/null 2>&1\n"); //$NON-NLS-1$
-        builder.append("            _mat_cli_complete_kind \"$kind\" \"$inline_prefix\"\n"); //$NON-NLS-1$
-        builder.append("            return 0\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("    fi\n"); //$NON-NLS-1$
-        builder.append("    kind=\"$(_mat_cli_option_kind \"$cmd\" \"$prev\")\"\n"); //$NON-NLS-1$
-        builder.append("    if _mat_cli_kind_expects_value \"$kind\"; then\n"); //$NON-NLS-1$
-        builder.append("        _mat_cli_complete_kind \"$kind\" \"\"\n"); //$NON-NLS-1$
-        builder.append("        return 0\n"); //$NON-NLS-1$
-        builder.append("    fi\n\n"); //$NON-NLS-1$
-
-        builder.append("    position_index=0\n"); //$NON-NLS-1$
-        builder.append("    pending_kind=\"\"\n"); //$NON-NLS-1$
-        builder.append("    for ((i=cmd_index+1; i<CURRENT; i++)); do\n"); //$NON-NLS-1$
-        builder.append("        word=\"$words[i]\"\n"); //$NON-NLS-1$
-        builder.append("        if [[ -n \"$pending_kind\" ]]; then\n"); //$NON-NLS-1$
-        builder.append("            pending_kind=\"\"\n"); //$NON-NLS-1$
-        builder.append("            continue\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("        if [[ \"$word\" == --*=* ]]; then\n"); //$NON-NLS-1$
-        builder.append("            continue\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("        kind=\"$(_mat_cli_option_kind \"$cmd\" \"$word\")\"\n"); //$NON-NLS-1$
-        builder.append("        if [[ -n \"$kind\" ]]; then\n"); //$NON-NLS-1$
-        builder.append("            if _mat_cli_kind_expects_value \"$kind\"; then\n"); //$NON-NLS-1$
-        builder.append("                pending_kind=\"$kind\"\n"); //$NON-NLS-1$
-        builder.append("            fi\n"); //$NON-NLS-1$
-        builder.append("            continue\n"); //$NON-NLS-1$
-        builder.append("        fi\n"); //$NON-NLS-1$
-        builder.append("        position_index=$((position_index + 1))\n"); //$NON-NLS-1$
-        builder.append("    done\n\n"); //$NON-NLS-1$
-
-        builder.append("    if [[ \"$cur\" == -* ]]; then\n"); //$NON-NLS-1$
-        builder.append("        options_string=\"$(_mat_cli_options_for_command \"$cmd\")\"\n"); //$NON-NLS-1$
-        builder.append("        options=(${=options_string})\n"); //$NON-NLS-1$
-        builder.append("        _mat_cli_complete_words \"\" \"${options[@]}\"\n"); //$NON-NLS-1$
-        builder.append("        return 0\n"); //$NON-NLS-1$
-        builder.append("    fi\n\n"); //$NON-NLS-1$
-
-        builder.append("    positional_kind=\"$(_mat_cli_positional_kind \"$cmd\" \"$position_index\")\"\n"); //$NON-NLS-1$
-        builder.append("    case \"$positional_kind\" in\n"); //$NON-NLS-1$
-        builder.append("        enum:*|file)\n"); //$NON-NLS-1$
-        builder.append("            _mat_cli_complete_kind \"$positional_kind\" \"\"\n"); //$NON-NLS-1$
-        builder.append("            ;;\n"); //$NON-NLS-1$
-        builder.append("        *)\n"); //$NON-NLS-1$
-        builder.append("            options_string=\"$(_mat_cli_options_for_command \"$cmd\")\"\n"); //$NON-NLS-1$
-        builder.append("            options=(${=options_string})\n"); //$NON-NLS-1$
-        builder.append("            _mat_cli_complete_words \"\" \"${options[@]}\"\n"); //$NON-NLS-1$
-        builder.append("            ;;\n"); //$NON-NLS-1$
-        builder.append("    esac\n"); //$NON-NLS-1$
-        builder.append("}\n\n"); //$NON-NLS-1$
-        builder.append("compdef _mat-cli mat-cli 2>/dev/null\n"); //$NON-NLS-1$
-        return builder.toString();
+        return ZSH_TEMPLATE.replace("__COMMAND_CASE__", renderCommandCase()) //$NON-NLS-1$ //$NON-NLS-2$
+                        .replace("__KIND_HELPERS__", renderKindHelpers(true)) //$NON-NLS-1$
+                        .replace("__OPTION_KIND_FUNCTIONS__", renderOptionKindFunctions(true)) //$NON-NLS-1$
+                        .replace("__OPTIONS_FOR_COMMAND_FUNCTION__", renderOptionsForCommandFunction(true)) //$NON-NLS-1$
+                        .replace("__POSITIONAL_KIND_FUNCTION__", renderPositionalKindFunction(true)) //$NON-NLS-1$
+                        .replace("__TOP_LEVEL_WORDS__", quotedWords(topLevelWords())); //$NON-NLS-1$
     }
 
-    private void appendKindHelpers(StringBuilder builder, boolean zsh)
+    private String renderCommandCase()
     {
+        return "        " + joinWithPipe(CliCommandCatalog.commandTokens()) + ")\n"; //$NON-NLS-1$ //$NON-NLS-2$
+    }
+
+    private String renderKindHelpers(boolean zsh)
+    {
+        StringBuilder builder = new StringBuilder(64);
         builder.append("_mat_cli_kind_expects_value() {\n"); //$NON-NLS-1$
         if (zsh)
             builder.append("    [[ -n \"$1\" && \"$1\" != none ]]\n"); //$NON-NLS-1$
         else
             builder.append("    [ -n \"$1\" ] && [ \"$1\" != \"none\" ]\n"); //$NON-NLS-1$
         builder.append("}\n\n"); //$NON-NLS-1$
+        return builder.toString();
     }
 
-    private void appendOptionKindFunctions(StringBuilder builder, boolean zsh)
+    private String renderOptionKindFunctions(boolean zsh)
     {
+        StringBuilder builder = new StringBuilder(4096);
         appendOptionKindFunction(builder, "_mat_cli_option_kind_global", CliCommandCatalog.globalOptions()); //$NON-NLS-1$
 
         builder.append("_mat_cli_option_kind_for_command() {\n"); //$NON-NLS-1$
@@ -411,6 +422,7 @@ public final class CompletionScriptGenerator
         builder.append("    fi\n"); //$NON-NLS-1$
         builder.append("    _mat_cli_option_kind_global \"$2\"\n"); //$NON-NLS-1$
         builder.append("}\n\n"); //$NON-NLS-1$
+        return builder.toString();
     }
 
     private void appendOptionKindFunction(StringBuilder builder, String functionName,
@@ -428,8 +440,9 @@ public final class CompletionScriptGenerator
         builder.append("}\n\n"); //$NON-NLS-1$
     }
 
-    private void appendOptionsForCommandFunction(StringBuilder builder, boolean zsh)
+    private String renderOptionsForCommandFunction(boolean zsh)
     {
+        StringBuilder builder = new StringBuilder(2048);
         builder.append("_mat_cli_options_for_command() {\n"); //$NON-NLS-1$
         builder.append("    case \"$1\" in\n"); //$NON-NLS-1$
         for (CliCommand command : CliCommand.values())
@@ -448,10 +461,12 @@ public final class CompletionScriptGenerator
         }
         builder.append("    esac\n"); //$NON-NLS-1$
         builder.append("}\n\n"); //$NON-NLS-1$
+        return builder.toString();
     }
 
-    private void appendPositionalKindFunction(StringBuilder builder, boolean zsh)
+    private String renderPositionalKindFunction(boolean zsh)
     {
+        StringBuilder builder = new StringBuilder(2048);
         builder.append("_mat_cli_positional_kind() {\n"); //$NON-NLS-1$
         builder.append("    case \"$1:$2\" in\n"); //$NON-NLS-1$
         for (CliCommand command : CliCommand.values())
@@ -472,6 +487,7 @@ public final class CompletionScriptGenerator
         }
         builder.append("    esac\n"); //$NON-NLS-1$
         builder.append("}\n\n"); //$NON-NLS-1$
+        return builder.toString();
     }
 
     private List<String> topLevelWords()
