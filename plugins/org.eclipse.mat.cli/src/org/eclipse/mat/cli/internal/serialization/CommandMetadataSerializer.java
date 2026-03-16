@@ -30,8 +30,8 @@ public class CommandMetadataSerializer
     {
         CommandDefinition definition = result.getDefinition();
         writer.name("name").value(definition.getCommand().getToken()); //$NON-NLS-1$
-        writer.name("summary").value(definition.getSummary()); //$NON-NLS-1$
-        writer.name("usage").value(definition.getUsage()); //$NON-NLS-1$
+        writeStringField(writer, "summary", definition.getSummary()); //$NON-NLS-1$
+        writeStringField(writer, "usage", definition.getUsage()); //$NON-NLS-1$
         writer.name("requiresSnapshot").value(definition.requiresSnapshot()); //$NON-NLS-1$
         writeStrings(writer, "positionalArguments", definition.getPositionalArguments()); //$NON-NLS-1$
         writeOptions(writer, definition.getOptions());
@@ -46,7 +46,7 @@ public class CommandMetadataSerializer
             writer.value("suggestedNextCommands when present"); //$NON-NLS-1$
             writer.endArray();
             writer.name("payloadKind").value(jsonPayloadKind(definition)); //$NON-NLS-1$
-            writer.name("payloadDescription").value(definition.getAgentPayloadDescription()); //$NON-NLS-1$
+            writeStringField(writer, "payloadDescription", definition.getAgentPayloadDescription()); //$NON-NLS-1$
             writeStrings(writer, "payloadFields", definition.getAgentPayloadFields()); //$NON-NLS-1$
         }
         return false;
@@ -70,14 +70,16 @@ public class CommandMetadataSerializer
 
     private void writeOptions(JsonWriter writer, List<OptionDefinition> options)
     {
+        if (options == null || options.isEmpty())
+            return;
         writer.name("options").beginArray(); //$NON-NLS-1$
         for (OptionDefinition option : options)
         {
             writer.beginObject();
             writer.name("name").value(option.getName()); //$NON-NLS-1$
-            writer.name("valueHint").value(option.getValueHint()); //$NON-NLS-1$
+            writeStringField(writer, "valueHint", option.getValueHint()); //$NON-NLS-1$
             writer.name("required").value(option.isRequired()); //$NON-NLS-1$
-            writer.name("description").value(option.getDescription()); //$NON-NLS-1$
+            writeStringField(writer, "description", option.getDescription()); //$NON-NLS-1$
             writer.endObject();
         }
         writer.endArray();
@@ -85,13 +87,15 @@ public class CommandMetadataSerializer
 
     private void writeOutputs(JsonWriter writer, List<OutputDefinition> outputs)
     {
+        if (outputs == null || outputs.isEmpty())
+            return;
         writer.name("outputs").beginArray(); //$NON-NLS-1$
         for (OutputDefinition output : uniqueOutputs(outputs))
         {
             writer.beginObject();
             writer.name("format").value(output.getFormat()); //$NON-NLS-1$
             writer.name("resultKind").value(output.getResultKind()); //$NON-NLS-1$
-            writer.name("description").value(output.getDescription()); //$NON-NLS-1$
+            writeStringField(writer, "description", output.getDescription()); //$NON-NLS-1$
             writer.endObject();
         }
         writer.endArray();
@@ -109,12 +113,21 @@ public class CommandMetadataSerializer
 
     private void writeStrings(JsonWriter writer, String name, List<String> values)
     {
+        if (values == null || values.isEmpty())
+            return;
         writer.name(name).beginArray();
         for (String value : values)
         {
             writer.value(value);
         }
         writer.endArray();
+    }
+
+    private void writeStringField(JsonWriter writer, String name, String value)
+    {
+        if (value == null || value.length() == 0)
+            return;
+        writer.name(name).value(value);
     }
 
     private void appendStrings(StringBuilder builder, String label, List<String> values)

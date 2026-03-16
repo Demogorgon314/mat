@@ -24,25 +24,31 @@ public class ThreadsResultSerializer
 
     public boolean writeJson(JsonWriter writer, ThreadsResult result)
     {
-        writer.name("notice").value(result.getNotice()); //$NON-NLS-1$
+        writeStringField(writer, "notice", result.getNotice()); //$NON-NLS-1$
         writeSummary(writer, result.getSummary());
         writer.name("threads").beginArray(); //$NON-NLS-1$
         for (ThreadsResult.ThreadEntry entry : result.getThreads())
         {
             writer.beginObject();
             writer.name("name").value(entry.getName()); //$NON-NLS-1$
-            writer.name("technicalName").value(entry.getTechnicalName()); //$NON-NLS-1$
-            writer.name("objectAddress").value(entry.getObjectAddress()); //$NON-NLS-1$
-            writer.name("state").value(entry.getState()); //$NON-NLS-1$
+            writeStringField(writer, "technicalName", entry.getTechnicalName()); //$NON-NLS-1$
+            writeStringField(writer, "objectAddress", entry.getObjectAddress()); //$NON-NLS-1$
+            writeStringField(writer, "state", entry.getState()); //$NON-NLS-1$
             writer.name("retainedBytes").value(entry.getRetainedBytes()); //$NON-NLS-1$
             writer.name("stackAvailable").value(entry.isStackAvailable()); //$NON-NLS-1$
-            writer.name("stackUnavailableReason").value(entry.getStackUnavailableReason()); //$NON-NLS-1$
-            writer.name("stackFrames").beginArray(); //$NON-NLS-1$
-            for (String frame : entry.getStackFrames())
+            if (!entry.isStackAvailable())
             {
-                writer.value(frame);
+                writeStringField(writer, "stackUnavailableReason", entry.getStackUnavailableReason()); //$NON-NLS-1$
             }
-            writer.endArray();
+            if (!entry.getStackFrames().isEmpty())
+            {
+                writer.name("stackFrames").beginArray(); //$NON-NLS-1$
+                for (String frame : entry.getStackFrames())
+                {
+                    writer.value(frame);
+                }
+                writer.endArray();
+            }
             writer.endObject();
         }
         writer.endArray();
@@ -86,6 +92,13 @@ public class ThreadsResultSerializer
         writer.name("stackAvailableThreads").value(summary.getStackAvailableThreads()); //$NON-NLS-1$
         writer.name("stateAvailableThreads").value(summary.getStateAvailableThreads()); //$NON-NLS-1$
         writer.endObject();
+    }
+
+    private void writeStringField(JsonWriter writer, String name, String value)
+    {
+        if (value == null || value.length() == 0)
+            return;
+        writer.name(name).value(value);
     }
 
     private void appendOverview(StringBuilder builder, List<ThreadsResult.ThreadEntry> threads)

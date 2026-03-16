@@ -24,14 +24,17 @@ public class QueryMetadataSerializer
     {
         if (result.getKind() == QueryMetadataResult.Kind.LIST)
         {
-            writer.name("queries").beginArray(); //$NON-NLS-1$
-            for (QueryMetadataResult.QueryDefinition query : result.getQueries())
+            if (result.getQueries() != null && !result.getQueries().isEmpty())
             {
-                writer.beginObject();
-                writeQuery(writer, query);
-                writer.endObject();
+                writer.name("queries").beginArray(); //$NON-NLS-1$
+                for (QueryMetadataResult.QueryDefinition query : result.getQueries())
+                {
+                    writer.beginObject();
+                    writeQuery(writer, query);
+                    writer.endObject();
+                }
+                writer.endArray();
             }
-            writer.endArray();
         }
         else
         {
@@ -75,37 +78,50 @@ public class QueryMetadataSerializer
     private void writeQuery(JsonWriter writer, QueryMetadataResult.QueryDefinition query)
     {
         writer.name("identifier").value(query.getIdentifier()); //$NON-NLS-1$
-        writer.name("name").value(query.getName()); //$NON-NLS-1$
-        writer.name("category").value(query.getCategory()); //$NON-NLS-1$
-        writer.name("usage").value(query.getUsage()); //$NON-NLS-1$
-        writer.name("summary").value(query.getSummary()); //$NON-NLS-1$
-        writer.name("help").value(query.getHelp()); //$NON-NLS-1$
-        writer.name("helpUrl").value(query.getHelpUrl()); //$NON-NLS-1$
-        writer.name("commandClass").value(query.getCommandClass()); //$NON-NLS-1$
+        writeStringField(writer, "name", query.getName()); //$NON-NLS-1$
+        writeStringField(writer, "category", query.getCategory()); //$NON-NLS-1$
+        writeStringField(writer, "usage", query.getUsage()); //$NON-NLS-1$
+        writeStringField(writer, "summary", query.getSummary()); //$NON-NLS-1$
+        writeStringField(writer, "help", query.getHelp()); //$NON-NLS-1$
+        writeStringField(writer, "helpUrl", query.getHelpUrl()); //$NON-NLS-1$
+        writeStringField(writer, "commandClass", query.getCommandClass()); //$NON-NLS-1$
         writer.name("shallow").value(query.isShallow()); //$NON-NLS-1$
-        writer.name("subjects").beginArray(); //$NON-NLS-1$
-        for (String subject : query.getSubjects())
+        if (query.getSubjects() != null && !query.getSubjects().isEmpty())
         {
-            writer.value(subject);
+            writer.name("subjects").beginArray(); //$NON-NLS-1$
+            for (String subject : query.getSubjects())
+            {
+                writer.value(subject);
+            }
+            writer.endArray();
         }
-        writer.endArray();
-        writer.name("arguments").beginArray(); //$NON-NLS-1$
-        for (QueryMetadataResult.QueryArgument argument : query.getArguments())
+        if (query.getArguments() != null && !query.getArguments().isEmpty())
         {
-            writer.beginObject();
-            writer.name("name").value(argument.getName()); //$NON-NLS-1$
-            writer.name("flag").value(argument.getFlag()); //$NON-NLS-1$
-            writer.name("type").value(argument.getType()); //$NON-NLS-1$
-            writer.name("advice").value(argument.getAdvice()); //$NON-NLS-1$
-            writer.name("mandatory").value(argument.isMandatory()); //$NON-NLS-1$
-            writer.name("multiple").value(argument.isMultiple()); //$NON-NLS-1$
-            writer.name("boolean").value(argument.isBoolean()); //$NON-NLS-1$
-            writer.name("enum").value(argument.isEnumeration()); //$NON-NLS-1$
-            writer.name("defaultValue").value(argument.getDefaultValue()); //$NON-NLS-1$
-            writer.name("help").value(argument.getHelp()); //$NON-NLS-1$
-            writer.endObject();
+            writer.name("arguments").beginArray(); //$NON-NLS-1$
+            for (QueryMetadataResult.QueryArgument argument : query.getArguments())
+            {
+                writer.beginObject();
+                writer.name("name").value(argument.getName()); //$NON-NLS-1$
+                writeStringField(writer, "flag", argument.getFlag()); //$NON-NLS-1$
+                writeStringField(writer, "type", argument.getType()); //$NON-NLS-1$
+                writeStringField(writer, "advice", argument.getAdvice()); //$NON-NLS-1$
+                writer.name("mandatory").value(argument.isMandatory()); //$NON-NLS-1$
+                writer.name("multiple").value(argument.isMultiple()); //$NON-NLS-1$
+                writer.name("boolean").value(argument.isBoolean()); //$NON-NLS-1$
+                writer.name("enum").value(argument.isEnumeration()); //$NON-NLS-1$
+                writeStringField(writer, "defaultValue", argument.getDefaultValue()); //$NON-NLS-1$
+                writeStringField(writer, "help", argument.getHelp()); //$NON-NLS-1$
+                writer.endObject();
+            }
+            writer.endArray();
         }
-        writer.endArray();
+    }
+
+    private void writeStringField(JsonWriter writer, String name, String value)
+    {
+        if (value == null || value.length() == 0)
+            return;
+        writer.name(name).value(value);
     }
 
     private void appendList(StringBuilder builder, String label, List<String> values)

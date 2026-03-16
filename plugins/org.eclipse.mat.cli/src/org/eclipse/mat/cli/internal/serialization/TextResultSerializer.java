@@ -15,7 +15,7 @@ public class TextResultSerializer
 {
     public boolean writeJson(JsonWriter writer, TextResult result)
     {
-        writer.name("text").value(toText(result)); //$NON-NLS-1$
+        writer.name("content").value(toText(result)); //$NON-NLS-1$
         return false;
     }
 
