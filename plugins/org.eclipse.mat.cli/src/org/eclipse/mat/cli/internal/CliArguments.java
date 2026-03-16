@@ -93,6 +93,11 @@ public final class CliArguments
         return subjectName;
     }
 
+    public String getCompletionShell()
+    {
+        return command == CliCommand.COMPLETION ? subjectName : null;
+    }
+
     public File getHeapFile()
     {
         return heapFile;

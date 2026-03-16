@@ -540,6 +540,38 @@ public class CliCommandExecutorTest
     }
 
     @Test
+    public void executesCompletionCommandInTextModeForBash() throws Exception
+    {
+        String script = execute(new String[] { "completion", "bash" }); //$NON-NLS-1$ //$NON-NLS-2$
+
+        assertTrue(script.contains("# bash completion for mat-cli")); //$NON-NLS-1$
+        assertTrue(script.contains("complete -F _mat_cli_completion mat-cli")); //$NON-NLS-1$
+        assertTrue(script.contains("|completion)")); //$NON-NLS-1$
+        assertTrue(script.contains("--format")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesCompletionCommandInTextModeForZsh() throws Exception
+    {
+        String script = execute(new String[] { "completion", "zsh" }); //$NON-NLS-1$ //$NON-NLS-2$
+
+        assertTrue(script.contains("#compdef mat-cli")); //$NON-NLS-1$
+        assertTrue(script.contains("compdef _mat-cli mat-cli")); //$NON-NLS-1$
+        assertTrue(script.contains("|completion)")); //$NON-NLS-1$
+        assertTrue(script.contains("--query-file")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesCompletionCommandInJsonMode() throws Exception
+    {
+        String json = executeJson(new String[] { "completion", "bash", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        assertTrue(json.contains("\"resultKind\":\"text\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"content\":\"# bash completion for mat-cli")); //$NON-NLS-1$
+        assertTrue(json.contains("complete -F _mat_cli_completion mat-cli")); //$NON-NLS-1$
+    }
+
+    @Test
     public void executesTopConsumersHtmlThroughQueryCommandAsRawSectionJson() throws Exception
     {
         File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);

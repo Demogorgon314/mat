@@ -23,22 +23,23 @@ public enum CliCommand
     DESCRIBE("describe", false, true, false, false), //$NON-NLS-1$
     SCHEMA("schema", false, true, false, false), //$NON-NLS-1$
     LIST_QUERIES("list-queries", false, false, true, false), //$NON-NLS-1$
-    DESCRIBE_QUERY("describe-query", false, false, true, true); //$NON-NLS-1$
+    DESCRIBE_QUERY("describe-query", false, false, true, true), //$NON-NLS-1$
+    COMPLETION("completion", false, false, false, true); //$NON-NLS-1$
 
     private final String token;
     private final boolean requiresSnapshot;
     private final boolean requiresSubjectCommand;
     private final boolean requiresQueryRegistry;
-    private final boolean requiresQueryIdentifier;
+    private final boolean requiresSubjectName;
 
     private CliCommand(String token, boolean requiresSnapshot, boolean requiresSubjectCommand,
-                    boolean requiresQueryRegistry, boolean requiresQueryIdentifier)
+                    boolean requiresQueryRegistry, boolean requiresSubjectName)
     {
         this.token = token;
         this.requiresSnapshot = requiresSnapshot;
         this.requiresSubjectCommand = requiresSubjectCommand;
         this.requiresQueryRegistry = requiresQueryRegistry;
-        this.requiresQueryIdentifier = requiresQueryIdentifier;
+        this.requiresSubjectName = requiresSubjectName;
     }
 
     public String getToken()
@@ -61,9 +62,9 @@ public enum CliCommand
         return requiresQueryRegistry;
     }
 
-    public boolean requiresQueryIdentifier()
+    public boolean requiresSubjectName()
     {
-        return requiresQueryIdentifier;
+        return requiresSubjectName;
     }
 
     public boolean requiresRuntimeServices()

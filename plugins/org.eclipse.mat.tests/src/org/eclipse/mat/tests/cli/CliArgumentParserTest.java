@@ -360,6 +360,62 @@ public class CliArgumentParserTest
     }
 
     @Test
+    public void parsesCompletionCommandForBash() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "completion", "bash" }); //$NON-NLS-1$ //$NON-NLS-2$
+
+        assertEquals(CliCommand.COMPLETION, arguments.getCommand());
+        assertEquals("bash", arguments.getCompletionShell()); //$NON-NLS-1$
+        assertEquals("bash", arguments.getSubjectName()); //$NON-NLS-1$
+    }
+
+    @Test
+    public void parsesCompletionCommandForZshInJsonMode() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "completion", "zsh", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        assertEquals(CliCommand.COMPLETION, arguments.getCommand());
+        assertEquals("zsh", arguments.getCompletionShell()); //$NON-NLS-1$
+        assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
+    }
+
+    @Test
+    public void rejectsCompletionCommandWithoutShell() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        try
+        {
+            parser.parse(new String[] { "completion" }); //$NON-NLS-1$
+            fail("Expected missing completion shell to be rejected"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertEquals(2, e.getExitCode());
+            assertTrue(e.getMessage().contains("completion requires a shell name")); //$NON-NLS-1$
+        }
+    }
+
+    @Test
+    public void rejectsUnsupportedCompletionShell() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        try
+        {
+            parser.parse(new String[] { "completion", "fish" }); //$NON-NLS-1$ //$NON-NLS-2$
+            fail("Expected unsupported completion shell to be rejected"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertEquals(2, e.getExitCode());
+            assertTrue(e.getMessage().contains("Unsupported completion shell: fish")); //$NON-NLS-1$
+        }
+    }
+
+    @Test
     public void parsesListQueriesCommandWithoutHeap() throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
@@ -537,6 +593,7 @@ public class CliArgumentParserTest
         assertTrue(help.contains("instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("inspect-object <heap> --object 0x... [--select-fields FIELD | --field-paths PATH] [--show-nulls] [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("top-consumers <heap> [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("completion <bash|zsh> [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("--depth N            Maximum tree or section depth (default: 8, inspect-object: 3)")); //$NON-NLS-1$
         assertTrue(help.contains("--field-paths PATH    Inspect dotted field paths such as cleaner.offsetMap; may be repeated")); //$NON-NLS-1$
         assertTrue(help.contains("--select-fields FIELD Inspect direct fields from the root object; may be repeated")); //$NON-NLS-1$
@@ -568,5 +625,15 @@ public class CliArgumentParserTest
         assertTrue(help.contains("Command: describe")); //$NON-NLS-1$
         assertTrue(help.contains("Usage: mat-cli describe <command> [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("Positional arguments:")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void commandHelpForCompletionShowsShellUsage()
+    {
+        String help = CliHelp.commandHelp(CliCommand.COMPLETION);
+
+        assertTrue(help.contains("Command: completion")); //$NON-NLS-1$
+        assertTrue(help.contains("Usage: mat-cli completion <bash|zsh> [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("bash|zsh")); //$NON-NLS-1$
     }
 }

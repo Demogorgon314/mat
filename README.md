@@ -46,6 +46,63 @@ npx skills add https://github.com/Demogorgon314/mat-cli --skill mat-cli-heapdump
 2. Unzip it.
 3. Run `./mat-cli --help` from the extracted directory.
 
+### Shell Completion
+
+`mat-cli` ships first-party `bash` and `zsh` completion scripts in the release archive:
+
+- `completion/bash/mat-cli`
+- `completion/zsh/_mat-cli`
+
+You can also generate the same scripts at runtime:
+
+```bash
+./mat-cli completion bash
+./mat-cli completion zsh
+```
+
+Temporary activation in the current shell:
+
+```bash
+source <(./mat-cli completion bash)
+source <(./mat-cli completion zsh)
+```
+
+Persistent `bash` installation:
+
+```bash
+mkdir -p ~/.local/share/bash-completion/completions
+cp ./completion/bash/mat-cli ~/.local/share/bash-completion/completions/mat-cli
+```
+
+Or generate it directly:
+
+```bash
+mkdir -p ~/.local/share/bash-completion/completions
+./mat-cli completion bash > ~/.local/share/bash-completion/completions/mat-cli
+```
+
+Persistent `zsh` installation:
+
+```bash
+mkdir -p ~/.zfunc
+cp ./completion/zsh/_mat-cli ~/.zfunc/_mat-cli
+```
+
+Or generate it directly:
+
+```bash
+mkdir -p ~/.zfunc
+./mat-cli completion zsh > ~/.zfunc/_mat-cli
+```
+
+If your `zsh` setup does not already load `~/.zfunc`, add this once to your shell startup file before `compinit`:
+
+```zsh
+fpath=(~/.zfunc $fpath)
+autoload -Uz compinit
+compinit
+```
+
 ## Requirements
 
 - Java 17 or newer to run the standalone release
@@ -68,6 +125,7 @@ Useful discovery commands:
 - `mat-cli schema <command> --format json`
 - `mat-cli list-queries --format json`
 - `mat-cli describe-query <query-id> --format json`
+- `mat-cli completion <bash|zsh>`
 
 ## Example Workflows
 

@@ -18,7 +18,7 @@ import org.junit.runners.Suite.SuiteClasses;
 
 @RunWith(Suite.class)
 @SuiteClasses( { CliArgumentParserTest.class, ResultSerializerTest.class, CliCommandExecutorTest.class,
-                CliApplicationErrorContextTest.class })
+                CompletionScriptGeneratorTest.class, CliApplicationErrorContextTest.class })
 public class CliTests
 {
     public static junit.framework.Test suite()
