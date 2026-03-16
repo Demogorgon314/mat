@@ -269,12 +269,12 @@ public class CliCommandExecutorTest
     }
 
     @Test
-    public void executesInspectObjectSelectFieldAgainstHprofSnapshotAsJson() throws Exception
+    public void executesInspectObjectSelectFieldsAgainstHprofSnapshotAsJson() throws Exception
     {
         File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
         String address = firstObjectAddress(heap, "java.lang.String"); //$NON-NLS-1$
         String json = executeJson(new String[] { "inspect-object", heap.getAbsolutePath(), "--format", "json", "--object",
-                        address, "--select-field", "value", "--limit", "5" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
+                        address, "--select-fields", "value", "--limit", "5" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
 
         assertTrue(json.contains("\"kind\":\"field\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"path\":\"<root>\"")); //$NON-NLS-1$
@@ -287,12 +287,12 @@ public class CliCommandExecutorTest
     }
 
     @Test
-    public void executesInspectObjectFieldPathToPrimitiveAsJson() throws Exception
+    public void executesInspectObjectFieldPathsToPrimitiveAsJson() throws Exception
     {
         File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
         String address = firstObjectAddress(heap, "java.lang.String"); //$NON-NLS-1$
         String json = executeJson(new String[] { "inspect-object", heap.getAbsolutePath(), "--format", "json", "--object",
-                        address, "--field-path", "count" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+                        address, "--field-paths", "count" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
 
         assertTrue(json.contains("\"kind\":\"field\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"path\":\"<root>\"")); //$NON-NLS-1$
@@ -305,11 +305,11 @@ public class CliCommandExecutorTest
     }
 
     @Test
-    public void executesInspectObjectFieldPathToPrimitiveAsText() throws Exception
+    public void executesInspectObjectFieldPathsToPrimitiveAsText() throws Exception
     {
         File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
         String text = execute(new String[] { "inspect-object", heap.getAbsolutePath(), "--object",
-                        firstObjectAddress(heap, "java.lang.String"), "--field-path", "count", "--format", "text" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
+                        firstObjectAddress(heap, "java.lang.String"), "--field-paths", "count", "--format", "text" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
 
         assertTrue(text.contains(".count = ")); //$NON-NLS-1$
         assertTrue(text.contains(" : int")); //$NON-NLS-1$
@@ -317,11 +317,38 @@ public class CliCommandExecutorTest
     }
 
     @Test
-    public void failsMissingInspectObjectFieldPathWithExecutionError() throws Exception
+    public void executesInspectObjectRepeatedSelectFieldsAsJson() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String address = firstObjectAddress(heap, "java.lang.String"); //$NON-NLS-1$
+        String json = executeJson(new String[] { "inspect-object", heap.getAbsolutePath(), "--format", "json", "--object",
+                        address, "--select-fields", "count", "--select-fields", "offset" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
+
+        assertTrue(json.contains("\"path\":\"<root>[0]\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"path\":\"<root>[1]\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"count\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"offset\"")); //$NON-NLS-1$
+        assertFalse(json.contains("\"path\":\"<root>.count\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesInspectObjectRepeatedFieldPathsAsText() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String text = execute(new String[] { "inspect-object", heap.getAbsolutePath(), "--object",
+                        firstObjectAddress(heap, "java.lang.String"), "--field-paths", "count", "--field-paths", "offset",
+                        "--format", "text" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$
+
+        assertTrue(text.contains(".count = ")); //$NON-NLS-1$
+        assertTrue(text.contains(".offset = ")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void failsMissingInspectObjectFieldPathsWithExecutionError() throws Exception
     {
         File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
         CliArguments parsed = new CliArgumentParser().parse(new String[] { "inspect-object", heap.getAbsolutePath(),
-                        "--object", firstObjectAddress(heap, "java.lang.String"), "--field-path", "missingField" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+                        "--object", firstObjectAddress(heap, "java.lang.String"), "--field-paths", "missingField" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
         CliCommandExecutor executor = new CliCommandExecutor();
 
         try (SnapshotSession session = executor.openSnapshot(parsed))
@@ -363,6 +390,19 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"resultKind\":\"describe\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"histogram\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"usage\":\"mat-cli histogram <heap> [--limit N] [--format text|json]\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void describesInspectObjectCommandWithPluralFieldSelectors() throws Exception
+    {
+        String json = executeJson(new String[] { "describe", "inspect-object", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        assertTrue(json.contains("\"name\":\"inspect-object\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"usage\":\"mat-cli inspect-object <heap> --object 0x... [--select-fields FIELD | --field-paths PATH] [--show-nulls] [--limit N] [--depth N] [--format text|json]\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"--select-fields\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"--field-paths\"")); //$NON-NLS-1$
+        assertFalse(json.contains("\"name\":\"--select-field\"")); //$NON-NLS-1$
+        assertFalse(json.contains("\"name\":\"--field-path\"")); //$NON-NLS-1$
     }
 
     @Test

@@ -241,13 +241,19 @@ public class CliCommandExecutor
         int objectId = resolveObjectId(arguments.getCommand().getToken(), arguments.getObjectAddress(), snapshot);
         IObject object = snapshot.getObject(objectId);
         String primaryObjectAddress = arguments.getObjectAddress();
-        String fieldPath = arguments.getInspectionFieldPath();
-        if (fieldPath == null || fieldPath.length() == 0)
+        List<String> fieldPaths = arguments.getInspectionFieldPaths();
+        if (fieldPaths.isEmpty())
             return snapshotResult(snapshot, new ObjectInspectorResult(object), primaryObjectAddress, null);
 
-        ObjectInspectorResult.RootValue resolved = resolveInspectionValue(object, fieldPath);
-        if (resolved.getValue() instanceof IObject)
-            primaryObjectAddress = toObjectAddress(snapshot, ((IObject) resolved.getValue()).getObjectId());
+        List<ObjectInspectorResult.RootValue> resolved = resolveInspectionValues(object, fieldPaths);
+        for (ObjectInspectorResult.RootValue value : resolved)
+        {
+            if (value.getValue() instanceof IObject)
+            {
+                primaryObjectAddress = toObjectAddress(snapshot, ((IObject) value.getValue()).getObjectId());
+                break;
+            }
+        }
         return snapshotResult(snapshot, new ObjectInspectorResult(resolved), primaryObjectAddress, null);
     }
 
@@ -363,6 +369,18 @@ public class CliCommandExecutor
         return new ObjectInspectorResult.RootValue("field", fieldPath, declaredType, current); //$NON-NLS-1$
     }
 
+    private List<ObjectInspectorResult.RootValue> resolveInspectionValues(IObject root, List<String> fieldPaths)
+                    throws CliException
+    {
+        List<ObjectInspectorResult.RootValue> resolved = new java.util.ArrayList<ObjectInspectorResult.RootValue>(
+                        fieldPaths.size());
+        for (String fieldPath : fieldPaths)
+        {
+            resolved.add(resolveInspectionValue(root, fieldPath));
+        }
+        return resolved;
+    }
+
     private Field findField(IObject object, String name) throws CliException
     {
         if (object instanceof IInstance)
@@ -386,7 +404,7 @@ public class CliCommandExecutor
         }
 
         throw CliException.execution("Object " + object.getTechnicalName() //$NON-NLS-1$
-                        + " does not expose fields for --field-path. Array indexes are not supported.", null); //$NON-NLS-1$
+                        + " does not expose fields for --field-paths. Array indexes are not supported.", null); //$NON-NLS-1$
     }
 
     private boolean isOqlFailureText(String text)

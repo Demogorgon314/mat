@@ -20,6 +20,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 
 import org.eclipse.mat.cli.internal.CliArgumentParser;
 import org.eclipse.mat.cli.internal.CliArguments;
@@ -103,14 +104,36 @@ public class CliArgumentParserTest
     {
         CliArgumentParser parser = new CliArgumentParser();
         CliArguments arguments = parser.parse(
-                        new String[] { "inspect-object", "sample.hprof", "--object", "0x2a", "--field-path",
+                        new String[] { "inspect-object", "sample.hprof", "--object", "0x2a", "--field-paths",
                                         "value", "--depth", "3", "--show-nulls" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
 
         assertEquals(CliCommand.INSPECT_OBJECT, arguments.getCommand());
         assertEquals("0x2a", arguments.getObjectAddress()); //$NON-NLS-1$
-        assertEquals("value", arguments.getFieldPath()); //$NON-NLS-1$
+        assertEquals(Arrays.asList("value"), arguments.getFieldPaths()); //$NON-NLS-1$
         assertEquals(3, arguments.getTreeDepthLimit());
         assertTrue(arguments.isShowNulls());
+    }
+
+    @Test
+    public void parsesRepeatedInspectObjectFieldPathsArguments() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "inspect-object", "sample.hprof", "--object", "0x2a",
+                        "--field-paths", "value", "--field-paths", "count" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertEquals(Arrays.asList("value", "count"), arguments.getFieldPaths()); //$NON-NLS-1$ //$NON-NLS-2$
+        assertTrue(arguments.getSelectFields().isEmpty());
+    }
+
+    @Test
+    public void parsesRepeatedInspectObjectSelectFieldsArguments() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "inspect-object", "sample.hprof", "--object", "0x2a",
+                        "--select-fields", "value", "--select-fields", "coder" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertEquals(Arrays.asList("value", "coder"), arguments.getSelectFields()); //$NON-NLS-1$ //$NON-NLS-2$
+        assertTrue(arguments.getFieldPaths().isEmpty());
     }
 
     @Test
@@ -145,13 +168,13 @@ public class CliArgumentParserTest
 
         try
         {
-            parser.parse(new String[] { "inspect-object", "sample.hprof", "--object", "0x2a", "--select-field",
-                            "value", "--field-path", "value.count" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
+            parser.parse(new String[] { "inspect-object", "sample.hprof", "--object", "0x2a", "--select-fields",
+                            "value", "--field-paths", "value.count" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
             fail("Expected conflicting inspect-object options"); //$NON-NLS-1$
         }
         catch (CliException e)
         {
-            assertTrue(e.getMessage().contains("only one of --select-field or --field-path")); //$NON-NLS-1$
+            assertTrue(e.getMessage().contains("only one of --select-fields or --field-paths")); //$NON-NLS-1$
         }
     }
 
@@ -232,13 +255,58 @@ public class CliArgumentParserTest
 
         try
         {
-            parser.parse(new String[] { "inspect-object", "sample.hprof", "--object", "0x2a", "--select-field",
+            parser.parse(new String[] { "inspect-object", "sample.hprof", "--object", "0x2a", "--select-fields",
                             "value.count" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
-            fail("Expected dotted select-field rejection"); //$NON-NLS-1$
+            fail("Expected dotted select-fields rejection"); //$NON-NLS-1$
         }
         catch (CliException e)
         {
-            assertTrue(e.getMessage().contains("Use --field-path")); //$NON-NLS-1$
+            assertTrue(e.getMessage().contains("Use --field-paths")); //$NON-NLS-1$
+        }
+    }
+
+    @Test
+    public void rejectsInvalidFieldPaths() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        try
+        {
+            parser.parse(new String[] { "inspect-object", "sample.hprof", "--object", "0x2a", "--field-paths",
+                            "value..count" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+            fail("Expected invalid field-paths rejection"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertTrue(e.getMessage().contains("Invalid --field-paths")); //$NON-NLS-1$
+        }
+    }
+
+    @Test
+    public void rejectsLegacyInspectObjectFlags() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        try
+        {
+            parser.parse(new String[] { "inspect-object", "sample.hprof", "--object", "0x2a", "--select-field",
+                            "value" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+            fail("Expected legacy select-field rejection"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertTrue(e.getMessage().contains("Unknown option: --select-field")); //$NON-NLS-1$
+        }
+
+        try
+        {
+            parser.parse(new String[] { "inspect-object", "sample.hprof", "--object", "0x2a", "--field-path",
+                            "value" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+            fail("Expected legacy field-path rejection"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertTrue(e.getMessage().contains("Unknown option: --field-path")); //$NON-NLS-1$
         }
     }
 
@@ -467,13 +535,16 @@ public class CliArgumentParserTest
 
         assertTrue(help.contains("threads <heap> [--limit N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--format text|json]")); //$NON-NLS-1$
-        assertTrue(help.contains("inspect-object <heap> --object 0x... [--select-field FIELD | --field-path PATH] [--show-nulls] [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("inspect-object <heap> --object 0x... [--select-fields FIELD | --field-paths PATH] [--show-nulls] [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("top-consumers <heap> [--limit N] [--depth N] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("--depth N            Maximum tree or section depth (default: 8, inspect-object: 3)")); //$NON-NLS-1$
-        assertTrue(help.contains("--field-path PATH    Inspect a dotted field path such as cleaner.offsetMap")); //$NON-NLS-1$
+        assertTrue(help.contains("--field-paths PATH    Inspect dotted field paths such as cleaner.offsetMap; may be repeated")); //$NON-NLS-1$
+        assertTrue(help.contains("--select-fields FIELD Inspect direct fields from the root object; may be repeated")); //$NON-NLS-1$
         assertTrue(help.contains("--show-nulls         Show nested null fields and array slots in text output")); //$NON-NLS-1$
         assertTrue(help.contains("Use 'mat-cli <command> --help' for command-specific help.")); //$NON-NLS-1$
         assertTrue(help.contains("Inner class names containing '$' must be quoted or escaped")); //$NON-NLS-1$
+        assertFalse(help.contains("--field-path PATH")); //$NON-NLS-1$
+        assertFalse(help.contains("--select-field FIELD")); //$NON-NLS-1$
     }
 
     @Test

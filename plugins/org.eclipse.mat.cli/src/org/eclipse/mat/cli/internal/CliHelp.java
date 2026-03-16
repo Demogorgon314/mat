@@ -43,8 +43,8 @@ public final class CliHelp
         help.append("  --verbose            Print detailed diagnostics on failure\n"); //$NON-NLS-1$
         help.append("  --help               Show general or command-specific help\n\n"); //$NON-NLS-1$
         help.append("Inspect-object options:\n"); //$NON-NLS-1$
-        help.append("  --select-field FIELD Inspect one direct field from the root object\n"); //$NON-NLS-1$
-        help.append("  --field-path PATH    Inspect a dotted field path such as cleaner.offsetMap\n"); //$NON-NLS-1$
+        help.append("  --select-fields FIELD Inspect direct fields from the root object; may be repeated\n"); //$NON-NLS-1$
+        help.append("  --field-paths PATH    Inspect dotted field paths such as cleaner.offsetMap; may be repeated\n"); //$NON-NLS-1$
         help.append("  --show-nulls         Show nested null fields and array slots in text output\n\n"); //$NON-NLS-1$
         help.append("Input options:\n"); //$NON-NLS-1$
         help.append("  --query-file PATH    Read OQL text from a UTF-8 file\n"); //$NON-NLS-1$

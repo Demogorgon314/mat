@@ -13,6 +13,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -46,8 +48,8 @@ public final class CliArgumentParser
         String className = null;
         String classRegex = null;
         String classContains = null;
-        String selectField = null;
-        String fieldPath = null;
+        List<String> selectFields = new ArrayList<String>();
+        List<String> fieldPaths = new ArrayList<String>();
         boolean includeSubclasses = false;
         String oqlQuery = null;
         String oqlQueryFile = null;
@@ -135,21 +137,21 @@ public final class CliArgumentParser
             {
                 classContains = nextArg(args, ++ii, "--class-contains"); //$NON-NLS-1$
             }
-            else if (arg.startsWith("--select-field=")) //$NON-NLS-1$
+            else if (arg.startsWith("--select-fields=")) //$NON-NLS-1$
             {
-                selectField = arg.substring("--select-field=".length()); //$NON-NLS-1$
+                selectFields.add(arg.substring("--select-fields=".length())); //$NON-NLS-1$
             }
-            else if ("--select-field".equals(arg)) //$NON-NLS-1$
+            else if ("--select-fields".equals(arg)) //$NON-NLS-1$
             {
-                selectField = nextArg(args, ++ii, "--select-field"); //$NON-NLS-1$
+                selectFields.add(nextArg(args, ++ii, "--select-fields")); //$NON-NLS-1$
             }
-            else if (arg.startsWith("--field-path=")) //$NON-NLS-1$
+            else if (arg.startsWith("--field-paths=")) //$NON-NLS-1$
             {
-                fieldPath = arg.substring("--field-path=".length()); //$NON-NLS-1$
+                fieldPaths.add(arg.substring("--field-paths=".length())); //$NON-NLS-1$
             }
-            else if ("--field-path".equals(arg)) //$NON-NLS-1$
+            else if ("--field-paths".equals(arg)) //$NON-NLS-1$
             {
-                fieldPath = nextArg(args, ++ii, "--field-path"); //$NON-NLS-1$
+                fieldPaths.add(nextArg(args, ++ii, "--field-paths")); //$NON-NLS-1$
             }
             else if ("--include-subclasses".equals(arg)) //$NON-NLS-1$
             {
@@ -235,8 +237,8 @@ public final class CliArgumentParser
             if (help)
             {
                 return new CliArguments(null, null, null, null, format, verbose, true, showNulls, limit,
-                                treeDepthLimit, objectAddress, className, classRegex, classContains, selectField,
-                                fieldPath, includeSubclasses, oqlQuery, queryCommand);
+                                treeDepthLimit, objectAddress, className, classRegex, classContains, selectFields,
+                                fieldPaths, includeSubclasses, oqlQuery, queryCommand);
             }
             throw CliException.usage("Missing command"); //$NON-NLS-1$
         }
@@ -256,8 +258,8 @@ public final class CliArgumentParser
 
         CliArguments parsed = new CliArguments(command, subjectCommand, subjectName, heapFile, format, verbose, help,
                         showNulls,
-                        limit, treeDepthLimit, objectAddress, className, classRegex, classContains, selectField,
-                        fieldPath, includeSubclasses, oqlQuery, queryCommand);
+                        limit, treeDepthLimit, objectAddress, className, classRegex, classContains, selectFields,
+                        fieldPaths, includeSubclasses, oqlQuery, queryCommand);
         validate(parsed);
         return parsed;
     }
@@ -316,16 +318,10 @@ public final class CliArgumentParser
             case INSPECT_OBJECT:
                 if (isEmpty(arguments.getObjectAddress()))
                     throw CliException.usage(arguments.getCommand().getToken() + " requires --object 0x..."); //$NON-NLS-1$
-                if (!isEmpty(arguments.getSelectField()) && !isEmpty(arguments.getFieldPath()))
-                    throw CliException.usage("inspect-object accepts only one of --select-field or --field-path"); //$NON-NLS-1$
-                if (arguments.getSelectField() != null && isEmpty(arguments.getSelectField()))
-                    throw CliException.usage("inspect-object requires a non-empty --select-field"); //$NON-NLS-1$
-                if (arguments.getFieldPath() != null && isEmpty(arguments.getFieldPath()))
-                    throw CliException.usage("inspect-object requires a non-empty --field-path"); //$NON-NLS-1$
-                if (!isEmpty(arguments.getSelectField()) && arguments.getSelectField().indexOf('.') >= 0)
-                    throw CliException.usage("--select-field accepts one field name. Use --field-path for dotted paths."); //$NON-NLS-1$
-                if (!isEmpty(arguments.getFieldPath()) && hasEmptyPathSegment(arguments.getFieldPath()))
-                    throw CliException.usage("Invalid --field-path: " + arguments.getFieldPath()); //$NON-NLS-1$
+                if (!arguments.getSelectFields().isEmpty() && !arguments.getFieldPaths().isEmpty())
+                    throw CliException.usage("inspect-object accepts only one of --select-fields or --field-paths"); //$NON-NLS-1$
+                validateSelectFields(arguments.getSelectFields());
+                validateFieldPaths(arguments.getFieldPaths());
                 break;
             case INSTANCES:
                 boolean hasClassName = !isEmpty(arguments.getClassName());
@@ -359,6 +355,28 @@ public final class CliArgumentParser
     private boolean isEmpty(String value)
     {
         return value == null || value.length() == 0;
+    }
+
+    private void validateSelectFields(List<String> selectFields) throws CliException
+    {
+        for (String selectField : selectFields)
+        {
+            if (isEmpty(selectField))
+                throw CliException.usage("inspect-object requires a non-empty --select-fields"); //$NON-NLS-1$
+            if (selectField.indexOf('.') >= 0)
+                throw CliException.usage("--select-fields accepts direct field names. Use --field-paths for dotted paths."); //$NON-NLS-1$
+        }
+    }
+
+    private void validateFieldPaths(List<String> fieldPaths) throws CliException
+    {
+        for (String fieldPath : fieldPaths)
+        {
+            if (isEmpty(fieldPath))
+                throw CliException.usage("inspect-object requires a non-empty --field-paths"); //$NON-NLS-1$
+            if (hasEmptyPathSegment(fieldPath))
+                throw CliException.usage("Invalid --field-paths: " + fieldPath); //$NON-NLS-1$
+        }
     }
 
     private String resolveExclusiveInput(String commandName, String inlineOption, String inlineValue, String fileOption,
@@ -461,8 +479,8 @@ public final class CliArgumentParser
         String className = null;
         String classRegex = null;
         String classContains = null;
-        String selectField = null;
-        String fieldPath = null;
+        List<String> selectFields = new ArrayList<String>();
+        List<String> fieldPaths = new ArrayList<String>();
         boolean includeSubclasses = false;
         String oqlQuery = null;
         String queryCommand = null;
@@ -492,10 +510,10 @@ public final class CliArgumentParser
                             classRegex = value;
                         else if ("--class-contains".equals(arg)) //$NON-NLS-1$
                             classContains = value;
-                        else if ("--select-field".equals(arg)) //$NON-NLS-1$
-                            selectField = value;
-                        else if ("--field-path".equals(arg)) //$NON-NLS-1$
-                            fieldPath = value;
+                        else if ("--select-fields".equals(arg)) //$NON-NLS-1$
+                            selectFields.add(value);
+                        else if ("--field-paths".equals(arg)) //$NON-NLS-1$
+                            fieldPaths.add(value);
                         else if ("--depth".equals(arg)) //$NON-NLS-1$
                         {
                             treeDepthLimit = safePartialDepth(value, treeDepthLimit);
@@ -527,13 +545,13 @@ public final class CliArgumentParser
                 {
                     oqlQuery = arg.substring("--query=".length()); //$NON-NLS-1$
                 }
-                else if (arg.startsWith("--select-field=")) //$NON-NLS-1$
+                else if (arg.startsWith("--select-fields=")) //$NON-NLS-1$
                 {
-                    selectField = arg.substring("--select-field=".length()); //$NON-NLS-1$
+                    selectFields.add(arg.substring("--select-fields=".length())); //$NON-NLS-1$
                 }
-                else if (arg.startsWith("--field-path=")) //$NON-NLS-1$
+                else if (arg.startsWith("--field-paths=")) //$NON-NLS-1$
                 {
-                    fieldPath = arg.substring("--field-path=".length()); //$NON-NLS-1$
+                    fieldPaths.add(arg.substring("--field-paths=".length())); //$NON-NLS-1$
                 }
                 else if (arg.startsWith("--depth=")) //$NON-NLS-1$
                 {
@@ -595,7 +613,7 @@ public final class CliArgumentParser
 
         return new CliArguments(command, subjectCommand, subjectName, heapFile, format, false, help, showNulls,
                         defaultLimit(command, queryCommand), treeDepthLimit, objectAddress, className, classRegex,
-                        classContains, selectField, fieldPath, includeSubclasses, oqlQuery, queryCommand);
+                        classContains, selectFields, fieldPaths, includeSubclasses, oqlQuery, queryCommand);
     }
 
     private int defaultLimit(CliCommand command, String queryCommand)
@@ -629,7 +647,7 @@ public final class CliArgumentParser
                         || "--object".equals(option) || "--class".equals(option) //$NON-NLS-1$ //$NON-NLS-2$
                         || "--class-regex".equals(option) //$NON-NLS-1$
                         || "--class-contains".equals(option) //$NON-NLS-1$
-                        || "--select-field".equals(option) || "--field-path".equals(option) //$NON-NLS-1$ //$NON-NLS-2$
+                        || "--select-fields".equals(option) || "--field-paths".equals(option) //$NON-NLS-1$ //$NON-NLS-2$
                         || "--query".equals(option) //$NON-NLS-1$
                         || "--query-file".equals(option) //$NON-NLS-1$
                         || "--command".equals(option) || "--command-file".equals(option); //$NON-NLS-1$ //$NON-NLS-2$

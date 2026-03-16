@@ -10,6 +10,9 @@
 package org.eclipse.mat.cli.internal;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public final class CliArguments
 {
@@ -41,8 +44,8 @@ public final class CliArguments
     private final String className;
     private final String classRegex;
     private final String classContains;
-    private final String selectField;
-    private final String fieldPath;
+    private final List<String> selectFields;
+    private final List<String> fieldPaths;
     private final boolean includeSubclasses;
     private final String oqlQuery;
     private final String queryCommand;
@@ -51,7 +54,7 @@ public final class CliArguments
                     OutputFormat format, boolean verbose, boolean help, boolean showNulls, int limit,
                     int treeDepthLimit,
                     String objectAddress, String className, String classRegex, String classContains,
-                    String selectField, String fieldPath, boolean includeSubclasses, String oqlQuery,
+                    List<String> selectFields, List<String> fieldPaths, boolean includeSubclasses, String oqlQuery,
                     String queryCommand)
     {
         this.command = command;
@@ -68,8 +71,8 @@ public final class CliArguments
         this.className = className;
         this.classRegex = classRegex;
         this.classContains = classContains;
-        this.selectField = selectField;
-        this.fieldPath = fieldPath;
+        this.selectFields = immutableCopy(selectFields);
+        this.fieldPaths = immutableCopy(fieldPaths);
         this.includeSubclasses = includeSubclasses;
         this.oqlQuery = oqlQuery;
         this.queryCommand = queryCommand;
@@ -145,19 +148,19 @@ public final class CliArguments
         return classContains;
     }
 
-    public String getSelectField()
+    public List<String> getSelectFields()
     {
-        return selectField;
+        return selectFields;
     }
 
-    public String getFieldPath()
+    public List<String> getFieldPaths()
     {
-        return fieldPath;
+        return fieldPaths;
     }
 
-    public String getInspectionFieldPath()
+    public List<String> getInspectionFieldPaths()
     {
-        return fieldPath != null ? fieldPath : selectField;
+        return !fieldPaths.isEmpty() ? fieldPaths : selectFields;
     }
 
     public boolean isIncludeSubclasses()
@@ -173,5 +176,12 @@ public final class CliArguments
     public String getQueryCommand()
     {
         return queryCommand;
+    }
+
+    private static List<String> immutableCopy(List<String> values)
+    {
+        if (values == null || values.isEmpty())
+            return Collections.emptyList();
+        return Collections.unmodifiableList(new ArrayList<String>(values));
     }
 }

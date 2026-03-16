@@ -53,11 +53,11 @@ Use `instances` when the user names a class or when `histogram` points at one. P
 
 ```bash
 mat-cli inspect-object <heap> --object 0x1234abcd --format json --depth 4 --limit 20
-mat-cli inspect-object <heap> --object 0x1234abcd --select-field value --format json --limit 20
-mat-cli inspect-object <heap> --object 0x1234abcd --field-path cleaner.offsetMap --format json
+mat-cli inspect-object <heap> --object 0x1234abcd --select-fields value --format json --limit 20
+mat-cli inspect-object <heap> --object 0x1234abcd --field-paths cleaner.offsetMap --format json
 ```
 
-Use `inspect-object` to answer questions like "what value is stored in this object's fields?" Prefer `--field-path` when you need one nested value quickly. Prefer `--select-field` when one direct field is the real payload. Increase `--depth` carefully; the default is intentionally conservative. Use `--show-nulls` only when missing references are relevant to the diagnosis.
+Use `inspect-object` to answer questions like "what value is stored in this object's fields?" Prefer `--field-paths` when you need one or more nested values quickly. Prefer `--select-fields` when one or more direct fields are the real payload. Increase `--depth` carefully; the default is intentionally conservative. Use `--show-nulls` only when missing references are relevant to the diagnosis.
 
 5. Explain why a suspect survives GC.
 

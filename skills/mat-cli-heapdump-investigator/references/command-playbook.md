@@ -72,15 +72,15 @@ Use `inspect-object` for single-object truth:
 
 ```bash
 mat-cli inspect-object <heap> --object 0x1234abcd --format json --depth 4 --limit 20
-mat-cli inspect-object <heap> --object 0x1234abcd --select-field value --format json --limit 20
-mat-cli inspect-object <heap> --object 0x1234abcd --field-path cleaner.offsetMap --format json
-mat-cli inspect-object <heap> --object 0x1234abcd --format text --field-path count
+mat-cli inspect-object <heap> --object 0x1234abcd --select-fields value --format json --limit 20
+mat-cli inspect-object <heap> --object 0x1234abcd --field-paths cleaner.offsetMap --format json
+mat-cli inspect-object <heap> --object 0x1234abcd --format text --field-paths count
 ```
 
 Use it this way:
 
-- Reach for `--field-path` when the user asks for one concrete nested value.
-- Reach for `--select-field` when the root object is just a wrapper and one direct field is the real payload.
+- Reach for `--field-paths` when the user asks for one or more concrete nested values.
+- Reach for `--select-fields` when the root object is just a wrapper and one or more direct fields are the real payload.
 - Watch for `_meta.value.kind` previews in JSON. MAT can surface text previews or byte-array previews without walking the whole subtree.
 - Use `--show-nulls` only when null references are part of the bug story.
 

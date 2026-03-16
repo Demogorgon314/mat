@@ -107,6 +107,16 @@ final class ObjectInspectorResult implements IResultTree, TreeTextStyleProvider
         this.roots = Collections.singletonList(rootNode(value));
     }
 
+    ObjectInspectorResult(List<RootValue> values)
+    {
+        List<Node> resolvedRoots = new ArrayList<Node>(values.size());
+        for (RootValue value : values)
+        {
+            resolvedRoots.add(rootNode(value));
+        }
+        this.roots = Collections.unmodifiableList(resolvedRoots);
+    }
+
     public ResultMetaData getResultMetaData()
     {
         return null;
