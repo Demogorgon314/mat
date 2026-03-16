@@ -34,7 +34,7 @@ Use `summary` for heap format, object count, class count, and used heap. Use `th
 
 ```bash
 mat-cli top-consumers <heap> --format json --limit 20 --depth 3
-mat-cli histogram <heap> --format json --limit 50
+mat-cli histogram <heap> --format json --limit 30
 ```
 
 Use `top-consumers` to find the biggest retained objects, classes, class loaders, and packages. Use `histogram` to spot explosive class counts and approximate retained sizes. Keep the `objectAddress` values from `biggestObjects`, `classes`, and `classLoaders` for follow-up drills.
@@ -42,12 +42,12 @@ Use `top-consumers` to find the biggest retained objects, classes, class loaders
 3. Narrow to a suspect class or instance set.
 
 ```bash
-mat-cli instances <heap> --class com.example.CacheEntry --format json --limit 50
-mat-cli instances <heap> --class-regex 'com\\.example\\..*Cache.*' --format json --limit 50
-mat-cli instances <heap> --class-contains ThreadLocal --include-subclasses --format json --limit 50
+mat-cli instances <heap> --class com.example.CacheEntry --format json --limit 20
+mat-cli instances <heap> --class-regex 'com\\.example\\..*Cache.*' --format json --limit 20
+mat-cli instances <heap> --class-contains ThreadLocal --include-subclasses --format json --limit 30
 ```
 
-Use `instances` when the user names a class or when `histogram` points at one. Prefer `--class` for exact matches. Use regex or contains matching only when the package or suffix is uncertain. Add `--include-subclasses` only when inheritance matters.
+Use `instances` when the user names a class or when `histogram` points at one. Prefer `--class` for exact matches. Use regex or contains matching only when the package or suffix is uncertain. Start with a smaller `--limit` and only widen it when subclass-heavy results still look ambiguous. Add `--include-subclasses` only when inheritance matters.
 
 4. Inspect concrete object state and field values.
 

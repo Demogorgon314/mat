@@ -37,7 +37,7 @@ Start with retained heap, not just object count:
 
 ```bash
 mat-cli top-consumers <heap> --format json --limit 20 --depth 3
-mat-cli histogram <heap> --format json --limit 50
+mat-cli histogram <heap> --format json --limit 30
 ```
 
 Interpret the output like this:
@@ -47,7 +47,7 @@ Interpret the output like this:
 - `top-consumers.biggestObjects[].objectAddress` is the best bridge into `inspect-object`, `path2gc`, and `show_dominator_tree`.
 - `histogram` is a table result. Look for `class_name`, instance count, shallow heap, and retained heap columns.
 
-Use a smaller `--limit` when you only need the top suspects. Increase `--depth` on `top-consumers` when package aggregation matters.
+Use a smaller `--limit` when you only need the top suspects. Keep `histogram` tight enough to stay readable, then rerun with a larger limit only if the tail still looks interesting. Increase `--depth` on `top-consumers` when package aggregation matters.
 
 ## Class-Focused Drilldown
 
@@ -56,7 +56,7 @@ Use `instances` once a class looks suspicious:
 ```bash
 mat-cli instances <heap> --class com.example.CacheEntry --format json --limit 20
 mat-cli instances <heap> --class-regex 'com\\.example\\..*Cache.*' --format json --limit 20
-mat-cli instances <heap> --class-contains ThreadLocal --include-subclasses --format json --limit 50
+mat-cli instances <heap> --class-contains ThreadLocal --include-subclasses --format json --limit 30
 ```
 
 Choose the selector deliberately:
@@ -109,7 +109,7 @@ If `path2gc` reports that the object is already a GC root, stop searching for an
 Use dedicated thread support first:
 
 ```bash
-mat-cli threads <heap> --format json --limit 50
+mat-cli threads <heap> --format json --limit 20
 mat-cli query <heap> --command "thread_overview" --format json
 mat-cli query <heap> --command "finalizer_thread" --format json
 mat-cli query <heap> --command "finalizer_thread_locals" --format json
