@@ -218,9 +218,9 @@ public final class CliArgumentParser
                 subjectName = arg;
                 subjectCommand = CliCommand.parse(arg);
             }
-            else if (command.requiresQueryIdentifier() && subjectName == null)
+            else if (command.requiresSubjectName() && subjectName == null)
             {
-                subjectName = arg;
+                subjectName = normalizeSubjectName(command, arg);
             }
             else if (command.requiresSnapshot() && heapFile == null)
             {
@@ -306,8 +306,14 @@ public final class CliArgumentParser
         if (arguments.getCommand().requiresSubjectCommand() && arguments.getSubjectCommand() == null)
             throw CliException.usage(arguments.getCommand().getToken() + " requires a command name"); //$NON-NLS-1$
 
-        if (arguments.getCommand().requiresQueryIdentifier() && isEmpty(arguments.getSubjectName()))
-            throw CliException.usage(arguments.getCommand().getToken() + " requires a query identifier"); //$NON-NLS-1$
+        if (arguments.getCommand().requiresSubjectName() && isEmpty(arguments.getSubjectName()))
+        {
+            if (arguments.getCommand() == CliCommand.COMPLETION)
+                throw CliException.usage("completion requires a shell name (bash or zsh)"); //$NON-NLS-1$
+            if (arguments.getCommand() == CliCommand.DESCRIBE_QUERY)
+                throw CliException.usage("describe-query requires a query identifier"); //$NON-NLS-1$
+            throw CliException.usage(arguments.getCommand().getToken() + " requires a subject name"); //$NON-NLS-1$
+        }
 
         if (arguments.getCommand().requiresSnapshot() && arguments.getHeapFile() == null)
             throw CliException.usage("Missing heap dump path"); //$NON-NLS-1$
@@ -345,6 +351,9 @@ public final class CliArgumentParser
                 if (isEmpty(arguments.getQueryCommand()))
                     throw CliException.usage("query requires --command"); //$NON-NLS-1$
                 break;
+            case COMPLETION:
+                validateCompletionShell(arguments.getCompletionShell());
+                break;
             case DESCRIBE:
             case SCHEMA:
             default:
@@ -355,6 +364,16 @@ public final class CliArgumentParser
     private boolean isEmpty(String value)
     {
         return value == null || value.length() == 0;
+    }
+
+    private void validateCompletionShell(String shell) throws CliException
+    {
+        for (String supportedShell : CliCommandCatalog.supportedCompletionShells())
+        {
+            if (supportedShell.equals(shell))
+                return;
+        }
+        throw CliException.usage("Unsupported completion shell: " + shell + " (expected bash or zsh)"); //$NON-NLS-1$ //$NON-NLS-2$
     }
 
     private void validateSelectFields(List<String> selectFields) throws CliException
@@ -597,9 +616,9 @@ public final class CliArgumentParser
                         subjectCommand = null;
                     }
                 }
-                else if (command.requiresQueryIdentifier() && subjectName == null)
+                else if (command.requiresSubjectName() && subjectName == null)
                 {
-                    subjectName = arg;
+                    subjectName = normalizeSubjectName(command, arg);
                 }
                 else if (command.requiresSnapshot() && heapFile == null)
                 {
@@ -692,5 +711,12 @@ public final class CliArgumentParser
     private CliException removedOption(String option)
     {
         return CliException.usage(option + " has been removed. Use --format json."); //$NON-NLS-1$
+    }
+
+    private String normalizeSubjectName(CliCommand command, String value)
+    {
+        if (command == CliCommand.COMPLETION && value != null)
+            return value.toLowerCase(java.util.Locale.ENGLISH);
+        return value;
     }
 }

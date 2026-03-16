@@ -62,6 +62,9 @@ public class CliCommandExecutor
                 return CliExecution.result(new QueryMetadataCollector().listQueries());
             case DESCRIBE_QUERY:
                 return CliExecution.result(new QueryMetadataCollector().describeQuery(arguments.getSubjectName()));
+            case COMPLETION:
+                return CliExecution.result(new TextResult(
+                                new CompletionScriptGenerator().generate(arguments.getCompletionShell())));
             default:
                 throw CliException.execution("Command requires a snapshot session: " + arguments.getCommand().getToken(), //$NON-NLS-1$
                                 null);
@@ -220,6 +223,7 @@ public class CliCommandExecutor
             case SCHEMA:
             case LIST_QUERIES:
             case DESCRIBE_QUERY:
+            case COMPLETION:
                 return execute(arguments);
             default:
                 throw CliException.usage("Unsupported command: " + arguments.getCommand().getToken()); //$NON-NLS-1$

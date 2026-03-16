@@ -31,6 +31,7 @@ public final class CliHelp
         help.append("  mat-cli schema <command> [options]\n"); //$NON-NLS-1$
         help.append("  mat-cli list-queries [options]\n"); //$NON-NLS-1$
         help.append("  mat-cli describe-query <query-id> [options]\n"); //$NON-NLS-1$
+        help.append("  mat-cli completion <bash|zsh> [options]\n"); //$NON-NLS-1$
         help.append("  mat-cli <command> --help\n"); //$NON-NLS-1$
         help.append("  mat-cli --help\n\n"); //$NON-NLS-1$
         help.append("Commands:\n"); //$NON-NLS-1$

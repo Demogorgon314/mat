@@ -1,0 +1,412 @@
+# bash completion for mat-cli
+_mat_cli_is_command() {
+    case "$1" in
+        summary|threads|histogram|instances|inspect-object|top-consumers|path2gc|oql|query|describe|schema|list-queries|describe-query|completion)
+            return 0
+            ;;
+    esac
+    return 1
+}
+
+_mat_cli_kind_expects_value() {
+    [ -n "$1" ] && [ "$1" != "none" ]
+}
+
+_mat_cli_option_kind_global() {
+    case "$1" in
+        --help)
+            printf '%s\n' 'none'
+            ;;
+        --verbose)
+            printf '%s\n' 'none'
+            ;;
+        --format)
+            printf '%s\n' 'enum:text json'
+            ;;
+    esac
+}
+
+_mat_cli_option_kind_for_command() {
+    case "$1:$2" in
+        summary:--format)
+            printf '%s\n' 'enum:text json'
+            ;;
+        threads:--limit)
+            printf '%s\n' 'free-text'
+            ;;
+        threads:--format)
+            printf '%s\n' 'enum:text json'
+            ;;
+        histogram:--limit)
+            printf '%s\n' 'free-text'
+            ;;
+        histogram:--format)
+            printf '%s\n' 'enum:text json'
+            ;;
+        instances:--class)
+            printf '%s\n' 'free-text'
+            ;;
+        instances:--class-regex)
+            printf '%s\n' 'free-text'
+            ;;
+        instances:--class-contains)
+            printf '%s\n' 'free-text'
+            ;;
+        instances:--include-subclasses)
+            printf '%s\n' 'none'
+            ;;
+        instances:--limit)
+            printf '%s\n' 'free-text'
+            ;;
+        instances:--format)
+            printf '%s\n' 'enum:text json'
+            ;;
+        inspect-object:--object)
+            printf '%s\n' 'free-text'
+            ;;
+        inspect-object:--select-fields)
+            printf '%s\n' 'free-text'
+            ;;
+        inspect-object:--field-paths)
+            printf '%s\n' 'free-text'
+            ;;
+        inspect-object:--show-nulls)
+            printf '%s\n' 'none'
+            ;;
+        inspect-object:--limit)
+            printf '%s\n' 'free-text'
+            ;;
+        inspect-object:--depth)
+            printf '%s\n' 'free-text'
+            ;;
+        inspect-object:--format)
+            printf '%s\n' 'enum:text json'
+            ;;
+        top-consumers:--limit)
+            printf '%s\n' 'free-text'
+            ;;
+        top-consumers:--depth)
+            printf '%s\n' 'free-text'
+            ;;
+        top-consumers:--format)
+            printf '%s\n' 'enum:text json'
+            ;;
+        path2gc:--object)
+            printf '%s\n' 'free-text'
+            ;;
+        path2gc:--limit)
+            printf '%s\n' 'free-text'
+            ;;
+        path2gc:--depth)
+            printf '%s\n' 'free-text'
+            ;;
+        path2gc:--format)
+            printf '%s\n' 'enum:text json'
+            ;;
+        oql:--query)
+            printf '%s\n' 'free-text'
+            ;;
+        oql:--query-file)
+            printf '%s\n' 'file'
+            ;;
+        oql:--query-stdin)
+            printf '%s\n' 'none'
+            ;;
+        oql:--limit)
+            printf '%s\n' 'free-text'
+            ;;
+        oql:--depth)
+            printf '%s\n' 'free-text'
+            ;;
+        oql:--format)
+            printf '%s\n' 'enum:text json'
+            ;;
+        query:--command)
+            printf '%s\n' 'free-text'
+            ;;
+        query:--command-file)
+            printf '%s\n' 'file'
+            ;;
+        query:--command-stdin)
+            printf '%s\n' 'none'
+            ;;
+        query:--limit)
+            printf '%s\n' 'free-text'
+            ;;
+        query:--depth)
+            printf '%s\n' 'free-text'
+            ;;
+        query:--format)
+            printf '%s\n' 'enum:text json'
+            ;;
+        describe:--format)
+            printf '%s\n' 'enum:text json'
+            ;;
+        schema:--format)
+            printf '%s\n' 'enum:text json'
+            ;;
+        list-queries:--format)
+            printf '%s\n' 'enum:text json'
+            ;;
+        describe-query:--format)
+            printf '%s\n' 'enum:text json'
+            ;;
+        completion:--format)
+            printf '%s\n' 'enum:text json'
+            ;;
+    esac
+}
+
+_mat_cli_option_kind() {
+    local kind
+    kind="$(_mat_cli_option_kind_for_command "$1" "$2")"
+    if [ -n "$kind" ]; then
+        printf '%s\n' "$kind"
+        return 0
+    fi
+    _mat_cli_option_kind_global "$2"
+}
+
+_mat_cli_options_for_command() {
+    case "$1" in
+        summary)
+            printf '%s\n' '--format --help --verbose'
+            ;;
+        threads)
+            printf '%s\n' '--limit --format --help --verbose'
+            ;;
+        histogram)
+            printf '%s\n' '--limit --format --help --verbose'
+            ;;
+        instances)
+            printf '%s\n' '--class --class-regex --class-contains --include-subclasses --limit --format --help --verbose'
+            ;;
+        inspect-object)
+            printf '%s\n' '--object --select-fields --field-paths --show-nulls --limit --depth --format --help --verbose'
+            ;;
+        top-consumers)
+            printf '%s\n' '--limit --depth --format --help --verbose'
+            ;;
+        path2gc)
+            printf '%s\n' '--object --limit --depth --format --help --verbose'
+            ;;
+        oql)
+            printf '%s\n' '--query --query-file --query-stdin --limit --depth --format --help --verbose'
+            ;;
+        query)
+            printf '%s\n' '--command --command-file --command-stdin --limit --depth --format --help --verbose'
+            ;;
+        describe)
+            printf '%s\n' '--format --help --verbose'
+            ;;
+        schema)
+            printf '%s\n' '--format --help --verbose'
+            ;;
+        list-queries)
+            printf '%s\n' '--format --help --verbose'
+            ;;
+        describe-query)
+            printf '%s\n' '--format --help --verbose'
+            ;;
+        completion)
+            printf '%s\n' '--format --help --verbose'
+            ;;
+    esac
+}
+
+_mat_cli_positional_kind() {
+    case "$1:$2" in
+        summary:0)
+            printf '%s\n' 'file'
+            ;;
+        threads:0)
+            printf '%s\n' 'file'
+            ;;
+        histogram:0)
+            printf '%s\n' 'file'
+            ;;
+        instances:0)
+            printf '%s\n' 'file'
+            ;;
+        inspect-object:0)
+            printf '%s\n' 'file'
+            ;;
+        top-consumers:0)
+            printf '%s\n' 'file'
+            ;;
+        path2gc:0)
+            printf '%s\n' 'file'
+            ;;
+        oql:0)
+            printf '%s\n' 'file'
+            ;;
+        query:0)
+            printf '%s\n' 'file'
+            ;;
+        describe:0)
+            printf '%s\n' 'enum:summary threads histogram instances inspect-object top-consumers path2gc oql query describe schema list-queries describe-query completion'
+            ;;
+        schema:0)
+            printf '%s\n' 'enum:summary threads histogram instances inspect-object top-consumers path2gc oql query describe schema list-queries describe-query completion'
+            ;;
+        describe-query:0)
+            printf '%s\n' 'free-text'
+            ;;
+        completion:0)
+            printf '%s\n' 'enum:bash zsh'
+            ;;
+    esac
+}
+
+_mat_cli_set_word_replies() {
+    local prefix="$1"
+    local current="$2"
+    local values="$3"
+    local i
+    COMPREPLY=( $(compgen -W "$values" -- "$current") )
+    if [ -n "$prefix" ]; then
+        for ((i=0; i<${#COMPREPLY[@]}; i++)); do
+            COMPREPLY[i]="$prefix${COMPREPLY[i]}"
+        done
+    fi
+}
+
+_mat_cli_set_file_replies() {
+    local prefix="$1"
+    local current="$2"
+    local line
+    COMPREPLY=()
+    while IFS= read -r line; do
+        if [ -n "$prefix" ]; then
+            COMPREPLY+=("$prefix$line")
+        else
+            COMPREPLY+=("$line")
+        fi
+    done < <(compgen -f -- "$current")
+    if type compopt >/dev/null 2>&1; then
+        compopt -o filenames 2>/dev/null
+    fi
+}
+
+_mat_cli_complete_kind() {
+    local kind="$1"
+    local current="$2"
+    local prefix="$3"
+    case "$kind" in
+        enum:*)
+            _mat_cli_set_word_replies "$prefix" "$current" "${kind#enum:}"
+            ;;
+        file)
+            _mat_cli_set_file_replies "$prefix" "$current"
+            ;;
+        *)
+            COMPREPLY=()
+            ;;
+    esac
+}
+
+_mat_cli_find_command_index() {
+    local i word pending_kind=""
+    for ((i=1; i<COMP_CWORD; i++)); do
+        word="${COMP_WORDS[i]}"
+        if [ -n "$pending_kind" ]; then
+            pending_kind=""
+            continue
+        fi
+        if _mat_cli_is_command "$word"; then
+            printf '%s\n' "$i"
+            return 0
+        fi
+        if [[ "$word" == --*=* ]]; then
+            continue
+        fi
+        pending_kind="$(_mat_cli_option_kind_global "$word")"
+        if ! _mat_cli_kind_expects_value "$pending_kind"; then
+            pending_kind=""
+        fi
+    done
+}
+
+_mat_cli_completion() {
+    local cur prev cmd_index cmd position_index pending_kind inline_option inline_prefix kind options
+    local i word positional_kind
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    cmd_index="$(_mat_cli_find_command_index)"
+
+    if [ -z "$cmd_index" ]; then
+        if [[ "$cur" == --*=* ]]; then
+            inline_option="${cur%%=*}"
+            inline_prefix="$inline_option="
+            kind="$(_mat_cli_option_kind_global "$inline_option")"
+            if _mat_cli_kind_expects_value "$kind"; then
+                _mat_cli_complete_kind "$kind" "${cur#*=}" "$inline_prefix"
+                return 0
+            fi
+        fi
+        kind="$(_mat_cli_option_kind_global "$prev")"
+        if _mat_cli_kind_expects_value "$kind"; then
+            _mat_cli_complete_kind "$kind" "$cur" ""
+            return 0
+        fi
+        _mat_cli_set_word_replies "" "$cur" "summary threads histogram instances inspect-object top-consumers path2gc oql query describe schema list-queries describe-query completion --help --verbose --format"
+        return 0
+    fi
+
+    cmd="${COMP_WORDS[cmd_index]}"
+    if [[ "$cur" == --*=* ]]; then
+        inline_option="${cur%%=*}"
+        inline_prefix="$inline_option="
+        kind="$(_mat_cli_option_kind "$cmd" "$inline_option")"
+        if _mat_cli_kind_expects_value "$kind"; then
+            _mat_cli_complete_kind "$kind" "${cur#*=}" "$inline_prefix"
+            return 0
+        fi
+    fi
+    kind="$(_mat_cli_option_kind "$cmd" "$prev")"
+    if _mat_cli_kind_expects_value "$kind"; then
+        _mat_cli_complete_kind "$kind" "$cur" ""
+        return 0
+    fi
+
+    position_index=0
+    pending_kind=""
+    for ((i=cmd_index+1; i<COMP_CWORD; i++)); do
+        word="${COMP_WORDS[i]}"
+        if [ -n "$pending_kind" ]; then
+            pending_kind=""
+            continue
+        fi
+        if [[ "$word" == --*=* ]]; then
+            continue
+        fi
+        kind="$(_mat_cli_option_kind "$cmd" "$word")"
+        if [ -n "$kind" ]; then
+            if _mat_cli_kind_expects_value "$kind"; then
+                pending_kind="$kind"
+            fi
+            continue
+        fi
+        position_index=$((position_index + 1))
+    done
+
+    if [[ "$cur" == -* ]]; then
+        options="$(_mat_cli_options_for_command "$cmd")"
+        _mat_cli_set_word_replies "" "$cur" "$options"
+        return 0
+    fi
+
+    positional_kind="$(_mat_cli_positional_kind "$cmd" "$position_index")"
+    case "$positional_kind" in
+        enum:*|file)
+            _mat_cli_complete_kind "$positional_kind" "$cur" ""
+            ;;
+        *)
+            options="$(_mat_cli_options_for_command "$cmd")"
+            _mat_cli_set_word_replies "" "$cur" "$options"
+            ;;
+    esac
+}
+
+complete -F _mat_cli_completion mat-cli
