@@ -25,14 +25,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
 
     public boolean writeJson(JsonWriter writer, IResultTree tree, SerializationOptions options)
     {
-        Column[] columns = tree.getColumns();
-        ColumnSchema[] schema = buildColumnSchemas(columns);
-        writeColumns(writer, columns);
-        writer.name("rows").beginArray(); //$NON-NLS-1$
-        TruncationState state = new TruncationState(options.getTreeNodeLimit());
-        writeNodes(writer, tree, columns, schema, tree.getElements(), 0, options, state, new PathState(), null);
-        writer.endArray();
-        return state.truncated;
+        return writeAgentJson(writer, tree, options);
     }
 
     public boolean writeAgentJson(JsonWriter writer, IResultTree tree, SerializationOptions options)
@@ -41,7 +34,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
         ColumnSchema[] schema = buildColumnSchemas(columns);
         writer.name("items").beginArray(); //$NON-NLS-1$
         TruncationState state = new TruncationState(options.getTreeNodeLimit());
-        writeAgentNodes(writer, tree, columns, schema, tree.getElements(), 0, options, state, new PathState(), null);
+        writeAgentNodes(writer, tree, columns, schema, tree.getElements(), 0, options, state, new PathState(), false);
         writer.endArray();
         return state.truncated;
     }
@@ -62,130 +55,57 @@ public class TreeResultSerializer extends StructuredResultSerializer
         return builder.toString();
     }
 
-    private void writeNodes(JsonWriter writer, IResultTree tree, Column[] columns, ColumnSchema[] schema, List<?> rows,
-                    int depth, SerializationOptions options, TruncationState state, PathState path, String parentPath)
+    private void writeAgentNodes(JsonWriter writer, IResultTree tree, Column[] columns, ColumnSchema[] schema,
+                    List<?> rows, int depth, SerializationOptions options, TruncationState state, PathState path,
+                    boolean dropNullChildren)
     {
-        int limit = Math.min(rows.size(), options.getLimit());
-        if (rows.size() > limit)
+        VisibleNodeBatch batch = collectVisibleNodes(tree, columns, schema, rows, options.getLimit(), dropNullChildren);
+        if (batch.truncated)
             state.truncated = true;
 
-        for (int ii = 0; ii < limit; ii++)
+        for (AgentNode node : batch.nodes)
         {
             if (state.remainingNodes <= 0)
             {
                 state.truncated = true;
                 break;
             }
-
-            Object row = rows.get(ii);
-            CellValue[] cells = readCells(tree, columns, row);
-            boolean hasChildren = tree.hasChildren(row);
-            Integer objectId = rowObjectId(tree, row);
-            String nodePath = pathFor(parentPath, rows.size(), ii, columns, schema, row, cells);
-            state.remainingNodes--;
-
-            writer.beginObject();
-            writer.name("path").value(nodePath); //$NON-NLS-1$
-            writer.name("valueKind").value(valueKind(columns, schema, cells, objectId)); //$NON-NLS-1$
-            writer.name("hasChildren").value(hasChildren); //$NON-NLS-1$
-            writeRowValues(writer, tree, columns, row);
-            writeContext(writer, tree, row, options);
-
-            boolean cycle = path.isCycle(objectId);
-            writer.name("_cycle").value(cycle); //$NON-NLS-1$
-            if (cycle)
-            {
-                writer.name("children").beginArray().endArray(); //$NON-NLS-1$
-            }
-            else if (depth + 1 >= options.getTreeDepthLimit())
-            {
-                if (hasChildren)
-                    state.truncated = true;
-                writer.name("children").beginArray().endArray(); //$NON-NLS-1$
-            }
-            else
-            {
-                writer.name("children").beginArray(); //$NON-NLS-1$
-                List<?> children = hasChildren ? tree.getChildren(row) : null;
-                path.push(objectId);
-                if (children != null)
-                {
-                    if (state.remainingNodes > 0)
-                        writeNodes(writer, tree, columns, schema, children, depth + 1, options, state, path, nodePath);
-                    else
-                        state.truncated = true;
-                }
-                path.pop(objectId);
-                writer.endArray();
-            }
-            writer.endObject();
+            writeAgentNode(writer, tree, columns, schema, node, depth, options, state, path);
         }
     }
 
-    private void writeAgentNodes(JsonWriter writer, IResultTree tree, Column[] columns, ColumnSchema[] schema,
-                    List<?> rows, int depth, SerializationOptions options, TruncationState state, PathState path,
-                    String parentPath)
+    private void writeAgentNode(JsonWriter writer, IResultTree tree, Column[] columns, ColumnSchema[] schema,
+                    AgentNode node, int depth, SerializationOptions options, TruncationState state, PathState path)
     {
-        int limit = Math.min(rows.size(), options.getLimit());
-        if (rows.size() > limit)
-            state.truncated = true;
+        state.remainingNodes--;
 
-        for (int ii = 0; ii < limit; ii++)
+        writer.beginObject();
+        if (node.slot != null)
+            writer.name("slot").value(node.slot.intValue()); //$NON-NLS-1$
+        writeAgentRow(writer, tree, schema, node.row, options);
+
+        boolean cycle = path.isCycle(node.objectId);
+        if (cycle)
+            writer.name("_cycle").value(true); //$NON-NLS-1$
+
+        boolean childrenTruncated = false;
+        if (node.hasChildren && !cycle)
         {
-            if (state.remainingNodes <= 0)
+            List<?> children = tree.getChildren(node.row);
+            VisibleNodeBatch childBatch = collectVisibleNodes(tree, columns, schema, children, options.getLimit(), true);
+            childrenTruncated = childBatch.truncated;
+            if (depth + 1 >= options.getTreeDepthLimit())
             {
-                state.truncated = true;
-                break;
-            }
-
-            Object row = rows.get(ii);
-            CellValue[] cells = readCells(tree, columns, row);
-            boolean hasChildren = tree.hasChildren(row);
-            Integer objectId = rowObjectId(tree, row);
-            String nodePath = pathFor(parentPath, rows.size(), ii, columns, schema, row, cells);
-            state.remainingNodes--;
-
-            writer.beginObject();
-            writer.name("path").value(nodePath); //$NON-NLS-1$
-            writer.name("valueKind").value(valueKind(columns, schema, cells, objectId)); //$NON-NLS-1$
-            writer.name("hasChildren").value(hasChildren); //$NON-NLS-1$
-            writeAgentRow(writer, tree, schema, row, options);
-
-            boolean cycle = path.isCycle(objectId);
-            if (cycle)
-                writer.name("_cycle").value(true); //$NON-NLS-1$
-
-            boolean childrenTruncated = false;
-            boolean wroteChildren = false;
-            if (hasChildren && !cycle)
-            {
-                if (depth + 1 >= options.getTreeDepthLimit())
-                {
+                if (!childBatch.nodes.isEmpty())
                     childrenTruncated = true;
-                    state.truncated = true;
-                }
-                else
+            }
+            else if (!childBatch.nodes.isEmpty())
+            {
+                if (state.remainingNodes > 0)
                 {
-                    List<?> children = tree.getChildren(row);
-                    int childLimit = Math.min(children.size(), options.getLimit());
-                    if (children.size() > childLimit)
-                    {
-                        childrenTruncated = true;
-                        state.truncated = true;
-                    }
-
-                    if (childLimit > 0 && state.remainingNodes > 0)
-                    {
-                        writer.name("_children").beginArray(); //$NON-NLS-1$
-                        wroteChildren = true;
-                    }
-                    else if (childLimit > 0)
-                    {
-                        childrenTruncated = true;
-                        state.truncated = true;
-                    }
-
-                    for (int childIndex = 0; childIndex < childLimit; childIndex++)
+                    writer.name("_children").beginArray(); //$NON-NLS-1$
+                    path.push(node.objectId);
+                    for (AgentNode child : childBatch.nodes)
                     {
                         if (state.remainingNodes <= 0)
                         {
@@ -193,19 +113,24 @@ public class TreeResultSerializer extends StructuredResultSerializer
                             state.truncated = true;
                             break;
                         }
-                        path.push(objectId);
-                        writeAgentNodes(writer, tree, columns, schema, children.subList(childIndex, childIndex + 1),
-                                        depth + 1, options, state, path, nodePath);
-                        path.pop(objectId);
+                        writeAgentNode(writer, tree, columns, schema, child, depth + 1, options, state, path);
                     }
+                    path.pop(node.objectId);
+                    writer.endArray();
+                }
+                else
+                {
+                    childrenTruncated = true;
+                    state.truncated = true;
                 }
             }
-            if (wroteChildren)
-                writer.endArray();
-            if (childrenTruncated)
-                writer.name("_childrenTruncated").value(true); //$NON-NLS-1$
-            writer.endObject();
         }
+        if (childrenTruncated)
+        {
+            writer.name("_childrenTruncated").value(true); //$NON-NLS-1$
+            state.truncated = true;
+        }
+        writer.endObject();
     }
 
     private void appendNodes(StringBuilder builder, IResultTree tree, Column[] columns, ColumnSchema[] schema,
@@ -657,9 +582,93 @@ public class TreeResultSerializer extends StructuredResultSerializer
         }
     }
 
+    private static final class AgentNode
+    {
+        private final Object row;
+        private final CellValue[] cells;
+        private final boolean hasChildren;
+        private final Integer objectId;
+        private final Integer slot;
+
+        private AgentNode(Object row, CellValue[] cells, boolean hasChildren, Integer objectId, Integer slot)
+        {
+            this.row = row;
+            this.cells = cells;
+            this.hasChildren = hasChildren;
+            this.objectId = objectId;
+            this.slot = slot;
+        }
+    }
+
+    private static final class VisibleNodeBatch
+    {
+        private final List<AgentNode> nodes;
+        private final boolean truncated;
+
+        private VisibleNodeBatch(List<AgentNode> nodes, boolean truncated)
+        {
+            this.nodes = nodes;
+            this.truncated = truncated;
+        }
+    }
+
     private Integer rowObjectId(IResultTree tree, Object row)
     {
         return contextObjectId(safeContext(tree, row));
+    }
+
+    private VisibleNodeBatch collectVisibleNodes(IResultTree tree, Column[] columns, ColumnSchema[] schema, List<?> rows,
+                    int limit, boolean dropNullChildren)
+    {
+        List<AgentNode> visible = new ArrayList<AgentNode>(Math.min(rows.size(), limit));
+        boolean truncated = false;
+
+        for (int ii = 0; ii < rows.size(); ii++)
+        {
+            Object row = rows.get(ii);
+            CellValue[] cells = readCells(tree, columns, row);
+            boolean hasChildren = tree.hasChildren(row);
+            Integer objectId = rowObjectId(tree, row);
+            if (dropNullChildren && shouldDropNullNode(columns, schema, cells, objectId, hasChildren))
+                continue;
+
+            if (visible.size() >= limit)
+            {
+                truncated = true;
+                break;
+            }
+
+            Integer slot = shouldWriteSlot(columns, schema, row, cells, ii, visible.size()) ? Integer.valueOf(ii) : null;
+            visible.add(new AgentNode(row, cells, hasChildren, objectId, slot));
+        }
+
+        return new VisibleNodeBatch(visible, truncated);
+    }
+
+    private boolean shouldDropNullNode(Column[] columns, ColumnSchema[] schema, CellValue[] cells, Integer objectId,
+                    boolean hasChildren)
+    {
+        return !hasChildren && "null".equals(valueKind(columns, schema, cells, objectId)); //$NON-NLS-1$
+    }
+
+    private boolean shouldWriteSlot(Column[] columns, ColumnSchema[] schema, Object row, CellValue[] cells, int rawIndex,
+                    int visibleIndex)
+    {
+        if (rawIndex == visibleIndex)
+            return false;
+
+        String name = pathColumnDisplay(columns, schema, row, cells, "name", false); //$NON-NLS-1$
+        if (name == null)
+            return false;
+        if (!name.startsWith("[") || !name.endsWith("]")) //$NON-NLS-1$ //$NON-NLS-2$
+            return false;
+
+        for (int ii = 1; ii < name.length() - 1; ii++)
+        {
+            if (!Character.isDigit(name.charAt(ii)))
+                return false;
+        }
+        return name.length() > 2;
     }
 
     private static final class PathState

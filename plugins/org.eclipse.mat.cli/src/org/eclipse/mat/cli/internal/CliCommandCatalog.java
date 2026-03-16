@@ -309,10 +309,10 @@ public final class CliCommandCatalog
                         "Read basic heap metadata such as object counts and used heap.", //$NON-NLS-1$
                         "mat-cli summary <heap> [--format text|json]", true, heapArgument, FORMAT_OPTION, //$NON-NLS-1$
                         Arrays.asList(output("text", "summary", "Human-readable heap summary."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        output("json", "summary", "Stable summary JSON envelope.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        output("json", "summary", "Compact mat-cli/v1 summary JSON envelope.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Arrays.asList("histogram <heap>", "top-consumers <heap>", //$NON-NLS-1$ //$NON-NLS-2$
                                         "query <heap> --command \"thread_overview\""), //$NON-NLS-1$
-                        "summary object with snapshot-wide counters and heap metadata.", //$NON-NLS-1$
+                        "compact summary object with snapshot-wide counters and heap metadata, omitting absent strings.", //$NON-NLS-1$
                         Arrays.asList("summary.path", "summary.heapFormat", "summary.numberOfObjects", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         "summary.numberOfClasses", "summary.usedHeapSize"))); //$NON-NLS-1$ //$NON-NLS-2$
         definitions.put(CliCommand.THREADS, new CommandDefinition(CliCommand.THREADS,
@@ -321,22 +321,22 @@ public final class CliCommandCatalog
                         Arrays.asList(freeTextOption("--limit", "N", false, "Limit threads returned. Defaults to all threads."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         enumOption("--format", "text|json", false, "Select text or JSON output.", FORMAT_VALUES)), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Arrays.asList(output("text", "threads", "Thread report with overview plus per-thread stack sections."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        output("json", "threads", "Stable thread report JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        output("json", "threads", "Compact mat-cli/v1 thread report JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Arrays.asList("histogram <heap>", "top-consumers <heap>"), //$NON-NLS-1$ //$NON-NLS-2$
-                        "thread report payload with a summary, best-effort notice, and one entry per returned thread.", //$NON-NLS-1$
+                        "thread report payload with a summary, optional notice, and one compact entry per returned thread.", //$NON-NLS-1$
                         Arrays.asList("notice", "summary.totalThreads", "summary.returnedThreads", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         "summary.stackAvailableThreads", "summary.stateAvailableThreads", "threads[]", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         "threads[].name", "threads[].technicalName", "threads[].objectAddress", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         "threads[].state", "threads[].retainedBytes", "threads[].stackAvailable", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        "threads[].stackUnavailableReason", "threads[].stackFrames[]"))); //$NON-NLS-1$ //$NON-NLS-2$
+                                        "threads[].stackUnavailableReason when unavailable", "threads[].stackFrames[] when non-empty"))); //$NON-NLS-1$ //$NON-NLS-2$
         definitions.put(CliCommand.HISTOGRAM, new CommandDefinition(CliCommand.HISTOGRAM,
                         "Group objects by class and report shallow heap plus approximate retained heap.", //$NON-NLS-1$
                         "mat-cli histogram <heap> [--limit N] [--format text|json]", true, heapArgument, //$NON-NLS-1$
                         FORMAT_AND_LIMIT_OPTIONS,
                         Arrays.asList(output("text", "table", "Text table with formatted columns."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        output("json", "table", "Stable keyed table JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        output("json", "table", "Compact keyed table JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Arrays.asList("top-consumers <heap>", "query <heap> --command \"histogram\""), //$NON-NLS-1$ //$NON-NLS-2$
-                        "table payload with stable column ids, normalized byte values, optional row addresses, and per-cell metadata for approximate retained sizes.", //$NON-NLS-1$
+                        "table payload with normalized column ids, non-null cell values only, optional row addresses, and per-cell metadata for approximate retained sizes.", //$NON-NLS-1$
                         Arrays.asList("items[]", "items[]._address when no address column", //$NON-NLS-1$ //$NON-NLS-2$
                                         "items[]._meta.retained_heap.kind when approximate"))); //$NON-NLS-1$
         definitions.put(CliCommand.INSTANCES, new CommandDefinition(CliCommand.INSTANCES,
@@ -344,9 +344,9 @@ public final class CliCommandCatalog
                         "mat-cli instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--format text|json]", //$NON-NLS-1$
                         true, heapArgument, FORMAT_LIMIT_CLASS_OPTIONS,
                         Arrays.asList(output("text", "table", "Text table of matching objects."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        output("json", "table", "Stable keyed table JSON for matching objects.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        output("json", "table", "Compact keyed table JSON for matching objects.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Arrays.asList("inspect-object <heap> --object 0x...", "path2gc <heap> --object 0x..."), //$NON-NLS-1$ //$NON-NLS-2$
-                        "table payload listing matching objects with addresses, previews, and heap sizes.", //$NON-NLS-1$
+                        "table payload listing matching objects with non-null fields, addresses, previews, and heap sizes.", //$NON-NLS-1$
                         Arrays.asList("items[]", "items[].object_address", "items[].class_name", "items[].preview"))); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
         definitions.put(CliCommand.INSPECT_OBJECT, new CommandDefinition(CliCommand.INSPECT_OBJECT,
                         "Inspect one object like MAT's object inspector, or jump directly to one or more field paths for targeted state checks.", //$NON-NLS-1$
@@ -363,12 +363,12 @@ public final class CliCommandCatalog
                                                         "Limit nested object expansion depth. Defaults to 3 for inspect-object when omitted."), //$NON-NLS-1$
                                         enumOption("--format", "text|json", false, "Select text or JSON output.", FORMAT_VALUES)), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Arrays.asList(output("text", "tree", "Indented object-inspector tree."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        output("json", "tree", "Stable keyed object-inspector tree JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        output("json", "tree", "Compact keyed object-inspector tree JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Arrays.asList("path2gc <heap> --object 0x...", "oql <heap> --query \"SELECT * FROM OBJECTS 0x...\""), //$NON-NLS-1$ //$NON-NLS-2$
-                        "tree payload with field and element nodes, stable paths, value kinds, concrete values, targeted field-path roots, preview metadata, sparse child arrays, and optional row addresses.", //$NON-NLS-1$
-                        Arrays.asList("items[]", "items[].path", "items[].valueKind", "items[].hasChildren", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-                                        "items[].kind", "items[].name", "items[].value", "items[].object_address", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+                        "tree payload with field and element nodes, concrete values, preview metadata, compact child arrays, sparse slot preservation, and optional row addresses.", //$NON-NLS-1$
+                        Arrays.asList("items[]", "items[].kind", "items[].name", "items[].value", "items[].object_address", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
                                         "items[]._children[] when returned", "items[]._childrenTruncated when true", //$NON-NLS-1$ //$NON-NLS-2$
+                                        "items[].slot when null siblings were compacted", //$NON-NLS-1$
                                         "items[]._address when no address column", //$NON-NLS-1$
                                         "items[]._meta.value.kind when previewed", //$NON-NLS-1$
                                         "items[]._meta.value.length when previewed", //$NON-NLS-1$
@@ -379,13 +379,13 @@ public final class CliCommandCatalog
                         heapArgument, FORMAT_LIMIT_AND_DEPTH_OPTIONS,
                         Arrays.asList(output("text", "top-consumers", "Text report matching MAT top consumers."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         output("json", "top-consumers", //$NON-NLS-1$ //$NON-NLS-2$
-                                                        "Stable aggregated JSON without display-only duplicates.")), //$NON-NLS-1$
+                                                        "Compact aggregated JSON without display-only duplicates.")), //$NON-NLS-1$
                         Arrays.asList("histogram <heap>", "path2gc <heap> --object 0x..."), //$NON-NLS-1$ //$NON-NLS-2$
-                        "aggregated payload with biggestObjects, classes, classLoaders, and packages.", //$NON-NLS-1$
+                        "aggregated payload with biggestObjects, classes, classLoaders, and optional packages.", //$NON-NLS-1$
                         Arrays.asList("totalRetainedHeap", "biggestObjects[]", "biggestObjects[].objectAddress", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        "biggestObjectsTruncated", "classes[]", "classes[].objectAddress", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        "classesTruncated", "classLoaders[]", "classLoaders[].objectAddress", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        "classLoadersTruncated", "packages", "packagesTruncated"))); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        "biggestObjectsTruncated when true", "classes[]", "classes[].objectAddress", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        "classesTruncated when true", "classLoaders[]", "classLoaders[].objectAddress", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        "classLoadersTruncated when true", "packages when available", "packagesTruncated when true"))); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
         definitions.put(CliCommand.PATH2GC, new CommandDefinition(CliCommand.PATH2GC,
                         "Find paths from an object to GC roots using MAT's native query.", //$NON-NLS-1$
                         "mat-cli path2gc <heap> --object 0x... [--limit N] [--depth N] [--format text|json]", true, //$NON-NLS-1$
@@ -395,12 +395,11 @@ public final class CliCommandCatalog
                                         freeTextOption("--depth", "N", false, "Limit nested tree depth."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         enumOption("--format", "text|json", false, "Select text or JSON output.", FORMAT_VALUES)), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Arrays.asList(output("text", "tree", "Indented tree view."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        output("json", "tree", "Stable keyed tree JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        output("json", "tree", "Compact keyed tree JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Arrays.asList("inspect-object <heap> --object 0x...", "oql <heap> --query \"SELECT * FROM OBJECTS 0x...\""), //$NON-NLS-1$ //$NON-NLS-2$
-                        "tree payload with keyed nodes, stable paths, value kinds, sparse child arrays, and optional row addresses.", //$NON-NLS-1$
-                        Arrays.asList("items[]", "items[].path", "items[].valueKind", "items[].hasChildren", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
-                                        "items[]._children[] when returned", "items[]._childrenTruncated when true", //$NON-NLS-1$ //$NON-NLS-2$
-                                        "items[]._address when no address column"))); //$NON-NLS-1$
+                        "tree payload with compact nodes, sparse child arrays, optional slot preservation, and optional row addresses.", //$NON-NLS-1$
+                        Arrays.asList("items[]", "items[]._children[] when returned", "items[]._childrenTruncated when true", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        "items[].slot when null siblings were compacted", "items[]._address when no address column"))); //$NON-NLS-1$ //$NON-NLS-2$
         definitions.put(CliCommand.OQL, new CommandDefinition(CliCommand.OQL,
                         "Run a MAT OQL query directly against the snapshot.", //$NON-NLS-1$
                         "mat-cli oql <heap> --query \"...\" [--limit N] [--depth N] [--format text|json]", true, //$NON-NLS-1$
@@ -414,11 +413,11 @@ public final class CliCommandCatalog
                                         enumOption("--format", "text|json", false, "Select text or JSON output.", FORMAT_VALUES)), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Arrays.asList(output("text", "text|table|tree|pie", "Depends on the OQL result."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         output("json", "text|table|tree|pie", //$NON-NLS-1$ //$NON-NLS-2$
-                                                        "Stable JSON envelope around the resolved result kind.")), //$NON-NLS-1$
+                                                        "Compact mat-cli/v1 JSON envelope around the resolved result kind.")), //$NON-NLS-1$
                         Arrays.asList("histogram <heap>", "query <heap> --command \"histogram\""), //$NON-NLS-1$ //$NON-NLS-2$
                         "same payload contract as the resolved result kind returned by the OQL query.", //$NON-NLS-1$
-                        Arrays.asList("resultKind", "items[] when table/tree", "items[].path/valueKind/hasChildren when tree", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        "slices[] when pie", "content when text"))); //$NON-NLS-1$ //$NON-NLS-2$
+                        Arrays.asList("resultKind", "items[] when table/tree/pie", "items[].slot when tree siblings were compacted", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        "content when text"))); //$NON-NLS-1$
         definitions.put(CliCommand.QUERY, new CommandDefinition(CliCommand.QUERY,
                         "Run a MAT query command string through SnapshotQuery.parse(...).", //$NON-NLS-1$
                         "mat-cli query <heap> --command \"...\" [--limit N] [--depth N] [--format text|json]", true, //$NON-NLS-1$
@@ -433,24 +432,24 @@ public final class CliCommandCatalog
                         Arrays.asList(output("text", "text|table|tree|section|pie|top-consumers", //$NON-NLS-1$ //$NON-NLS-2$
                                         "Depends on the resolved query result."),
                                         output("json", "text|table|tree|section|pie|top-consumers", //$NON-NLS-1$ //$NON-NLS-2$
-                                                        "Stable JSON envelope around the resolved result kind.")), //$NON-NLS-1$
+                                                        "Compact mat-cli/v1 JSON envelope around the resolved result kind.")), //$NON-NLS-1$
                         Arrays.asList("schema histogram", "describe top-consumers"), //$NON-NLS-1$ //$NON-NLS-2$
                         "same payload contract as the resolved result kind returned by the parsed query.", //$NON-NLS-1$
-                        Arrays.asList("resultKind", "items[] when table/tree", "items[].path/valueKind/hasChildren when tree", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        "slices[] when pie", "sections[] when section"))); //$NON-NLS-1$ //$NON-NLS-2$
+                        Arrays.asList("resultKind", "items[] when table/tree/pie", "items[].slot when tree siblings were compacted", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        "sections[] when section"))); //$NON-NLS-1$ //$NON-NLS-2$
         definitions.put(CliCommand.DESCRIBE, new CommandDefinition(CliCommand.DESCRIBE,
                         "Describe a CLI command, its options, and the result kinds it can return.", //$NON-NLS-1$
                         "mat-cli describe <command> [--format text|json]", false, commandArgument, FORMAT_OPTION, //$NON-NLS-1$
                         Arrays.asList(output("text", "describe", "Human-readable command description."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        output("json", "describe", "Stable command metadata JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        output("json", "describe", "Compact command metadata JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Arrays.asList("schema <command>"), "metadata payload for one command definition.", //$NON-NLS-1$ //$NON-NLS-2$
                         Arrays.asList("name", "summary", "usage", "requiresSnapshot", "options[]", "outputs[]", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
                                         "suggestedNextCommands via top-level envelope"))); //$NON-NLS-1$
         definitions.put(CliCommand.SCHEMA, new CommandDefinition(CliCommand.SCHEMA,
-                        "Describe the stable JSON contract for a CLI command.", //$NON-NLS-1$
+                        "Describe the compact mat-cli/v1 JSON contract for a CLI command.", //$NON-NLS-1$
                         "mat-cli schema <command> [--format text|json]", false, commandArgument, FORMAT_OPTION, //$NON-NLS-1$
                         Arrays.asList(output("text", "schema", "Readable contract summary."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        output("json", "schema", "Stable contract metadata JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        output("json", "schema", "Compact contract metadata JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Arrays.asList("describe <command>"), "JSON envelope and payload contract summary.", //$NON-NLS-1$ //$NON-NLS-2$
                         Arrays.asList("jsonEnvelope", "payloadKind", "payloadFields[]", "outputs[]"))); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
         definitions.put(CliCommand.LIST_QUERIES, new CommandDefinition(CliCommand.LIST_QUERIES,
@@ -458,7 +457,7 @@ public final class CliCommandCatalog
                         "mat-cli list-queries [--format text|json]", false, Collections.<PositionalDefinition>emptyList(), //$NON-NLS-1$
                         FORMAT_OPTION,
                         Arrays.asList(output("text", "query-list", "List MAT query identifiers and summaries."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        output("json", "query-list", "Stable query registry metadata JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        output("json", "query-list", "Compact query registry metadata JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Arrays.asList("describe-query histogram", "query <heap> --command \"histogram\""), //$NON-NLS-1$ //$NON-NLS-2$
                         "array of MAT query descriptors including identifiers, usage, and arguments.", //$NON-NLS-1$
                         Arrays.asList("queries[]", "queries[].identifier", "queries[].usage", "queries[].arguments[]"))); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
@@ -467,7 +466,7 @@ public final class CliCommandCatalog
                         "mat-cli describe-query <query-id> [--format text|json]", false, queryIdArgument, //$NON-NLS-1$
                         FORMAT_OPTION,
                         Arrays.asList(output("text", "query-description", "Human-readable MAT query metadata."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        output("json", "query-description", "Stable MAT query metadata JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        output("json", "query-description", "Compact MAT query metadata JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Arrays.asList("list-queries", "query <heap> --command \"<query>\""), //$NON-NLS-1$ //$NON-NLS-2$
                         "single MAT query descriptor with argument metadata, help, and subjects.", //$NON-NLS-1$
                         Arrays.asList("query.identifier", "query.usage", "query.arguments[]", "query.subjects[]"))); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
@@ -476,10 +475,10 @@ public final class CliCommandCatalog
                         "mat-cli completion <bash|zsh> [--format text|json]", false, completionShellArgument, //$NON-NLS-1$
                         FORMAT_OPTION,
                         Arrays.asList(output("text", "text", "Shell completion script."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        output("json", "text", "Shell completion script in the standard text envelope.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        output("json", "text", "Shell completion script in the compact text envelope.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Arrays.asList("completion bash", "completion zsh"), //$NON-NLS-1$ //$NON-NLS-2$
                         "plain-text shell completion script.", //$NON-NLS-1$
-                        Arrays.asList("text"))); //$NON-NLS-1$
+                        Arrays.asList("content"))); //$NON-NLS-1$
         return Collections.unmodifiableMap(definitions);
     }
 

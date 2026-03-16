@@ -69,9 +69,9 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
-        assertTrue(json.contains("\"columns\":[{\"label\":\"Name\",\"type\":\"java.lang.String\"},{\"label\":\"Count\",\"type\":\"int\"}]")); //$NON-NLS-1$
-        assertTrue(json.contains("\"values\":[\"Alpha\",7]")); //$NON-NLS-1$
-        assertTrue(json.contains("\"context\":{\"objectId\":42}")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{\"name\":\"Alpha\",\"count\":7}]")); //$NON-NLS-1$
+        assertFalse(json.contains("\"columns\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"context\":")); //$NON-NLS-1$
     }
 
     @Test
@@ -121,9 +121,8 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
-        assertTrue(json.contains("\"values\":[\"Alpha\",null]")); //$NON-NLS-1$
-        assertTrue(json.contains("\"displayValues\":[\"Alpha\",null]")); //$NON-NLS-1$
-        assertTrue(json.contains("\"cellErrors\":[{\"columnIndex\":1,\"columnLabel\":\"Count\",\"class\":\"java.lang.IllegalStateException\",\"message\":\"boom\"}]")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{\"name\":\"Alpha\",\"_errors\":{\"count\":{\"class\":\"java.lang.IllegalStateException\",\"message\":\"boom\"}}}]")); //$NON-NLS-1$
+        assertFalse(json.contains("\"count\":null")); //$NON-NLS-1$
         assertFalse(json.contains("<error:")); //$NON-NLS-1$
     }
 
@@ -139,7 +138,7 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
-        assertTrue(json.contains("\"items\":[{\"name\":\"Alpha\",\"count\":null,\"_errors\":{\"count\":{\"class\":\"java.lang.IllegalStateException\",\"message\":\"boom\"}}}]")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{\"name\":\"Alpha\",\"_errors\":{\"count\":{\"class\":\"java.lang.IllegalStateException\",\"message\":\"boom\"}}}]")); //$NON-NLS-1$
         assertFalse(json.contains("\"_context\":")); //$NON-NLS-1$
     }
 
@@ -155,9 +154,9 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
-        assertTrue(json.contains("\"rows\":[{\"path\":\"<root>\",\"valueKind\":\"reference\",\"hasChildren\":true,\"values\":[\"Root\",1]")); //$NON-NLS-1$
-        assertTrue(json.contains("\"children\":[{\"path\":\"<root>.Leaf\",\"valueKind\":\"reference\",\"hasChildren\":false,\"values\":[\"Leaf\",2]")); //$NON-NLS-1$
-        assertTrue(json.contains("\"context\":{\"objectId\":77}")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{\"name\":\"Root\",\"depth\":1,\"_children\":[{\"name\":\"Leaf\",\"depth\":2}]}]")); //$NON-NLS-1$
+        assertFalse(json.contains("\"path\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"context\":")); //$NON-NLS-1$
     }
 
     @Test
@@ -172,8 +171,7 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
-        assertTrue(json.contains("\"items\":[{\"path\":\"<root>\",\"valueKind\":\"reference\",\"hasChildren\":true,\"name\":\"Root\",\"depth\":1")); //$NON-NLS-1$
-        assertTrue(json.contains("\"_children\":[{\"path\":\"<root>.Leaf\",\"valueKind\":\"reference\",\"hasChildren\":false,\"name\":\"Leaf\",\"depth\":2")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{\"name\":\"Root\",\"depth\":1,\"_children\":[{\"name\":\"Leaf\",\"depth\":2}]}]")); //$NON-NLS-1$
         assertFalse(json.contains("\"schema\":")); //$NON-NLS-1$
         assertFalse(json.contains("\"_childrenTruncated\":false")); //$NON-NLS-1$
     }
@@ -236,11 +234,11 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
-        assertTrue(json.contains("\"path\":\"<root>\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"valueKind\":\"preview\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"hasChildren\":false")); //$NON-NLS-1$
         assertTrue(json.contains("\"value\":\"61 62 63 ...\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"_meta\":{\"value\":{\"kind\":\"hex_preview\",\"length\":64,\"truncated\":true,\"encoding\":\"hex\"}}")); //$NON-NLS-1$
+        assertFalse(json.contains("\"path\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"valueKind\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"hasChildren\":")); //$NON-NLS-1$
     }
 
     @Test
@@ -256,7 +254,7 @@ public class ResultSerializerTest
     }
 
     @Test
-    public void rendersDecoratorSpacingInTableTextAndJsonDisplayValues()
+    public void rendersDecoratorSpacingInTableTextAndOmitsDisplayOnlyJsonFormatting()
     {
         TableResultSerializer serializer = new TableResultSerializer();
 
@@ -273,13 +271,13 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
-        assertTrue(json.contains("\"values\":[\"Value\",7]")); //$NON-NLS-1$
-        assertTrue(json.contains("\"displayValues\":[\"pre Value post\",\"7\"]")); //$NON-NLS-1$
-        assertFalse(json.contains("preValuepost")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{\"name\":\"Value\",\"count\":7}]")); //$NON-NLS-1$
+        assertFalse(json.contains("pre Value post")); //$NON-NLS-1$
+        assertFalse(json.contains("displayValues")); //$NON-NLS-1$
     }
 
     @Test
-    public void rendersDecoratorSpacingInTreeTextAndPreservesPathValues()
+    public void rendersDecoratorSpacingInTreeTextAndCompactsJsonValues()
     {
         TreeResultSerializer serializer = new TreeResultSerializer();
 
@@ -297,9 +295,27 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
-        assertTrue(json.contains("\"path\":\"<root>.preLeafpost\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"values\":[\"Leaf\",2]")); //$NON-NLS-1$
-        assertTrue(json.contains("\"displayValues\":[\"pre Leaf post\",\"2\"]")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{\"name\":\"Root\",\"depth\":1,\"_children\":[{\"name\":\"Leaf\",\"depth\":2}]}]")); //$NON-NLS-1$
+        assertFalse(json.contains("pre Leaf post")); //$NON-NLS-1$
+        assertFalse(json.contains("\"path\":")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void preservesIndexedSlotsWhenNullChildrenAreCompacted()
+    {
+        TreeResultSerializer serializer = new TreeResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeAgentJson(writer, new SparseIndexedTree(), new SerializationOptions(10, 8));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"slot\":1")); //$NON-NLS-1$
+        assertTrue(json.contains("\"slot\":3")); //$NON-NLS-1$
+        assertFalse(json.contains("\"name\":\"[0]\"")); //$NON-NLS-1$
+        assertFalse(json.contains("\"name\":\"[2]\"")); //$NON-NLS-1$
     }
 
     @Test
@@ -365,7 +381,7 @@ public class ResultSerializerTest
     }
 
     @Test
-    public void keepsHasChildrenWhenAgentTreeDepthTruncatesChildren()
+    public void marksTreeChildrenAsTruncatedWhenDepthLimitPreventsExpansion()
     {
         TreeResultSerializer serializer = new TreeResultSerializer();
         JsonWriter writer = new JsonWriter();
@@ -376,13 +392,13 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertTrue(truncated);
-        assertTrue(json.contains("\"path\":\"<root>\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"hasChildren\":true")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"Root\"")); //$NON-NLS-1$
         assertFalse(json.contains("\"_children\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_childrenTruncated\":true")); //$NON-NLS-1$
     }
 
     @Test
-    public void serializesNullTreeValuesAsNullValueKind()
+    public void omitsNullTreeValuesFromCompactJson()
     {
         TreeResultSerializer serializer = new TreeResultSerializer();
         JsonWriter writer = new JsonWriter();
@@ -393,9 +409,9 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertFalse(truncated);
-        assertTrue(json.contains("\"path\":\"<root>\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"valueKind\":\"null\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"value\":null")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{\"name\":\"Slot\"}]")); //$NON-NLS-1$
+        assertFalse(json.contains("\"valueKind\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"value\":null")); //$NON-NLS-1$
     }
 
     @Test
@@ -410,9 +426,9 @@ public class ResultSerializerTest
 
         String json = writer.toString();
         assertTrue(truncated);
-        assertTrue(json.contains("\"values\":[\"Root\",0]")); //$NON-NLS-1$
-        assertTrue(json.contains("\"values\":[\"Child A\",1]")); //$NON-NLS-1$
-        assertFalse(json.contains("\"values\":[\"Child B\",1]")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"Root\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"Child A\"")); //$NON-NLS-1$
+        assertFalse(json.contains("\"name\":\"Child B\"")); //$NON-NLS-1$
     }
 
     @Test
@@ -474,7 +490,7 @@ public class ResultSerializerTest
         String json = writer.toString();
         assertTrue(truncated);
         assertTrue(json.contains("\"name\":\"Nested\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"sections\":[]")); //$NON-NLS-1$
+        assertFalse(json.contains("\"sections\":[]")); //$NON-NLS-1$
     }
 
     @Test
@@ -497,7 +513,7 @@ public class ResultSerializerTest
         assertTrue(truncated);
         assertTrue(json.contains("\"name\":\"Inner\"")); //$NON-NLS-1$
         assertFalse(json.contains("\"name\":\"Leaf\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"sections\":[]")); //$NON-NLS-1$
+        assertFalse(json.contains("\"sections\":[]")); //$NON-NLS-1$
     }
 
     @Test
@@ -518,7 +534,7 @@ public class ResultSerializerTest
         assertTrue(json.contains("\"resultType\":\"pie\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"label\":\"Suspect 1\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"color\":\"#ff0000\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"context\":{\"objectId\":101}")); //$NON-NLS-1$
+        assertFalse(json.contains("\"context\":")); //$NON-NLS-1$
     }
 
     @Test
@@ -565,14 +581,12 @@ public class ResultSerializerTest
         String json = writer.toString();
         assertTrue(truncated);
         assertTrue(json.contains("\"totalRetainedHeap\":1000")); //$NON-NLS-1$
-        assertTrue(json.contains("\"biggestObjects\":{")); //$NON-NLS-1$
-        assertTrue(json.contains("\"biggestObjects\":{\"name\":\"Biggest Objects\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"biggestObjects\":[{")); //$NON-NLS-1$
         assertTrue(json.contains("\"label\":\"Largest\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"retainedBytes\":500")); //$NON-NLS-1$
-        assertTrue(json.contains("\"classes\":{\"name\":\"Biggest Top-Level Dominator Classes\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"classLoaders\":{\"name\":\"Biggest Top-Level Dominator Class Loaders\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"packages\":{\"name\":\"Biggest Top-Level Dominator Packages\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"root\":{\"name\":\"<all>\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"classes\":[{")); //$NON-NLS-1$
+        assertTrue(json.contains("\"classLoaders\":[{")); //$NON-NLS-1$
+        assertTrue(json.contains("\"packages\":{\"name\":\"<all>\"")); //$NON-NLS-1$
     }
 
     @Test
@@ -682,7 +696,7 @@ public class ResultSerializerTest
         }
 
         String json = output.toString(StandardCharsets.UTF_8.name());
-        assertTrue(json.contains("\"schemaVersion\":\"mat-cli/v2\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"schemaVersion\":\"mat-cli/v1\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"resultKind\":\"error\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"exceptionClass\":\"java.lang.IllegalStateException\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"rootCauseClass\":\"java.lang.NullPointerException\"")); //$NON-NLS-1$
@@ -712,6 +726,8 @@ public class ResultSerializerTest
         assertTrue(json.contains("\"stackAvailable\":false")); //$NON-NLS-1$
         assertTrue(json.contains("\"objectAddress\":\"0x2a\"")); //$NON-NLS-1$
         assertFalse(json.contains("\"_context\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"stackUnavailableReason\":\"" + ThreadsResult.STACK_UNAVAILABLE_REASON + "\"")); //$NON-NLS-1$ //$NON-NLS-2$
+        assertFalse(json.contains("\"stackFrames\":[]")); //$NON-NLS-1$
     }
 
     @Test
@@ -1129,6 +1145,61 @@ public class ResultSerializerTest
         public List<?> getChildren(Object parent)
         {
             return Collections.emptyList();
+        }
+    }
+
+    private static final class SparseIndexedTree implements IResultTree
+    {
+        private final IndexedNode root = new IndexedNode("Root", Integer.valueOf(0), 120, Arrays.asList( //$NON-NLS-1$
+                        new IndexedNode("[0]", null, -1, Collections.<IndexedNode>emptyList()), //$NON-NLS-1$
+                        new IndexedNode("[1]", Integer.valueOf(1), 121, Collections.<IndexedNode>emptyList()), //$NON-NLS-1$
+                        new IndexedNode("[2]", null, -1, Collections.<IndexedNode>emptyList()), //$NON-NLS-1$
+                        new IndexedNode("[3]", Integer.valueOf(1), 123, Collections.<IndexedNode>emptyList()))); //$NON-NLS-1$
+        private final Column[] columns = new Column[] { new Column("Name", String.class), new Column("Value", int.class) }; //$NON-NLS-1$ //$NON-NLS-2$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            IndexedNode value = (IndexedNode) row;
+            return columnIndex == 0 ? value.name : value.value;
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            final IndexedNode value = (IndexedNode) row;
+            if (value.objectId < 0)
+                return null;
+            return new IContextObject()
+            {
+                public int getObjectId()
+                {
+                    return value.objectId;
+                }
+            };
+        }
+
+        public List<?> getElements()
+        {
+            return Collections.singletonList(root);
+        }
+
+        public boolean hasChildren(Object element)
+        {
+            return !((IndexedNode) element).children.isEmpty();
+        }
+
+        public List<?> getChildren(Object parent)
+        {
+            return ((IndexedNode) parent).children;
         }
     }
 
@@ -1760,6 +1831,22 @@ public class ResultSerializerTest
         {
             this.name = name;
             this.depth = depth;
+            this.objectId = objectId;
+            this.children = children;
+        }
+    }
+
+    private static final class IndexedNode
+    {
+        private final String name;
+        private final Integer value;
+        private final int objectId;
+        private final List<IndexedNode> children;
+
+        private IndexedNode(String name, Integer value, int objectId, List<IndexedNode> children)
+        {
+            this.name = name;
+            this.value = value;
             this.objectId = objectId;
             this.children = children;
         }

@@ -19,25 +19,7 @@ public class TableResultSerializer extends StructuredResultSerializer
 {
     public boolean writeJson(JsonWriter writer, IResultTable table, SerializationOptions options)
     {
-        Column[] columns = table.getColumns();
-        writeColumns(writer, columns);
-
-        int rowCount = table.getRowCount();
-        int limit = Math.min(rowCount, options.getLimit());
-        boolean truncated = rowCount > limit;
-
-        writer.name("rows").beginArray(); //$NON-NLS-1$
-        for (int ii = 0; ii < limit; ii++)
-        {
-            Object row = table.getRow(ii);
-            writer.beginObject();
-            writeRowValues(writer, table, columns, row);
-            writeContext(writer, table, row, options);
-            writer.endObject();
-        }
-        writer.endArray();
-
-        return truncated;
+        return writeAgentJson(writer, table, options);
     }
 
     public boolean writeAgentJson(JsonWriter writer, IResultTable table, SerializationOptions options)

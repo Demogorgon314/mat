@@ -117,8 +117,7 @@ abstract class StructuredResultSerializer
         CellValue[] cells = readCells(result, columns, row);
         for (int ii = 0; ii < columns.length; ii++)
         {
-            writer.name(columns[ii].id);
-            writer.rawValue(agentRawValue(columns[ii].column, cells[ii].value));
+            writeField(writer, columns[ii].id, agentRawValue(columns[ii].column, cells[ii].value));
         }
         writeAgentAddress(writer, result, columns, row, options);
         writeAgentCellMetadata(writer, columns, cells);
@@ -250,6 +249,25 @@ abstract class StructuredResultSerializer
         String objectAddress = resolveObjectAddress(options, objectId);
         if (objectAddress != null)
             writer.name("_address").value(objectAddress); //$NON-NLS-1$
+    }
+
+    protected boolean writeField(JsonWriter writer, String name, Object value)
+    {
+        if (value == null)
+            return false;
+
+        writer.name(name);
+        writer.rawValue(value);
+        return true;
+    }
+
+    protected boolean writeStringField(JsonWriter writer, String name, String value)
+    {
+        if (value == null || value.length() == 0)
+            return false;
+
+        writer.name(name).value(value); //$NON-NLS-1$
+        return true;
     }
 
     protected void writeRowValues(JsonWriter writer, IStructuredResult result, Column[] columns, Object row)

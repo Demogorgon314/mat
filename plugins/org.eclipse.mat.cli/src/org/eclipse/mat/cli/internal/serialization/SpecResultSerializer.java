@@ -69,7 +69,6 @@ public class SpecResultSerializer
             return writeQuery(writer, (QuerySpec) spec, options, sectionDepth);
 
         writeSpecMetadata(writer, spec);
-        writer.name("sections").beginArray().endArray(); //$NON-NLS-1$
         return false;
     }
 
@@ -136,10 +135,7 @@ public class SpecResultSerializer
     {
         writeSpecMetadata(writer, spec);
         if (sectionDepth >= options.getTreeDepthLimit())
-        {
-            writer.name("sections").beginArray().endArray(); //$NON-NLS-1$
             return !spec.getChildren().isEmpty();
-        }
         return writeSectionContents(writer, spec, options, sectionDepth);
     }
 
@@ -153,19 +149,22 @@ public class SpecResultSerializer
         if (children.size() > limit)
             truncated = true;
 
-        writer.name("sections").beginArray(); //$NON-NLS-1$
-        for (int ii = 0; ii < limit; ii++)
+        if (limit > 0)
         {
-            Spec child = children.get(ii);
-            writer.beginObject();
-            writer.name("kind").value(rootResultType(child)); //$NON-NLS-1$
-            int childSectionDepth = child instanceof SectionSpec ? sectionDepth + 1 : sectionDepth;
-            boolean childTruncated = writeJson(writer, child, options, childSectionDepth);
-            writer.name("truncated").value(childTruncated); //$NON-NLS-1$
-            writer.endObject();
-            truncated |= childTruncated;
+            writer.name("sections").beginArray(); //$NON-NLS-1$
+            for (int ii = 0; ii < limit; ii++)
+            {
+                Spec child = children.get(ii);
+                writer.beginObject();
+                writer.name("kind").value(rootResultType(child)); //$NON-NLS-1$
+                int childSectionDepth = child instanceof SectionSpec ? sectionDepth + 1 : sectionDepth;
+                boolean childTruncated = writeJson(writer, child, options, childSectionDepth);
+                writer.name("truncated").value(childTruncated); //$NON-NLS-1$
+                writer.endObject();
+                truncated |= childTruncated;
+            }
+            writer.endArray();
         }
-        writer.endArray();
 
         return truncated;
     }
@@ -174,7 +173,7 @@ public class SpecResultSerializer
                     throws CliException
     {
         writeSpecMetadata(writer, spec);
-        writer.name("queryCommand").value(spec.getCommand()); //$NON-NLS-1$
+        writeStringField(writer, "queryCommand", spec.getCommand()); //$NON-NLS-1$
         return writeResult(writer, spec.getResult(), options, spec.getName(), sectionDepth);
     }
 
@@ -248,27 +247,34 @@ public class SpecResultSerializer
 
     private void writeSpecMetadata(JsonWriter writer, Spec spec)
     {
-        writer.name("name").value(spec.getName()); //$NON-NLS-1$
-        writer.name("template").value(spec.getTemplate()); //$NON-NLS-1$
-        writer.name("params").beginObject(); //$NON-NLS-1$
+        writeStringField(writer, "name", spec.getName()); //$NON-NLS-1$
+        writeStringField(writer, "template", spec.getTemplate()); //$NON-NLS-1$
         List<String> keys = new ArrayList<String>(spec.getParams().keySet());
         Collections.sort(keys);
-        for (String key : keys)
+        if (!keys.isEmpty())
         {
-            writer.name(key).value(spec.getParams().get(key));
+            writer.name("params").beginObject(); //$NON-NLS-1$
+            for (String key : keys)
+            {
+                writer.name(key).value(spec.getParams().get(key));
+            }
+            writer.endObject();
         }
-        writer.endObject();
     }
 
     private boolean writeNestedSection(JsonWriter writer, SectionSpec spec, SerializationOptions options, int sectionDepth)
                     throws CliException
     {
         if (sectionDepth + 1 >= options.getTreeDepthLimit())
-        {
-            writer.name("sections").beginArray().endArray(); //$NON-NLS-1$
             return !spec.getChildren().isEmpty();
-        }
         return writeSectionContents(writer, spec, options, sectionDepth + 1);
+    }
+
+    private void writeStringField(JsonWriter writer, String name, String value)
+    {
+        if (value == null || value.length() == 0)
+            return;
+        writer.name(name).value(value);
     }
 
     private void appendText(StringBuilder builder, Spec spec, SerializationOptions options, int depth, int sectionDepth)

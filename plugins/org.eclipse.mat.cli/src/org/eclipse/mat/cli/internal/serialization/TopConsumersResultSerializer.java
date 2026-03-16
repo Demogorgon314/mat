@@ -31,17 +31,7 @@ public class TopConsumersResultSerializer
 
     public boolean writeJson(JsonWriter writer, TopConsumersResult result, SerializationOptions options)
     {
-        writer.name("totalRetainedHeap").value(result.getTotalRetainedHeap()); //$NON-NLS-1$
-
-        boolean truncated = false;
-        truncated |= writeObjectSection(writer, "biggestObjects", "Biggest Objects", result.getBiggestObjects(), //$NON-NLS-1$ //$NON-NLS-2$
-                        options);
-        truncated |= writeDominatorSection(writer, "classes", "Biggest Top-Level Dominator Classes", //$NON-NLS-1$ //$NON-NLS-2$
-                        result.getClasses(), options);
-        truncated |= writeDominatorSection(writer, "classLoaders", "Biggest Top-Level Dominator Class Loaders", //$NON-NLS-1$ //$NON-NLS-2$
-                        result.getClassLoaders(), options);
-        truncated |= writePackageSection(writer, result.getPackages(), options);
-        return truncated;
+        return writeAgentJson(writer, result, options);
     }
 
     public boolean writeAgentJson(JsonWriter writer, TopConsumersResult result, SerializationOptions options)
@@ -61,7 +51,8 @@ public class TopConsumersResultSerializer
             writeAgentObjectRow(writer, result.getBiggestObjects().get(ii), options);
         }
         writer.endArray();
-        writer.name("biggestObjectsTruncated").value(biggestObjectsTruncated); //$NON-NLS-1$
+        if (biggestObjectsTruncated)
+            writer.name("biggestObjectsTruncated").value(true); //$NON-NLS-1$
 
         writer.name("classes").beginArray(); //$NON-NLS-1$
         for (int ii = 0; ii < classLimit; ii++)
@@ -69,7 +60,8 @@ public class TopConsumersResultSerializer
             writeAgentDominatorRow(writer, result.getClasses().get(ii), options);
         }
         writer.endArray();
-        writer.name("classesTruncated").value(classesTruncated); //$NON-NLS-1$
+        if (classesTruncated)
+            writer.name("classesTruncated").value(true); //$NON-NLS-1$
 
         writer.name("classLoaders").beginArray(); //$NON-NLS-1$
         for (int ii = 0; ii < classLoaderLimit; ii++)
@@ -77,19 +69,17 @@ public class TopConsumersResultSerializer
             writeAgentDominatorRow(writer, result.getClassLoaders().get(ii), options);
         }
         writer.endArray();
-        writer.name("classLoadersTruncated").value(classLoadersTruncated); //$NON-NLS-1$
+        if (classLoadersTruncated)
+            writer.name("classLoadersTruncated").value(true); //$NON-NLS-1$
 
         PackageTruncationState packageState = new PackageTruncationState(options.getTreeNodeLimit());
-        writer.name("packages"); //$NON-NLS-1$
-        if (result.getPackages() == null)
+        if (result.getPackages() != null)
         {
-            writer.nullValue();
-        }
-        else
-        {
+            writer.name("packages"); //$NON-NLS-1$
             writeAgentPackageNode(writer, result.getPackages(), options, packageState, 0);
         }
-        writer.name("packagesTruncated").value(packageState.truncated); //$NON-NLS-1$
+        if (packageState.truncated)
+            writer.name("packagesTruncated").value(true); //$NON-NLS-1$
         return biggestObjectsTruncated || classesTruncated || classLoadersTruncated || packageState.truncated;
     }
 

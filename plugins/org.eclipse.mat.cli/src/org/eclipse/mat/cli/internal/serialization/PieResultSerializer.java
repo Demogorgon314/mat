@@ -23,17 +23,7 @@ public class PieResultSerializer
 {
     public boolean writeJson(JsonWriter writer, IResultPie pie, SerializationOptions options)
     {
-        List<? extends Slice> slices = pie.getSlices();
-        int limit = Math.min(slices.size(), options.getLimit());
-        boolean truncated = slices.size() > limit;
-
-        writer.name("slices").beginArray(); //$NON-NLS-1$
-        for (int ii = 0; ii < limit; ii++)
-        {
-            writeSlice(writer, slices.get(ii), false, options);
-        }
-        writer.endArray();
-        return truncated;
+        return writeAgentJson(writer, pie, options);
     }
 
     public boolean writeAgentJson(JsonWriter writer, IResultPie pie, SerializationOptions options)
@@ -45,7 +35,7 @@ public class PieResultSerializer
         writer.name("items").beginArray(); //$NON-NLS-1$
         for (int ii = 0; ii < limit; ii++)
         {
-            writeSlice(writer, slices.get(ii), true, options);
+            writeSlice(writer, slices.get(ii), options);
         }
         writer.endArray();
         return truncated;
@@ -72,34 +62,14 @@ public class PieResultSerializer
         return builder.toString();
     }
 
-    private void writeSlice(JsonWriter writer, Slice slice, boolean agentProfile, SerializationOptions options)
+    private void writeSlice(JsonWriter writer, Slice slice, SerializationOptions options)
     {
         writer.beginObject();
         writer.name("label").value(slice.getLabel()); //$NON-NLS-1$
         writer.name("value").value(slice.getValue()); //$NON-NLS-1$
-        writer.name("description").value(slice.getDescription()); //$NON-NLS-1$
-        if (agentProfile)
-            writeAgentAddress(writer, slice.getContext(), options);
-        else
-            writeContext(writer, slice.getContext(), options);
-        writer.name("color").value(color(slice)); //$NON-NLS-1$
-        writer.endObject();
-    }
-
-    private void writeContext(JsonWriter writer, IContextObject context, SerializationOptions options)
-    {
-        Integer objectId = contextObjectId(context);
-        if (objectId == null)
-        {
-            writer.name("context").nullValue(); //$NON-NLS-1$
-            return;
-        }
-
-        writer.name("context").beginObject(); //$NON-NLS-1$
-        writer.name("objectId").value(objectId.intValue()); //$NON-NLS-1$
-        String objectAddress = options == null ? null : options.resolveObjectAddress(objectId.intValue());
-        if (objectAddress != null)
-            writer.name("objectAddress").value(objectAddress); //$NON-NLS-1$
+        writeStringField(writer, "description", slice.getDescription()); //$NON-NLS-1$
+        writeAgentAddress(writer, slice.getContext(), options);
+        writeStringField(writer, "color", color(slice)); //$NON-NLS-1$
         writer.endObject();
     }
 
@@ -111,6 +81,13 @@ public class PieResultSerializer
         String objectAddress = options == null ? null : options.resolveObjectAddress(objectId.intValue());
         if (objectAddress != null)
             writer.name("_address").value(objectAddress); //$NON-NLS-1$
+    }
+
+    private void writeStringField(JsonWriter writer, String name, String value)
+    {
+        if (value == null || value.length() == 0)
+            return;
+        writer.name(name).value(value);
     }
 
     private Integer contextObjectId(IContextObject context)

@@ -35,7 +35,7 @@ import org.eclipse.mat.report.Spec;
 
 public class ResultSerializer
 {
-    private static final String JSON_SCHEMA_VERSION = "mat-cli/v2"; //$NON-NLS-1$
+    private static final String JSON_SCHEMA_VERSION = "mat-cli/v1"; //$NON-NLS-1$
 
     private final TableResultSerializer tableSerializer = new TableResultSerializer();
     private final TreeResultSerializer treeSerializer = new TreeResultSerializer();
@@ -223,8 +223,7 @@ public class ResultSerializer
         }
 
         writer.name("truncated").value(truncated); //$NON-NLS-1$
-        if (execution != null && execution.getNote() != null)
-            writer.name("note").value(execution.getNote()); //$NON-NLS-1$
+        writeStringField(writer, "note", execution == null ? null : execution.getNote()); //$NON-NLS-1$
         if (shouldWriteSuggestedNextCommands(arguments, execution))
             writeSuggestedNextCommands(writer, suggestedNextCommands(arguments, execution));
         writer.endObject();
@@ -241,14 +240,14 @@ public class ResultSerializer
         writer.name("code").value(exitCode); //$NON-NLS-1$
         writer.name("message").value(error.getMessage() == null ? error.getClass().getName() : error.getMessage()); //$NON-NLS-1$
         writer.name("kind").value(errorKind(arguments, exitCode, error)); //$NON-NLS-1$
-        writer.name("hint").value(errorHint(arguments, exitCode, error)); //$NON-NLS-1$
+        writeStringField(writer, "hint", errorHint(arguments, exitCode, error)); //$NON-NLS-1$
         writer.name("retryable").value(isRetryable(arguments, exitCode, error)); //$NON-NLS-1$
         if (arguments != null && arguments.isVerbose())
         {
-            writer.name("exceptionClass").value(error == null ? null : error.getClass().getName()); //$NON-NLS-1$
-            writer.name("rootCauseClass").value(rootCause(error).getClass().getName()); //$NON-NLS-1$
-            writer.name("rootCauseMessage").value(rootCauseMessage(error)); //$NON-NLS-1$
-            writer.name("stackTrace").value(stackTrace(error)); //$NON-NLS-1$
+            writeStringField(writer, "exceptionClass", error == null ? null : error.getClass().getName()); //$NON-NLS-1$
+            writeStringField(writer, "rootCauseClass", rootCause(error).getClass().getName()); //$NON-NLS-1$
+            writeStringField(writer, "rootCauseMessage", rootCauseMessage(error)); //$NON-NLS-1$
+            writeStringField(writer, "stackTrace", stackTrace(error)); //$NON-NLS-1$
         }
         writer.endObject();
         writer.name("truncated").value(false); //$NON-NLS-1$
@@ -260,10 +259,10 @@ public class ResultSerializer
     private void writeSummary(JsonWriter writer, SnapshotSummary summary)
     {
         writer.name("summary").beginObject(); //$NON-NLS-1$
-        writer.name("path").value(summary.getPath()); //$NON-NLS-1$
-        writer.name("heapFormat").value(summary.getHeapFormat()); //$NON-NLS-1$
-        writer.name("jvmInfo").value(summary.getJvmInfo()); //$NON-NLS-1$
-        writer.name("creationDate").value(summary.getCreationDate()); //$NON-NLS-1$
+        writeStringField(writer, "path", summary.getPath()); //$NON-NLS-1$
+        writeStringField(writer, "heapFormat", summary.getHeapFormat()); //$NON-NLS-1$
+        writeStringField(writer, "jvmInfo", summary.getJvmInfo()); //$NON-NLS-1$
+        writeStringField(writer, "creationDate", summary.getCreationDate()); //$NON-NLS-1$
         writer.name("identifierSize").value(summary.getIdentifierSize()); //$NON-NLS-1$
         writer.name("numberOfObjects").value(summary.getNumberOfObjects()); //$NON-NLS-1$
         writer.name("numberOfClasses").value(summary.getNumberOfClasses()); //$NON-NLS-1$
@@ -281,12 +280,21 @@ public class ResultSerializer
 
     private void writeSuggestedNextCommands(JsonWriter writer, List<String> commands)
     {
+        if (commands == null || commands.isEmpty())
+            return;
         writer.name("suggestedNextCommands").beginArray(); //$NON-NLS-1$
         for (String command : commands)
         {
             writer.value(command);
         }
         writer.endArray();
+    }
+
+    private void writeStringField(JsonWriter writer, String name, String value)
+    {
+        if (value == null || value.length() == 0)
+            return;
+        writer.name(name).value(value);
     }
 
     private boolean shouldWriteSuggestedNextCommands(CliArguments arguments, CliExecution execution)
