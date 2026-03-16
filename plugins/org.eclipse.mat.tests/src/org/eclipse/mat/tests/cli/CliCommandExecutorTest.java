@@ -20,9 +20,12 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 
+import org.eclipse.mat.SnapshotException;
 import org.eclipse.mat.cli.internal.CliArgumentParser;
 import org.eclipse.mat.cli.internal.CliArguments;
 import org.eclipse.mat.cli.internal.CliCommandExecutor;
@@ -33,6 +36,8 @@ import org.eclipse.mat.cli.internal.serialization.ResultSerializer;
 import org.eclipse.mat.snapshot.ISnapshot;
 import org.eclipse.mat.snapshot.model.IClass;
 import org.eclipse.mat.tests.TestSnapshots;
+import org.eclipse.mat.util.IProgressListener;
+import org.eclipse.mat.util.VoidProgressListener;
 import org.junit.Test;
 
 public class CliCommandExecutorTest
@@ -648,6 +653,46 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"threads\":[")); //$NON-NLS-1$
     }
 
+    @Test
+    public void retriesConcurrentParsingErrorWhenOpeningSnapshot() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        CliArguments parsed = new CliArgumentParser().parse(new String[] { "summary", heap.getAbsolutePath() }); //$NON-NLS-1$ //$NON-NLS-2$
+        RetryingCliCommandExecutor executor = new RetryingCliCommandExecutor(1);
+
+        try (SnapshotSession session = executor.openSnapshot(parsed))
+        {
+            assertEquals(heap.getAbsolutePath(), session.getSnapshot().getSnapshotInfo().getPath());
+        }
+
+        assertEquals(2, executor.getOpenAttempts());
+        assertEquals(1, executor.getSleepCalls());
+        assertTrue(executor.getListener().containsMessage("waiting for the lock to clear")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void failsWhenConcurrentParsingRetryTimeoutExpires() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        CliArguments parsed = new CliArgumentParser().parse(new String[] { "summary", heap.getAbsolutePath() }); //$NON-NLS-1$ //$NON-NLS-2$
+        TimeoutCliCommandExecutor executor = new TimeoutCliCommandExecutor();
+
+        try
+        {
+            executor.openSnapshot(parsed);
+            fail("Expected concurrent parsing timeout"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertEquals(3, e.getExitCode());
+            assertTrue(e.getMessage().contains("Timed out after waiting 5 ms")); //$NON-NLS-1$
+            assertTrue(e.getMessage().contains(heap.getAbsolutePath()));
+        }
+
+        assertTrue(executor.getOpenAttempts() >= 2);
+        assertTrue(executor.getListener().containsMessage("waiting for the lock to clear")); //$NON-NLS-1$
+    }
+
     private String executeJson(String[] args) throws Exception
     {
         return execute(args);
@@ -740,6 +785,138 @@ public class CliCommandExecutorTest
         {
             this.className = className;
             this.objectAddress = objectAddress;
+        }
+    }
+
+    private static final class RecordingProgressListener extends VoidProgressListener
+    {
+        private final List<String> messages = new ArrayList<String>();
+
+        @Override
+        public void sendUserMessage(Severity severity, String message, Throwable exception)
+        {
+            messages.add(message);
+        }
+
+        private boolean containsMessage(String text)
+        {
+            for (String message : messages)
+            {
+                if (message != null && message.contains(text))
+                    return true;
+            }
+            return false;
+        }
+    }
+
+    private static class RetryingCliCommandExecutor extends CliCommandExecutor
+    {
+        private final int failuresBeforeSuccess;
+        private final RecordingProgressListener listener = new RecordingProgressListener();
+        private int openAttempts;
+        private int sleepCalls;
+
+        private RetryingCliCommandExecutor(int failuresBeforeSuccess)
+        {
+            this.failuresBeforeSuccess = failuresBeforeSuccess;
+        }
+
+        @Override
+        protected IProgressListener createProgressListener(CliArguments arguments)
+        {
+            return listener;
+        }
+
+        @Override
+        protected ISnapshot openSnapshot(File heapFile, IProgressListener listener) throws SnapshotException
+        {
+            openAttempts++;
+            if (openAttempts <= failuresBeforeSuccess)
+            {
+                throw new SnapshotException("Concurrent parsing error, lock file: /tmp/test.lock reason: busy"); //$NON-NLS-1$
+            }
+            return super.openSnapshot(heapFile, listener);
+        }
+
+        @Override
+        protected long concurrentParsingRetryIntervalMillis()
+        {
+            return 1L;
+        }
+
+        @Override
+        protected void sleep(long millis)
+        {
+            sleepCalls++;
+        }
+
+        private int getOpenAttempts()
+        {
+            return openAttempts;
+        }
+
+        private int getSleepCalls()
+        {
+            return sleepCalls;
+        }
+
+        private RecordingProgressListener getListener()
+        {
+            return listener;
+        }
+    }
+
+    private static final class TimeoutCliCommandExecutor extends CliCommandExecutor
+    {
+        private final RecordingProgressListener listener = new RecordingProgressListener();
+        private long currentTimeMillis;
+        private int openAttempts;
+
+        @Override
+        protected IProgressListener createProgressListener(CliArguments arguments)
+        {
+            return listener;
+        }
+
+        @Override
+        protected ISnapshot openSnapshot(File heapFile, IProgressListener listener) throws SnapshotException
+        {
+            openAttempts++;
+            throw new SnapshotException("Concurrent parsing error, lock file: /tmp/test.lock reason: busy"); //$NON-NLS-1$
+        }
+
+        @Override
+        protected long concurrentParsingRetryIntervalMillis()
+        {
+            return 2L;
+        }
+
+        @Override
+        protected long concurrentParsingRetryTimeoutMillis()
+        {
+            return 5L;
+        }
+
+        @Override
+        protected long currentTimeMillis()
+        {
+            return currentTimeMillis;
+        }
+
+        @Override
+        protected void sleep(long millis)
+        {
+            currentTimeMillis += millis;
+        }
+
+        private int getOpenAttempts()
+        {
+            return openAttempts;
+        }
+
+        private RecordingProgressListener getListener()
+        {
+            return listener;
         }
     }
 

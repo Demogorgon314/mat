@@ -44,6 +44,10 @@ import org.eclipse.mat.util.VoidProgressListener;
 
 public class CliCommandExecutor
 {
+    private static final String CONCURRENT_PARSING_ERROR_PREFIX = "Concurrent parsing error"; //$NON-NLS-1$
+    private static final long CONCURRENT_PARSING_RETRY_INTERVAL_MILLIS = 500L;
+    private static final long CONCURRENT_PARSING_RETRY_TIMEOUT_MILLIS = 5L * 60L * 1000L;
+
     public CliExecution execute(CliArguments arguments) throws Exception
     {
         switch (arguments.getCommand())
@@ -70,12 +74,11 @@ public class CliCommandExecutor
         if (!heapFile.exists())
             throw CliException.execution("Heap dump not found: " + heapFile.getAbsolutePath(), null); //$NON-NLS-1$
 
-        IProgressListener listener = arguments.isVerbose() ? new ConsoleProgressListener(System.err)
-                        : new VoidProgressListener();
+        IProgressListener listener = createProgressListener(arguments);
 
         try
         {
-            ISnapshot snapshot = SnapshotFactory.openSnapshot(heapFile, Collections.<String, String>emptyMap(), listener);
+            ISnapshot snapshot = openSnapshotWithConcurrentParsingRetry(heapFile, listener);
             return new SnapshotSession(snapshot, listener);
         }
         catch (SnapshotException e)
@@ -88,6 +91,94 @@ public class CliCommandExecutor
             listener.done();
             throw CliException.execution(e.getMessage(), e);
         }
+    }
+
+    protected IProgressListener createProgressListener(CliArguments arguments)
+    {
+        return arguments.isVerbose() ? new ConsoleProgressListener(System.err) : new VoidProgressListener();
+    }
+
+    protected ISnapshot openSnapshot(File heapFile, IProgressListener listener) throws SnapshotException
+    {
+        return SnapshotFactory.openSnapshot(heapFile, Collections.<String, String>emptyMap(), listener);
+    }
+
+    protected long concurrentParsingRetryIntervalMillis()
+    {
+        return CONCURRENT_PARSING_RETRY_INTERVAL_MILLIS;
+    }
+
+    protected long concurrentParsingRetryTimeoutMillis()
+    {
+        return CONCURRENT_PARSING_RETRY_TIMEOUT_MILLIS;
+    }
+
+    protected long currentTimeMillis()
+    {
+        return System.currentTimeMillis();
+    }
+
+    protected void sleep(long millis) throws InterruptedException
+    {
+        Thread.sleep(millis);
+    }
+
+    private ISnapshot openSnapshotWithConcurrentParsingRetry(File heapFile, IProgressListener listener)
+                    throws SnapshotException
+    {
+        long timeoutMillis = concurrentParsingRetryTimeoutMillis();
+        long deadline = currentTimeMillis() + timeoutMillis;
+        boolean waitingForConcurrentParser = false;
+
+        while (true)
+        {
+            try
+            {
+                return openSnapshot(heapFile, listener);
+            }
+            catch (SnapshotException e)
+            {
+                if (!isConcurrentParsingError(e))
+                    throw e;
+
+                long now = currentTimeMillis();
+                if (now >= deadline)
+                    throw concurrentParsingTimeout(heapFile, timeoutMillis, e);
+
+                if (!waitingForConcurrentParser)
+                {
+                    listener.sendUserMessage(IProgressListener.Severity.INFO,
+                                    "Another MAT process is parsing " + heapFile.getAbsolutePath() //$NON-NLS-1$
+                                                    + "; waiting for the lock to clear and retrying.", //$NON-NLS-1$
+                                    null);
+                    waitingForConcurrentParser = true;
+                }
+
+                try
+                {
+                    sleep(Math.min(concurrentParsingRetryIntervalMillis(), Math.max(1L, deadline - now)));
+                }
+                catch (InterruptedException interrupted)
+                {
+                    Thread.currentThread().interrupt();
+                    throw new SnapshotException(
+                                    "Interrupted while waiting for another MAT process to finish parsing " //$NON-NLS-1$
+                                                    + heapFile.getAbsolutePath(),
+                                    interrupted);
+                }
+            }
+        }
+    }
+
+    private boolean isConcurrentParsingError(SnapshotException error)
+    {
+        return error.getMessage() != null && error.getMessage().contains(CONCURRENT_PARSING_ERROR_PREFIX);
+    }
+
+    private SnapshotException concurrentParsingTimeout(File heapFile, long timeoutMillis, SnapshotException cause)
+    {
+        return new SnapshotException("Timed out after waiting " + timeoutMillis //$NON-NLS-1$
+                        + " ms for another MAT process to finish parsing " + heapFile.getAbsolutePath(), cause); //$NON-NLS-1$
     }
 
     public CliExecution execute(CliArguments arguments, SnapshotSession session) throws Exception
