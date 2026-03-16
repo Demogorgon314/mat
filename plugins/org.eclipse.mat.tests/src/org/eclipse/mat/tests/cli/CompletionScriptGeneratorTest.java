@@ -16,6 +16,7 @@ import static org.junit.Assert.fail;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import org.eclipse.mat.cli.internal.CompletionScriptGenerator;
 import org.junit.Test;
@@ -59,22 +60,19 @@ public class CompletionScriptGeneratorTest
         Path repositoryRoot = locateRepositoryRoot();
 
         assertEquals(generator.generate("bash"), //$NON-NLS-1$
-                        Files.readString(repositoryRoot.resolve(
-                                        "features/org.eclipse.mat.cli.feature/rootfiles/completion/bash/mat-cli"), //$NON-NLS-1$
-                                        StandardCharsets.UTF_8));
+                        readUtf8(repositoryRoot.resolve(
+                                        "features/org.eclipse.mat.cli.feature/rootfiles/completion/bash/mat-cli"))); //$NON-NLS-1$
         assertEquals(generator.generate("zsh"), //$NON-NLS-1$
-                        Files.readString(repositoryRoot.resolve(
-                                        "features/org.eclipse.mat.cli.feature/rootfiles/completion/zsh/_mat-cli"), //$NON-NLS-1$
-                                        StandardCharsets.UTF_8));
+                        readUtf8(repositoryRoot.resolve(
+                                        "features/org.eclipse.mat.cli.feature/rootfiles/completion/zsh/_mat-cli"))); //$NON-NLS-1$
     }
 
     @Test
     public void featureBuildPropertiesIncludeCompletionRootfiles() throws Exception
     {
         Path repositoryRoot = locateRepositoryRoot();
-        String buildProperties = Files.readString(
-                        repositoryRoot.resolve("features/org.eclipse.mat.cli.feature/build.properties"), //$NON-NLS-1$
-                        StandardCharsets.UTF_8);
+        String buildProperties = readUtf8(
+                        repositoryRoot.resolve("features/org.eclipse.mat.cli.feature/build.properties")); //$NON-NLS-1$
 
         assertTrue(buildProperties.contains("file:rootfiles/completion/bash/mat-cli")); //$NON-NLS-1$
         assertTrue(buildProperties.contains("file:rootfiles/completion/zsh/_mat-cli")); //$NON-NLS-1$
@@ -82,7 +80,7 @@ public class CompletionScriptGeneratorTest
 
     private Path locateRepositoryRoot()
     {
-        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath(); //$NON-NLS-1$
+        Path current = Paths.get(System.getProperty("user.dir")).toAbsolutePath(); //$NON-NLS-1$
         while (current != null)
         {
             if (Files.isDirectory(current.resolve("features/org.eclipse.mat.cli.feature")) //$NON-NLS-1$
@@ -93,5 +91,10 @@ public class CompletionScriptGeneratorTest
 
         fail("Unable to locate repository root from " + System.getProperty("user.dir")); //$NON-NLS-1$ //$NON-NLS-2$
         return null;
+    }
+
+    private String readUtf8(Path path) throws Exception
+    {
+        return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
     }
 }

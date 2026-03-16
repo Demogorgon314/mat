@@ -172,8 +172,15 @@
 										<copy todir="${standaloneCliDir}" overwrite="true">
 											<fileset dir="${standaloneCliSourceDir}" />
 										</copy>
+										<mkdir dir="${standaloneCliDir}/completion/bash" />
+										<mkdir dir="${standaloneCliDir}/completion/zsh" />
+										<copy file="${project.basedir}/../features/org.eclipse.mat.cli.feature/rootfiles/completion/bash/mat-cli"
+										      tofile="${standaloneCliDir}/completion/bash/mat-cli" overwrite="true" />
+										<copy file="${project.basedir}/../features/org.eclipse.mat.cli.feature/rootfiles/completion/zsh/_mat-cli"
+										      tofile="${standaloneCliDir}/completion/zsh/_mat-cli" overwrite="true" />
 										<copy file="${project.basedir}/../features/org.eclipse.mat.cli.feature/rootfiles/win32/mat-cli.bat"
 										      tofile="${standaloneCliDir}/mat-cli.bat" overwrite="true" />
+										<delete file="${standaloneCliDir}/_mat-cli" quiet="true" />
 										<delete file="${standaloneCliDir}/matcli" quiet="true" />
 										<delete file="${standaloneCliDir}/matcli.ini" quiet="true" />
 										<delete quiet="true">
