@@ -16,6 +16,8 @@ import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.text.FieldPosition;
+import java.text.ParsePosition;
 import java.util.Date;
 import java.util.Arrays;
 import java.util.Collections;
@@ -46,6 +48,7 @@ import org.eclipse.mat.cli.internal.serialization.TreeTextStyleProvider;
 import org.eclipse.mat.cli.internal.serialization.TreeTextStyleProvider.TreeTextStyle;
 import org.eclipse.mat.query.Bytes;
 import org.eclipse.mat.query.BytesDisplay;
+import org.eclipse.mat.query.BytesFormat;
 import org.eclipse.mat.query.Column;
 import org.eclipse.mat.query.IContextObject;
 import org.eclipse.mat.query.IDecorator;
@@ -248,6 +251,18 @@ public class ResultSerializerTest
 
         assertTrue(text.contains(">= 7B")); //$NON-NLS-1$
         assertFalse(text.contains(">= 7")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void preservesCustomBytesFormatterSemanticsInText()
+    {
+        TableResultSerializer serializer = new TableResultSerializer();
+
+        String text = serializer.toText(new DirectionalBytesTable(),
+                        new SerializationOptions(10, 8, BytesDisplay.Smart));
+
+        assertTrue(text.contains("<= 2.00KB")); //$NON-NLS-1$
+        assertFalse(text.contains(">= 2.00KB")); //$NON-NLS-1$
     }
 
     @Test
@@ -1647,6 +1662,65 @@ public class ResultSerializerTest
         public IContextObject getContext(Object row)
         {
             return null;
+        }
+    }
+
+    private static final class DirectionalBytesTable implements IResultTable
+    {
+        private final Column[] columns = new Column[] {
+                        new Column("Retained Heap Delta", Bytes.class).formatting(new DirectionalBytesFormat()) }; //$NON-NLS-1$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public int getRowCount()
+        {
+            return 1;
+        }
+
+        public Object getRow(int rowId)
+        {
+            return Integer.valueOf(rowId);
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            return new Bytes(-2048L);
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            return null;
+        }
+    }
+
+    private static final class DirectionalBytesFormat extends BytesFormat
+    {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public StringBuffer format(Object obj, StringBuffer toAppendTo, FieldPosition pos)
+        {
+            long value = obj instanceof Bytes ? ((Bytes) obj).getValue() : ((Number) obj).longValue();
+            if (value < 0)
+            {
+                toAppendTo.append("<= "); //$NON-NLS-1$
+                return super.format(new Bytes(-value), toAppendTo, pos);
+            }
+            return super.format(new Bytes(value), toAppendTo, pos);
+        }
+
+        @Override
+        public Object parseObject(String source, ParsePosition pos)
+        {
+            return super.parseObject(source, pos);
         }
     }
 

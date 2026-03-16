@@ -25,8 +25,6 @@ import org.eclipse.mat.query.IStructuredResult;
 
 abstract class StructuredResultSerializer
 {
-    private static final String APPROXIMATE_BYTES_PREFIX = ">= "; //$NON-NLS-1$
-
     protected static final class CellError
     {
         private final String className;
@@ -197,20 +195,21 @@ abstract class StructuredResultSerializer
         else
         {
             Format formatter = column.getFormatter();
-            if (options != null && shouldFormatBytes(value, formatter))
+            if (options != null && formatter instanceof BytesFormat)
             {
-                rendered = formatBytesDisplay(value, options);
+                rendered = formatBytesValue((BytesFormat) formatter, value, options);
+            }
+            else if (formatter != null)
+            {
+                rendered = formatter.format(value);
+            }
+            else if (options != null && value instanceof Bytes)
+            {
+                rendered = options.getBytesFormatter().format(value);
             }
             else
             {
-                if (formatter != null)
-                {
-                    rendered = formatter.format(value);
-                }
-                else
-                {
-                    rendered = String.valueOf(rawValue(column, value));
-                }
+                rendered = String.valueOf(rawValue(column, value));
             }
         }
 
@@ -230,19 +229,11 @@ abstract class StructuredResultSerializer
         return rendered;
     }
 
-    private boolean shouldFormatBytes(Object value, Format formatter)
+    private String formatBytesValue(BytesFormat formatter, Object value, SerializationOptions options)
     {
-        if (value instanceof Bytes)
-            return true;
-        return formatter instanceof BytesFormat && value instanceof Number;
-    }
-
-    private String formatBytesDisplay(Object value, SerializationOptions options)
-    {
-        long bytes = value instanceof Bytes ? ((Bytes) value).getValue() : ((Number) value).longValue();
-        if (bytes < 0)
-            return APPROXIMATE_BYTES_PREFIX + options.getBytesFormatter().format(new Bytes(-bytes));
-        return options.getBytesFormatter().format(new Bytes(bytes));
+        BytesFormat configured = (BytesFormat) formatter.clone();
+        configured.setBytesDisplay(options.getBytesDisplay());
+        return configured.format(value);
     }
 
     protected void writeContext(JsonWriter writer, IStructuredResult result, Object row, SerializationOptions options)
