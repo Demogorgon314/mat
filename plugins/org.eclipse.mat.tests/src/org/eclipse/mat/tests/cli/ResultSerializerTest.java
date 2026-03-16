@@ -16,6 +16,9 @@ import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.text.FieldPosition;
+import java.text.ParsePosition;
+import java.util.Date;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -27,6 +30,7 @@ import org.eclipse.mat.cli.internal.CliException;
 import org.eclipse.mat.cli.internal.CliExecution;
 import org.eclipse.mat.cli.internal.DisplayValue;
 import org.eclipse.mat.cli.internal.QueryMetadataResult;
+import org.eclipse.mat.cli.internal.SnapshotSummary;
 import org.eclipse.mat.cli.internal.ThreadsResult;
 import org.eclipse.mat.cli.internal.TopConsumersResult;
 import org.eclipse.mat.cli.internal.serialization.JsonWriter;
@@ -37,11 +41,14 @@ import org.eclipse.mat.cli.internal.serialization.SerializationOptions;
 import org.eclipse.mat.cli.internal.serialization.SpecResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.TableResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.TextResultSerializer;
+import org.eclipse.mat.cli.internal.serialization.ThreadsResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.TopConsumersResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.TreeResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.TreeTextStyleProvider;
 import org.eclipse.mat.cli.internal.serialization.TreeTextStyleProvider.TreeTextStyle;
 import org.eclipse.mat.query.Bytes;
+import org.eclipse.mat.query.BytesDisplay;
+import org.eclipse.mat.query.BytesFormat;
 import org.eclipse.mat.query.Column;
 import org.eclipse.mat.query.IContextObject;
 import org.eclipse.mat.query.IDecorator;
@@ -53,6 +60,7 @@ import org.eclipse.mat.query.ResultMetaData;
 import org.eclipse.mat.query.results.TextResult;
 import org.eclipse.mat.report.QuerySpec;
 import org.eclipse.mat.report.SectionSpec;
+import org.eclipse.mat.snapshot.SnapshotInfo;
 import org.junit.Test;
 
 public class ResultSerializerTest
@@ -220,6 +228,41 @@ public class ResultSerializerTest
         assertTrue(json.contains("\"retained_heap\":7")); //$NON-NLS-1$
         assertTrue(json.contains("\"_meta\":{\"retained_heap\":{\"kind\":\"approximate_lower_bound\"}}")); //$NON-NLS-1$
         assertFalse(json.contains("\"retained_heap\":-7")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void rendersBytesColumnsInTextUsingSmartDisplayByDefault()
+    {
+        TableResultSerializer serializer = new TableResultSerializer();
+
+        String text = serializer.toText(new ByteSizedTable(), new SerializationOptions(10, 8));
+
+        assertTrue(text.contains("2.00KB")); //$NON-NLS-1$
+        assertFalse(text.contains("2048")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void rendersApproximateBytesInTextUsingSelectedDisplayMode()
+    {
+        TableResultSerializer serializer = new TableResultSerializer();
+
+        String text = serializer.toText(new ApproximateBytesTable(),
+                        new SerializationOptions(10, 8, BytesDisplay.Bytes));
+
+        assertTrue(text.contains(">= 7B")); //$NON-NLS-1$
+        assertFalse(text.contains(">= 7")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void preservesCustomBytesFormatterSemanticsInText()
+    {
+        TableResultSerializer serializer = new TableResultSerializer();
+
+        String text = serializer.toText(new DirectionalBytesTable(),
+                        new SerializationOptions(10, 8, BytesDisplay.Smart));
+
+        assertTrue(text.contains("<= 2.00KB")); //$NON-NLS-1$
+        assertFalse(text.contains(">= 2.00KB")); //$NON-NLS-1$
     }
 
     @Test
@@ -651,15 +694,39 @@ public class ResultSerializerTest
         String text = serializer.toText(sampleTopConsumersResult(), new SerializationOptions(2, 8, 20));
 
         assertTrue(text.contains("Biggest Objects:")); //$NON-NLS-1$
-        assertTrue(text.contains("50.00%  500  Largest")); //$NON-NLS-1$
+        assertTrue(text.contains("50.00%  500B  Largest")); //$NON-NLS-1$
         assertFalse(text.contains("Third")); //$NON-NLS-1$
         assertTrue(text.contains("Biggest Top-Level Dominator Classes:")); //$NON-NLS-1$
-        assertTrue(text.contains("60.00%  600  4  Alpha")); //$NON-NLS-1$
+        assertTrue(text.contains("60.00%  600B  4  Alpha")); //$NON-NLS-1$
         assertFalse(text.contains("Gamma")); //$NON-NLS-1$
         assertTrue(text.contains("Biggest Top-Level Dominator Packages:")); //$NON-NLS-1$
-        assertTrue(text.contains("<all>  (100.00%)  1,000  4")); //$NON-NLS-1$
+        assertTrue(text.contains("<all>  (100.00%)  1,000B  4")); //$NON-NLS-1$
         assertFalse(text.contains("more rows")); //$NON-NLS-1$
         assertFalse(text.contains("more nodes")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesThreadsToTextUsingSmartBytesDisplay() throws Exception
+    {
+        ThreadsResultSerializer serializer = new ThreadsResultSerializer();
+
+        String text = serializer.toText(sampleThreadsResult(), new SerializationOptions(10, 8, BytesDisplay.Smart));
+
+        assertTrue(text.contains("1.00KB")); //$NON-NLS-1$
+        assertTrue(text.contains("2.00KB")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesSummaryToTextUsingSelectedBytesDisplay() throws Exception
+    {
+        SnapshotInfo info = new SnapshotInfo("/tmp/sample.hprof", "/tmp/sample.", "OpenJDK", 8, new Date(0L), 10, 2, 3,
+                        1, 2048L); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+        info.setProperty("$heapFormat", "HPROF"); //$NON-NLS-1$ //$NON-NLS-2$
+        SnapshotSummary summary = SnapshotSummary.from(info);
+
+        String text = summary.asText(BytesDisplay.Smart);
+
+        assertTrue(text.contains("Used Heap: 2.00KB (2048 bytes)")); //$NON-NLS-1$
     }
 
     @Test
@@ -1560,6 +1627,100 @@ public class ResultSerializerTest
         public Object getRow(int rowId)
         {
             return Integer.valueOf(rowId);
+        }
+    }
+
+    private static final class ByteSizedTable implements IResultTable
+    {
+        private final Column[] columns = new Column[] { new Column("Retained Heap", Bytes.class) }; //$NON-NLS-1$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public int getRowCount()
+        {
+            return 1;
+        }
+
+        public Object getRow(int rowId)
+        {
+            return Integer.valueOf(rowId);
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            return new Bytes(2048L);
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            return null;
+        }
+    }
+
+    private static final class DirectionalBytesTable implements IResultTable
+    {
+        private final Column[] columns = new Column[] {
+                        new Column("Retained Heap Delta", Bytes.class).formatting(new DirectionalBytesFormat()) }; //$NON-NLS-1$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public int getRowCount()
+        {
+            return 1;
+        }
+
+        public Object getRow(int rowId)
+        {
+            return Integer.valueOf(rowId);
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            return new Bytes(-2048L);
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            return null;
+        }
+    }
+
+    private static final class DirectionalBytesFormat extends BytesFormat
+    {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public StringBuffer format(Object obj, StringBuffer toAppendTo, FieldPosition pos)
+        {
+            long value = obj instanceof Bytes ? ((Bytes) obj).getValue() : ((Number) obj).longValue();
+            if (value < 0)
+            {
+                toAppendTo.append("<= "); //$NON-NLS-1$
+                return super.format(new Bytes(-value), toAppendTo, pos);
+            }
+            return super.format(new Bytes(value), toAppendTo, pos);
+        }
+
+        @Override
+        public Object parseObject(String source, ParsePosition pos)
+        {
+            return super.parseObject(source, pos);
         }
     }
 

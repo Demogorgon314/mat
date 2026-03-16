@@ -39,6 +39,7 @@ public final class CliHelp
         help.append("Use 'mat-cli <command> --help' for command-specific help.\n\n"); //$NON-NLS-1$
         help.append("Global options:\n"); //$NON-NLS-1$
         help.append("  --format text|json   Output format (default: text)\n"); //$NON-NLS-1$
+        help.append("  --bytes-display MODE Byte display mode for text output: bytes|kilobytes|megabytes|gigabytes|smart (default: smart)\n"); //$NON-NLS-1$
         help.append("  --limit N            Maximum rows or children per level (default: 20, max: 10000)\n"); //$NON-NLS-1$
         help.append("  --depth N            Maximum tree or section depth (default: 8, inspect-object: 3)\n"); //$NON-NLS-1$
         help.append("  --verbose            Print detailed diagnostics on failure\n"); //$NON-NLS-1$

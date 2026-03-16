@@ -18,6 +18,8 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
+import org.eclipse.mat.query.BytesDisplay;
+
 public final class CliArgumentParser
 {
     static final int DEFAULT_LIMIT = 20;
@@ -28,7 +30,7 @@ public final class CliArgumentParser
     public CliArguments parse(String[] args) throws CliException
     {
         if (args == null || args.length == 0)
-            return new CliArguments(null, null, null, null, CliArguments.OutputFormat.TEXT, false, true,
+            return new CliArguments(null, null, null, null, BytesDisplay.Smart, CliArguments.OutputFormat.TEXT, false, true,
                             false, DEFAULT_LIMIT, DEFAULT_TREE_DEPTH, null, null, null, null, null, null, false, null,
                             null);
 
@@ -36,6 +38,7 @@ public final class CliArgumentParser
         CliCommand subjectCommand = null;
         String subjectName = null;
         File heapFile = null;
+        BytesDisplay bytesDisplay = BytesDisplay.Smart;
         CliArguments.OutputFormat format = CliArguments.OutputFormat.TEXT;
         boolean verbose = false;
         boolean help = false;
@@ -84,6 +87,14 @@ public final class CliArgumentParser
             else if ("--format".equals(arg)) //$NON-NLS-1$
             {
                 format = CliArguments.OutputFormat.parse(nextArg(args, ++ii, "--format")); //$NON-NLS-1$
+            }
+            else if (arg.startsWith("--bytes-display=")) //$NON-NLS-1$
+            {
+                bytesDisplay = parseBytesDisplay(arg.substring("--bytes-display=".length())); //$NON-NLS-1$
+            }
+            else if ("--bytes-display".equals(arg)) //$NON-NLS-1$
+            {
+                bytesDisplay = parseBytesDisplay(nextArg(args, ++ii, "--bytes-display")); //$NON-NLS-1$
             }
             else if (arg.startsWith("--limit=")) //$NON-NLS-1$
             {
@@ -236,7 +247,7 @@ public final class CliArgumentParser
         {
             if (help)
             {
-                return new CliArguments(null, null, null, null, format, verbose, true, showNulls, limit,
+                return new CliArguments(null, null, null, null, bytesDisplay, format, verbose, true, showNulls, limit,
                                 treeDepthLimit, objectAddress, className, classRegex, classContains, selectFields,
                                 fieldPaths, includeSubclasses, oqlQuery, queryCommand);
             }
@@ -256,7 +267,7 @@ public final class CliArgumentParser
         if (!limitExplicit)
             limit = defaultLimit(command, queryCommand);
 
-        CliArguments parsed = new CliArguments(command, subjectCommand, subjectName, heapFile, format, verbose, help,
+        CliArguments parsed = new CliArguments(command, subjectCommand, subjectName, heapFile, bytesDisplay, format, verbose, help,
                         showNulls,
                         limit, treeDepthLimit, objectAddress, className, classRegex, classContains, selectFields,
                         fieldPaths, includeSubclasses, oqlQuery, queryCommand);
@@ -493,6 +504,7 @@ public final class CliArgumentParser
         CliCommand subjectCommand = null;
         String subjectName = null;
         File heapFile = null;
+        BytesDisplay bytesDisplay = BytesDisplay.Smart;
         boolean help = args == null || args.length == 0;
         String objectAddress = null;
         String className = null;
@@ -542,7 +554,13 @@ public final class CliArgumentParser
                             oqlQuery = value;
                         else if ("--command".equals(arg)) //$NON-NLS-1$
                             queryCommand = value;
+                        else if ("--bytes-display".equals(arg)) //$NON-NLS-1$
+                            bytesDisplay = safePartialBytesDisplay(value, bytesDisplay);
                     }
+                }
+                else if (arg.startsWith("--bytes-display=")) //$NON-NLS-1$
+                {
+                    bytesDisplay = safePartialBytesDisplay(arg.substring("--bytes-display=".length()), bytesDisplay); //$NON-NLS-1$
                 }
                 else if (arg.startsWith("--object=")) //$NON-NLS-1$
                 {
@@ -630,7 +648,7 @@ public final class CliArgumentParser
         if (!treeDepthExplicit)
             treeDepthLimit = defaultTreeDepth(command);
 
-        return new CliArguments(command, subjectCommand, subjectName, heapFile, format, false, help, showNulls,
+        return new CliArguments(command, subjectCommand, subjectName, heapFile, bytesDisplay, format, false, help, showNulls,
                         defaultLimit(command, queryCommand), treeDepthLimit, objectAddress, className, classRegex,
                         classContains, selectFields, fieldPaths, includeSubclasses, oqlQuery, queryCommand);
     }
@@ -662,7 +680,7 @@ public final class CliArgumentParser
 
     private boolean expectsValue(String option)
     {
-        return "--format".equals(option) || "--limit".equals(option) || "--depth".equals(option) //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+        return "--format".equals(option) || "--bytes-display".equals(option) || "--limit".equals(option) || "--depth".equals(option) //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         || "--object".equals(option) || "--class".equals(option) //$NON-NLS-1$ //$NON-NLS-2$
                         || "--class-regex".equals(option) //$NON-NLS-1$
                         || "--class-contains".equals(option) //$NON-NLS-1$
@@ -701,6 +719,27 @@ public final class CliArgumentParser
         try
         {
             return parseDepth(value);
+        }
+        catch (CliException e)
+        {
+            return fallback;
+        }
+    }
+
+    private BytesDisplay parseBytesDisplay(String value) throws CliException
+    {
+        BytesDisplay bytesDisplay = BytesDisplay.parse(value);
+        if (!bytesDisplay.toString().equalsIgnoreCase(value))
+            throw CliException.usage("Invalid --bytes-display: " + value //$NON-NLS-1$
+                            + " (expected one of bytes, kilobytes, megabytes, gigabytes, smart)"); //$NON-NLS-1$
+        return bytesDisplay;
+    }
+
+    private BytesDisplay safePartialBytesDisplay(String value, BytesDisplay fallback)
+    {
+        try
+        {
+            return parseBytesDisplay(value);
         }
         catch (CliException e)
         {

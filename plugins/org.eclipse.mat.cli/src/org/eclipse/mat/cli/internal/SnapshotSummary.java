@@ -12,8 +12,9 @@ package org.eclipse.mat.cli.internal;
 import java.io.Serializable;
 import java.time.Instant;
 
+import org.eclipse.mat.query.BytesDisplay;
+import org.eclipse.mat.query.BytesFormat;
 import org.eclipse.mat.snapshot.SnapshotInfo;
-import org.eclipse.mat.util.Units;
 
 public final class SnapshotSummary
 {
@@ -56,6 +57,11 @@ public final class SnapshotSummary
 
     public String asText()
     {
+        return asText(BytesDisplay.Smart);
+    }
+
+    public String asText(BytesDisplay bytesDisplay)
+    {
         StringBuilder builder = new StringBuilder();
         builder.append("Path: ").append(path).append('\n'); //$NON-NLS-1$
         builder.append("Format: ").append(valueOrUnknown(heapFormat)).append('\n'); //$NON-NLS-1$
@@ -64,8 +70,11 @@ public final class SnapshotSummary
         builder.append("Class Loaders: ").append(numberOfClassLoaders).append('\n'); //$NON-NLS-1$
         builder.append("GC Roots: ").append(numberOfGCRoots).append('\n'); //$NON-NLS-1$
         builder.append("Identifier Size: ").append(identifierSize).append('\n'); //$NON-NLS-1$
-        builder.append("Used Heap: ").append(usedHeapSize).append(" bytes"); //$NON-NLS-1$ //$NON-NLS-2$
-        builder.append(" (").append(Units.Storage.of(usedHeapSize).format(usedHeapSize)).append(")\n"); //$NON-NLS-1$ //$NON-NLS-2$
+        BytesFormat bytesFormatter = new BytesFormat(bytesDisplay == null ? BytesDisplay.Smart : bytesDisplay);
+        builder.append("Used Heap: ").append(bytesFormatter.format(usedHeapSize)); //$NON-NLS-1$
+        if ((bytesDisplay == null ? BytesDisplay.Smart : bytesDisplay) != BytesDisplay.Bytes)
+            builder.append(" (").append(usedHeapSize).append(" bytes)"); //$NON-NLS-1$ //$NON-NLS-2$
+        builder.append('\n');
         if (jvmInfo != null)
             builder.append("JVM Info: ").append(jvmInfo).append('\n'); //$NON-NLS-1$
         if (creationDate != null)

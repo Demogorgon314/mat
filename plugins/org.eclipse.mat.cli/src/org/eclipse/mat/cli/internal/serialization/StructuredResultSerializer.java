@@ -16,6 +16,7 @@ import java.util.Map;
 
 import org.eclipse.mat.cli.internal.DisplayValue;
 import org.eclipse.mat.query.Bytes;
+import org.eclipse.mat.query.BytesFormat;
 import org.eclipse.mat.query.Column;
 import org.eclipse.mat.query.IContextObject;
 import org.eclipse.mat.query.IContextObjectSet;
@@ -160,12 +161,28 @@ abstract class StructuredResultSerializer
         return displayValue(column, row, value, true);
     }
 
+    protected String displayValue(Column column, Object row, Object value, SerializationOptions options)
+    {
+        return displayValue(column, row, value, true, options);
+    }
+
     protected String pathDisplayValue(Column column, Object row, Object value)
     {
         return displayValue(column, row, value, false);
     }
 
+    protected String pathDisplayValue(Column column, Object row, Object value, SerializationOptions options)
+    {
+        return displayValue(column, row, value, false, options);
+    }
+
     private String displayValue(Column column, Object row, Object value, boolean spacedDecorator)
+    {
+        return displayValue(column, row, value, spacedDecorator, null);
+    }
+
+    private String displayValue(Column column, Object row, Object value, boolean spacedDecorator,
+                    SerializationOptions options)
     {
         if (value == null)
             return null;
@@ -178,9 +195,17 @@ abstract class StructuredResultSerializer
         else
         {
             Format formatter = column.getFormatter();
-            if (formatter != null)
+            if (options != null && formatter instanceof BytesFormat)
+            {
+                rendered = formatBytesValue((BytesFormat) formatter, value, options);
+            }
+            else if (formatter != null)
             {
                 rendered = formatter.format(value);
+            }
+            else if (options != null && value instanceof Bytes)
+            {
+                rendered = options.getBytesFormatter().format(value);
             }
             else
             {
@@ -202,6 +227,13 @@ abstract class StructuredResultSerializer
         else if (suffix != null)
             return spacedDecorator ? rendered + " " + suffix : rendered + suffix; //$NON-NLS-1$
         return rendered;
+    }
+
+    private String formatBytesValue(BytesFormat formatter, Object value, SerializationOptions options)
+    {
+        BytesFormat configured = (BytesFormat) formatter.clone();
+        configured.setBytesDisplay(options.getBytesDisplay());
+        return configured.format(value);
     }
 
     protected void writeContext(JsonWriter writer, IStructuredResult result, Object row, SerializationOptions options)
