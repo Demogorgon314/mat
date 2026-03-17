@@ -20,11 +20,11 @@ import org.eclipse.mat.cli.internal.CliCommandCatalog;
 import org.eclipse.mat.cli.internal.CliExecution;
 import org.eclipse.mat.cli.internal.CliException;
 import org.eclipse.mat.cli.internal.CliExitCodes;
+import org.eclipse.mat.cli.internal.PackageTreeResult;
 import org.eclipse.mat.cli.internal.CommandMetadataResult;
 import org.eclipse.mat.cli.internal.QueryMetadataResult;
 import org.eclipse.mat.cli.internal.SnapshotSummary;
 import org.eclipse.mat.cli.internal.ThreadsResult;
-import org.eclipse.mat.cli.internal.TopConsumersResult;
 import org.eclipse.mat.query.IResult;
 import org.eclipse.mat.query.IResultPie;
 import org.eclipse.mat.query.IResultTable;
@@ -44,7 +44,7 @@ public class ResultSerializer
     private final SpecResultSerializer specSerializer = new SpecResultSerializer(tableSerializer, treeSerializer,
                     textSerializer, pieSerializer);
     private final ThreadsResultSerializer threadsSerializer = new ThreadsResultSerializer();
-    private final TopConsumersResultSerializer topConsumersSerializer = new TopConsumersResultSerializer();
+    private final PackageTreeResultSerializer packageTreeSerializer = new PackageTreeResultSerializer();
     private final CommandMetadataSerializer metadataSerializer = new CommandMetadataSerializer();
     private final QueryMetadataSerializer queryMetadataSerializer = new QueryMetadataSerializer();
 
@@ -114,13 +114,13 @@ public class ResultSerializer
         {
             out.print(queryMetadataSerializer.toText((QueryMetadataResult) result));
         }
-        else if (result instanceof TopConsumersResult)
-        {
-            out.print(topConsumersSerializer.toText((TopConsumersResult) result, options));
-        }
         else if (result instanceof ThreadsResult)
         {
             out.print(threadsSerializer.toText((ThreadsResult) result, options));
+        }
+        else if (result instanceof PackageTreeResult)
+        {
+            out.print(packageTreeSerializer.toText((PackageTreeResult) result, options));
         }
         else if (result instanceof IResultTable)
         {
@@ -183,15 +183,15 @@ public class ResultSerializer
                 writer.name("resultKind").value(queryMetadataSerializer.resultKind((QueryMetadataResult) result)); //$NON-NLS-1$
                 truncated = queryMetadataSerializer.writeJson(writer, (QueryMetadataResult) result);
             }
-            else if (result instanceof TopConsumersResult)
-            {
-                writer.name("resultKind").value("top-consumers"); //$NON-NLS-1$ //$NON-NLS-2$
-                truncated = topConsumersSerializer.writeAgentJson(writer, (TopConsumersResult) result, options);
-            }
             else if (result instanceof ThreadsResult)
             {
                 writer.name("resultKind").value("threads"); //$NON-NLS-1$ //$NON-NLS-2$
                 truncated = threadsSerializer.writeJson(writer, (ThreadsResult) result);
+            }
+            else if (result instanceof PackageTreeResult)
+            {
+                writer.name("resultKind").value("tree"); //$NON-NLS-1$ //$NON-NLS-2$
+                truncated = packageTreeSerializer.writeJson(writer, (PackageTreeResult) result, options);
             }
             else if (result instanceof IResultTable)
             {
@@ -323,12 +323,8 @@ public class ResultSerializer
             return ((IResultPie) result).getSlices().isEmpty();
         if (result instanceof ThreadsResult)
             return ((ThreadsResult) result).getThreads().isEmpty();
-        if (result instanceof TopConsumersResult)
-        {
-            TopConsumersResult topConsumers = (TopConsumersResult) result;
-            return topConsumers.getBiggestObjects().isEmpty() && topConsumers.getClasses().isEmpty()
-                            && topConsumers.getClassLoaders().isEmpty() && topConsumers.getPackages() == null;
-        }
+        if (result instanceof PackageTreeResult)
+            return ((PackageTreeResult) result).getRoot() == null;
         if (result instanceof CompositeResult)
             return ((CompositeResult) result).getResultEntries().isEmpty();
         return false;
@@ -371,11 +367,11 @@ public class ResultSerializer
         {
             return renderSuggestions(arguments,
                             Arrays.asList("oql <heap> --query \"SELECT * FROM OBJECTS 0x...\"", //$NON-NLS-1$
-                                            "histogram <heap>", "top-consumers <heap>"), //$NON-NLS-1$ //$NON-NLS-2$
+                                            "objects <heap>", "biggest-objects <heap>"), //$NON-NLS-1$ //$NON-NLS-2$
                             arguments.getObjectAddress());
         }
         if ("invalid_argument".equals(kind) && arguments.getCommand() == CliCommand.INSTANCES) //$NON-NLS-1$
-            return renderSuggestions(arguments, Arrays.asList("histogram <heap>", "oql <heap> --query \"SELECT * FROM java.lang.String s\""), null); //$NON-NLS-1$ //$NON-NLS-2$
+            return renderSuggestions(arguments, Arrays.asList("objects <heap>", "oql <heap> --query \"SELECT * FROM java.lang.String s\""), null); //$NON-NLS-1$ //$NON-NLS-2$
 
         return suggestedNextCommands(arguments, (CliExecution) null);
     }
@@ -470,7 +466,7 @@ public class ResultSerializer
                             + (arguments.getObjectAddress() == null ? "0x..." : arguments.getObjectAddress()) //$NON-NLS-1$
                             + "\" --format json` to verify the address before retrying path2gc."; //$NON-NLS-1$
         if ("invalid_argument".equals(kind) && arguments != null && arguments.getCommand() == CliCommand.INSTANCES) //$NON-NLS-1$
-            return "Verify the fully qualified class name, class regex, or contains text, or use `mat-cli histogram <heap> --format json` to discover matching classes first."; //$NON-NLS-1$
+            return "Verify the fully qualified class name, class regex, or contains text, or use `mat-cli objects <heap> --format json` to discover matching classes first."; //$NON-NLS-1$
         if ("snapshot_lifecycle".equals(kind)) //$NON-NLS-1$
             return "The snapshot or its index files were closed before result materialization finished; rerun with a fixed CLI build or use --verbose for diagnostics."; //$NON-NLS-1$
         if ("query_syntax".equals(kind) && arguments != null

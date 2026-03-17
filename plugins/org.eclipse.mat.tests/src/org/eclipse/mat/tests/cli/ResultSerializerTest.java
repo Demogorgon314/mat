@@ -29,11 +29,12 @@ import org.eclipse.mat.cli.internal.CliExitCodes;
 import org.eclipse.mat.cli.internal.CliException;
 import org.eclipse.mat.cli.internal.CliExecution;
 import org.eclipse.mat.cli.internal.DisplayValue;
+import org.eclipse.mat.cli.internal.PackageTreeResult;
 import org.eclipse.mat.cli.internal.QueryMetadataResult;
 import org.eclipse.mat.cli.internal.SnapshotSummary;
 import org.eclipse.mat.cli.internal.ThreadsResult;
-import org.eclipse.mat.cli.internal.TopConsumersResult;
 import org.eclipse.mat.cli.internal.serialization.JsonWriter;
+import org.eclipse.mat.cli.internal.serialization.PackageTreeResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.PieResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.QueryMetadataSerializer;
 import org.eclipse.mat.cli.internal.serialization.ResultSerializer;
@@ -42,7 +43,6 @@ import org.eclipse.mat.cli.internal.serialization.SpecResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.TableResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.TextResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.ThreadsResultSerializer;
-import org.eclipse.mat.cli.internal.serialization.TopConsumersResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.TreeResultSerializer;
 import org.eclipse.mat.cli.internal.serialization.TreeTextStyleProvider;
 import org.eclipse.mat.cli.internal.serialization.TreeTextStyleProvider.TreeTextStyle;
@@ -237,7 +237,7 @@ public class ResultSerializerTest
 
         String text = serializer.toText(new ByteSizedTable(), new SerializationOptions(10, 8));
 
-        assertTrue(text.contains("2.00KB")); //$NON-NLS-1$
+        assertTrue(text.contains("2.00 KB")); //$NON-NLS-1$
         assertFalse(text.contains("2048")); //$NON-NLS-1$
     }
 
@@ -249,8 +249,8 @@ public class ResultSerializerTest
         String text = serializer.toText(new ApproximateBytesTable(),
                         new SerializationOptions(10, 8, BytesDisplay.Bytes));
 
-        assertTrue(text.contains(">= 7B")); //$NON-NLS-1$
-        assertFalse(text.contains(">= 7")); //$NON-NLS-1$
+        assertTrue(text.contains(">= 7")); //$NON-NLS-1$
+        assertFalse(text.contains(">=7")); //$NON-NLS-1$
     }
 
     @Test
@@ -261,8 +261,8 @@ public class ResultSerializerTest
         String text = serializer.toText(new DirectionalBytesTable(),
                         new SerializationOptions(10, 8, BytesDisplay.Smart));
 
-        assertTrue(text.contains("<= 2.00KB")); //$NON-NLS-1$
-        assertFalse(text.contains(">= 2.00KB")); //$NON-NLS-1$
+        assertTrue(text.contains("<= 2.00 KB")); //$NON-NLS-1$
+        assertFalse(text.contains(">= 2.00 KB")); //$NON-NLS-1$
     }
 
     @Test
@@ -612,71 +612,48 @@ public class ResultSerializerTest
     }
 
     @Test
-    public void serializesTopConsumersSectionToCompactJson() throws Exception
+    public void serializesPackageTreeToCompactJson() throws Exception
     {
-        TopConsumersResultSerializer serializer = new TopConsumersResultSerializer();
+        PackageTreeResultSerializer serializer = new PackageTreeResultSerializer();
         JsonWriter writer = new JsonWriter();
         writer.beginObject();
-        boolean truncated = serializer.writeJson(writer, sampleTopConsumersResult(), new SerializationOptions(2, 8, 20));
+        boolean truncated = serializer.writeJson(writer, samplePackageTreeResult(), new SerializationOptions(2, 8, 20));
         writer.name("truncated").value(truncated); //$NON-NLS-1$
         writer.endObject();
 
         String json = writer.toString();
-        assertTrue(truncated);
-        assertTrue(json.contains("\"totalRetainedHeap\":1000")); //$NON-NLS-1$
-        assertTrue(json.contains("\"biggestObjects\":[{")); //$NON-NLS-1$
-        assertTrue(json.contains("\"label\":\"Largest\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"retainedBytes\":500")); //$NON-NLS-1$
-        assertTrue(json.contains("\"classes\":[{")); //$NON-NLS-1$
-        assertTrue(json.contains("\"classLoaders\":[{")); //$NON-NLS-1$
-        assertTrue(json.contains("\"packages\":{\"name\":\"<all>\"")); //$NON-NLS-1$
+        assertFalse(truncated);
+        assertTrue(json.contains("\"root\":{\"name\":\"<all>\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"retainedPercent\":1.0")); //$NON-NLS-1$
+        assertTrue(json.contains("\"retainedBytes\":1000")); //$NON-NLS-1$
+        assertTrue(json.contains("\"topDominators\":4")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_children\":[{")); //$NON-NLS-1$
     }
 
     @Test
-    public void serializesTopConsumersSectionToAgentJson() throws Exception
+    public void truncatesPackageTreeByDepth() throws Exception
     {
-        TopConsumersResultSerializer serializer = new TopConsumersResultSerializer();
+        PackageTreeResultSerializer serializer = new PackageTreeResultSerializer();
         JsonWriter writer = new JsonWriter();
         writer.beginObject();
-        boolean truncated = serializer.writeAgentJson(writer, sampleTopConsumersResult(), new SerializationOptions(2, 8, 20));
+        boolean truncated = serializer.writeJson(writer, samplePackageTreeResult(), new SerializationOptions(2, 1, 20));
         writer.name("truncated").value(truncated); //$NON-NLS-1$
         writer.endObject();
 
         String json = writer.toString();
         assertTrue(truncated);
-        assertTrue(json.contains("\"biggestObjects\":[{\"label\":\"Largest\",\"retainedBytes\":500,\"retainedPercent\":0.5}")); //$NON-NLS-1$
-        assertTrue(json.contains("\"classes\":[{\"label\":\"Alpha\",\"count\":4,\"retainedBytes\":600,\"retainedPercent\":0.6}")); //$NON-NLS-1$
-        assertTrue(json.contains("\"packages\":{\"name\":\"<all>\",\"retainedBytes\":1000,\"retainedPercent\":1.0,\"topDominators\":4")); //$NON-NLS-1$
-        assertFalse(json.contains("retainedBytesText")); //$NON-NLS-1$
-        assertFalse(json.contains("retainedPercentText")); //$NON-NLS-1$
-        assertFalse(json.contains("\"objectId\":")); //$NON-NLS-1$
-        assertFalse(json.contains("\"_context\":")); //$NON-NLS-1$
-    }
-
-    @Test
-    public void truncatesTopConsumersPackagesByDepth() throws Exception
-    {
-        TopConsumersResultSerializer serializer = new TopConsumersResultSerializer();
-        JsonWriter writer = new JsonWriter();
-        writer.beginObject();
-        boolean truncated = serializer.writeAgentJson(writer, sampleTopConsumersResult(), new SerializationOptions(2, 1, 20));
-        writer.name("truncated").value(truncated); //$NON-NLS-1$
-        writer.endObject();
-
-        String json = writer.toString();
-        assertTrue(truncated);
-        assertTrue(json.contains("\"packages\":{\"name\":\"<all>\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"root\":{\"name\":\"<all>\"")); //$NON-NLS-1$
         assertFalse(json.contains("\"_children\":[]")); //$NON-NLS-1$
         assertTrue(json.contains("\"_childrenTruncated\":true")); //$NON-NLS-1$
     }
 
     @Test
-    public void serializesTopConsumersJsonWithoutNullPackageNodes() throws Exception
+    public void serializesPackageTreeJsonWithoutNullNodes() throws Exception
     {
-        TopConsumersResultSerializer serializer = new TopConsumersResultSerializer();
+        PackageTreeResultSerializer serializer = new PackageTreeResultSerializer();
         JsonWriter writer = new JsonWriter();
         writer.beginObject();
-        boolean truncated = serializer.writeJson(writer, sampleTopConsumersResult(), new SerializationOptions(2, 8, 2));
+        boolean truncated = serializer.writeJson(writer, samplePackageTreeResult(), new SerializationOptions(2, 8, 2));
         writer.name("truncated").value(truncated); //$NON-NLS-1$
         writer.endObject();
 
@@ -687,22 +664,16 @@ public class ResultSerializerTest
     }
 
     @Test
-    public void serializesTopConsumersToText() throws Exception
+    public void serializesPackageTreeToText() throws Exception
     {
-        TopConsumersResultSerializer serializer = new TopConsumersResultSerializer();
+        PackageTreeResultSerializer serializer = new PackageTreeResultSerializer();
 
-        String text = serializer.toText(sampleTopConsumersResult(), new SerializationOptions(2, 8, 20));
+        String text = serializer.toText(samplePackageTreeResult(), new SerializationOptions(1, 8, 20));
 
-        assertTrue(text.contains("Biggest Objects:")); //$NON-NLS-1$
-        assertTrue(text.contains("50.00%  500B  Largest")); //$NON-NLS-1$
-        assertFalse(text.contains("Third")); //$NON-NLS-1$
-        assertTrue(text.contains("Biggest Top-Level Dominator Classes:")); //$NON-NLS-1$
-        assertTrue(text.contains("60.00%  600B  4  Alpha")); //$NON-NLS-1$
-        assertFalse(text.contains("Gamma")); //$NON-NLS-1$
-        assertTrue(text.contains("Biggest Top-Level Dominator Packages:")); //$NON-NLS-1$
-        assertTrue(text.contains("<all>  (100.00%)  1,000B  4")); //$NON-NLS-1$
-        assertFalse(text.contains("more rows")); //$NON-NLS-1$
-        assertFalse(text.contains("more nodes")); //$NON-NLS-1$
+        assertTrue(text.contains("package,  retained%,  retained bytes, #top-dominators")); //$NON-NLS-1$
+        assertTrue(text.contains("<all>  (100.00%)  1,000 B  4")); //$NON-NLS-1$
+        assertTrue(text.contains("'- org  (70.00%)  700 B  3")); //$NON-NLS-1$
+        assertFalse(text.contains("com  (20.00%)")); //$NON-NLS-1$
     }
 
     @Test
@@ -712,8 +683,8 @@ public class ResultSerializerTest
 
         String text = serializer.toText(sampleThreadsResult(), new SerializationOptions(10, 8, BytesDisplay.Smart));
 
-        assertTrue(text.contains("1.00KB")); //$NON-NLS-1$
-        assertTrue(text.contains("2.00KB")); //$NON-NLS-1$
+        assertTrue(text.contains("1.00 KB")); //$NON-NLS-1$
+        assertTrue(text.contains("2.00 KB")); //$NON-NLS-1$
     }
 
     @Test
@@ -726,7 +697,7 @@ public class ResultSerializerTest
 
         String text = summary.asText(BytesDisplay.Smart);
 
-        assertTrue(text.contains("Used Heap: 2.00KB (2048 bytes)")); //$NON-NLS-1$
+        assertTrue(text.contains("Used Heap: 2.00 KB (2048 bytes)")); //$NON-NLS-1$
     }
 
     @Test
@@ -908,24 +879,15 @@ public class ResultSerializerTest
         return section;
     }
 
-    private TopConsumersResult sampleTopConsumersResult()
+    private PackageTreeResult samplePackageTreeResult()
     {
-        List<TopConsumersResult.ObjectRow> biggestObjects = Arrays.asList(
-                        new TopConsumersResult.ObjectRow(91, "Largest", 500, 0.5d), //$NON-NLS-1$
-                        new TopConsumersResult.ObjectRow(92, "Second", 300, 0.3d), //$NON-NLS-1$
-                        new TopConsumersResult.ObjectRow(93, "Third", 150, 0.15d)); //$NON-NLS-1$
-        List<TopConsumersResult.DominatorRow> classes = Arrays.asList(
-                        new TopConsumersResult.DominatorRow(41, "Alpha", 4, 600, 0.6d), //$NON-NLS-1$
-                        new TopConsumersResult.DominatorRow(42, "Beta", 2, 250, 0.25d), //$NON-NLS-1$
-                        new TopConsumersResult.DominatorRow(43, "Gamma", 1, 120, 0.12d)); //$NON-NLS-1$
-        List<TopConsumersResult.DominatorRow> classLoaders = Arrays.asList(
-                        new TopConsumersResult.DominatorRow(2, "Loader A", 6, 700, 0.7d), //$NON-NLS-1$
-                        new TopConsumersResult.DominatorRow(0, "<system class loader>", 3, 200, 0.2d)); //$NON-NLS-1$
-        TopConsumersResult.PackageNode root = new TopConsumersResult.PackageNode("<all>", 1000, 1.0d, 4, Arrays.asList( //$NON-NLS-1$
-                        new TopConsumersResult.PackageNode("org", 700, 0.7d, 3, Arrays.asList( //$NON-NLS-1$
-                                        new TopConsumersResult.PackageNode("example", 650, 0.65d, 2, Collections.<TopConsumersResult.PackageNode>emptyList()))), //$NON-NLS-1$
-                        new TopConsumersResult.PackageNode("com", 200, 0.2d, 1, Collections.<TopConsumersResult.PackageNode>emptyList()))); //$NON-NLS-1$
-        return new TopConsumersResult(1000, biggestObjects, classes, classLoaders, root);
+        PackageTreeResult.Node root = new PackageTreeResult.Node("<all>", 1000, 1.0d, 4, Arrays.asList( //$NON-NLS-1$
+                        new PackageTreeResult.Node("org", 700, 0.7d, 3, Arrays.asList( //$NON-NLS-1$
+                                        new PackageTreeResult.Node("example", 650, 0.65d, 2,
+                                                        Collections.<PackageTreeResult.Node>emptyList()))), //$NON-NLS-1$
+                        new PackageTreeResult.Node("com", 200, 0.2d, 1,
+                                        Collections.<PackageTreeResult.Node>emptyList()))); //$NON-NLS-1$
+        return new PackageTreeResult(root);
     }
 
     private ThreadsResult sampleThreadsResult()

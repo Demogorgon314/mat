@@ -195,7 +195,11 @@ abstract class StructuredResultSerializer
         else
         {
             Format formatter = column.getFormatter();
-            if (options != null && formatter instanceof BytesFormat)
+            if (isApproximateBytes(value) && options != null)
+            {
+                rendered = formatApproximateBytes(formatter, value, options);
+            }
+            else if (options != null && formatter instanceof BytesFormat)
             {
                 rendered = formatBytesValue((BytesFormat) formatter, value, options);
             }
@@ -234,6 +238,15 @@ abstract class StructuredResultSerializer
         BytesFormat configured = (BytesFormat) formatter.clone();
         configured.setBytesDisplay(options.getBytesDisplay());
         return configured.format(value);
+    }
+
+    private String formatApproximateBytes(Format formatter, Object value, SerializationOptions options)
+    {
+        if (formatter instanceof BytesFormat && formatter.getClass() != BytesFormat.class)
+            return formatBytesValue((BytesFormat) formatter, value, options);
+
+        long rawBytes = ((Bytes) value).getValue();
+        return ">= " + options.getBytesFormatter().format(new Bytes(-rawBytes)); //$NON-NLS-1$
     }
 
     protected void writeContext(JsonWriter writer, IStructuredResult result, Object row, SerializationOptions options)

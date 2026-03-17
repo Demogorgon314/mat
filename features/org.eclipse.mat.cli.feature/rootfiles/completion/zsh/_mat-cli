@@ -2,7 +2,7 @@
 # zsh completion for mat-cli
 _mat_cli_is_command() {
     case "$1" in
-        summary|threads|histogram|instances|inspect-object|top-consumers|path2gc|oql|query|describe|schema|list-queries|describe-query|completion)
+        summary|threads|objects|instances|inspect-object|biggest-objects|path2gc|oql|query|describe|schema|list-queries|describe-query|completion)
             return 0
             ;;
     esac
@@ -29,19 +29,37 @@ _mat_cli_option_kind_global() {
 
 _mat_cli_option_kind_for_command() {
     case "$1:$2" in
+        summary:--bytes-display)
+            printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
+            ;;
         summary:--format)
             printf '%s\n' 'enum:text json'
             ;;
         threads:--limit)
             printf '%s\n' 'free-text'
             ;;
+        threads:--bytes-display)
+            printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
+            ;;
         threads:--format)
             printf '%s\n' 'enum:text json'
             ;;
-        histogram:--limit)
+        objects:--by)
+            printf '%s\n' 'enum:class package class-loader'
+            ;;
+        objects:--package)
             printf '%s\n' 'free-text'
             ;;
-        histogram:--format)
+        objects:--class-loader)
+            printf '%s\n' 'free-text'
+            ;;
+        objects:--limit)
+            printf '%s\n' 'free-text'
+            ;;
+        objects:--bytes-display)
+            printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
+            ;;
+        objects:--format)
             printf '%s\n' 'enum:text json'
             ;;
         instances:--class)
@@ -58,6 +76,9 @@ _mat_cli_option_kind_for_command() {
             ;;
         instances:--limit)
             printf '%s\n' 'free-text'
+            ;;
+        instances:--bytes-display)
+            printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
             ;;
         instances:--format)
             printf '%s\n' 'enum:text json'
@@ -80,16 +101,22 @@ _mat_cli_option_kind_for_command() {
         inspect-object:--depth)
             printf '%s\n' 'free-text'
             ;;
+        inspect-object:--bytes-display)
+            printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
+            ;;
         inspect-object:--format)
             printf '%s\n' 'enum:text json'
             ;;
-        top-consumers:--limit)
+        biggest-objects:--limit)
             printf '%s\n' 'free-text'
             ;;
-        top-consumers:--depth)
+        biggest-objects:--depth)
             printf '%s\n' 'free-text'
             ;;
-        top-consumers:--format)
+        biggest-objects:--bytes-display)
+            printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
+            ;;
+        biggest-objects:--format)
             printf '%s\n' 'enum:text json'
             ;;
         path2gc:--object)
@@ -100,6 +127,9 @@ _mat_cli_option_kind_for_command() {
             ;;
         path2gc:--depth)
             printf '%s\n' 'free-text'
+            ;;
+        path2gc:--bytes-display)
+            printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
             ;;
         path2gc:--format)
             printf '%s\n' 'enum:text json'
@@ -119,6 +149,9 @@ _mat_cli_option_kind_for_command() {
         oql:--depth)
             printf '%s\n' 'free-text'
             ;;
+        oql:--bytes-display)
+            printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
+            ;;
         oql:--format)
             printf '%s\n' 'enum:text json'
             ;;
@@ -136,6 +169,9 @@ _mat_cli_option_kind_for_command() {
             ;;
         query:--depth)
             printf '%s\n' 'free-text'
+            ;;
+        query:--bytes-display)
+            printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
             ;;
         query:--format)
             printf '%s\n' 'enum:text json'
@@ -171,31 +207,31 @@ _mat_cli_option_kind() {
 _mat_cli_options_for_command() {
     case "$1" in
         summary)
-            print -r -- "--format --help --verbose"
+            print -r -- "--bytes-display --format --help --verbose"
             ;;
         threads)
-            print -r -- "--limit --format --help --verbose"
+            print -r -- "--limit --bytes-display --format --help --verbose"
             ;;
-        histogram)
-            print -r -- "--limit --format --help --verbose"
+        objects)
+            print -r -- "--by --package --class-loader --limit --bytes-display --format --help --verbose"
             ;;
         instances)
-            print -r -- "--class --class-regex --class-contains --include-subclasses --limit --format --help --verbose"
+            print -r -- "--class --class-regex --class-contains --include-subclasses --limit --bytes-display --format --help --verbose"
             ;;
         inspect-object)
-            print -r -- "--object --select-fields --field-paths --show-nulls --limit --depth --format --help --verbose"
+            print -r -- "--object --select-fields --field-paths --show-nulls --limit --depth --bytes-display --format --help --verbose"
             ;;
-        top-consumers)
-            print -r -- "--limit --depth --format --help --verbose"
+        biggest-objects)
+            print -r -- "--limit --depth --bytes-display --format --help --verbose"
             ;;
         path2gc)
-            print -r -- "--object --limit --depth --format --help --verbose"
+            print -r -- "--object --limit --depth --bytes-display --format --help --verbose"
             ;;
         oql)
-            print -r -- "--query --query-file --query-stdin --limit --depth --format --help --verbose"
+            print -r -- "--query --query-file --query-stdin --limit --depth --bytes-display --format --help --verbose"
             ;;
         query)
-            print -r -- "--command --command-file --command-stdin --limit --depth --format --help --verbose"
+            print -r -- "--command --command-file --command-stdin --limit --depth --bytes-display --format --help --verbose"
             ;;
         describe)
             print -r -- "--format --help --verbose"
@@ -223,7 +259,7 @@ _mat_cli_positional_kind() {
         threads:0)
             print -r -- 'file'
             ;;
-        histogram:0)
+        objects:0)
             print -r -- 'file'
             ;;
         instances:0)
@@ -232,7 +268,7 @@ _mat_cli_positional_kind() {
         inspect-object:0)
             print -r -- 'file'
             ;;
-        top-consumers:0)
+        biggest-objects:0)
             print -r -- 'file'
             ;;
         path2gc:0)
@@ -245,10 +281,10 @@ _mat_cli_positional_kind() {
             print -r -- 'file'
             ;;
         describe:0)
-            print -r -- 'enum:summary threads histogram instances inspect-object top-consumers path2gc oql query describe schema list-queries describe-query completion'
+            print -r -- 'enum:summary threads objects instances inspect-object biggest-objects path2gc oql query describe schema list-queries describe-query completion'
             ;;
         schema:0)
-            print -r -- 'enum:summary threads histogram instances inspect-object top-consumers path2gc oql query describe schema list-queries describe-query completion'
+            print -r -- 'enum:summary threads objects instances inspect-object biggest-objects path2gc oql query describe schema list-queries describe-query completion'
             ;;
         describe-query:0)
             print -r -- 'free-text'
@@ -341,7 +377,7 @@ _mat-cli() {
             _mat_cli_complete_kind "$kind" ""
             return 0
         fi
-        _mat_cli_complete_words "" "summary" "threads" "histogram" "instances" "inspect-object" "top-consumers" "path2gc" "oql" "query" "describe" "schema" "list-queries" "describe-query" "completion" "--help" "--verbose" "--format"
+        _mat_cli_complete_words "" "summary" "threads" "objects" "instances" "inspect-object" "biggest-objects" "path2gc" "oql" "query" "describe" "schema" "list-queries" "describe-query" "completion" "--help" "--verbose" "--format"
         return 0
     fi
 

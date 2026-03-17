@@ -31,8 +31,8 @@ public final class CliArgumentParser
     {
         if (args == null || args.length == 0)
             return new CliArguments(null, null, null, null, BytesDisplay.Smart, CliArguments.OutputFormat.TEXT, false, true,
-                            false, DEFAULT_LIMIT, DEFAULT_TREE_DEPTH, null, null, null, null, null, null, false, null,
-                            null);
+                            false, DEFAULT_LIMIT, DEFAULT_TREE_DEPTH, null, null, null, null,
+                            CliArguments.ObjectsGrouping.CLASS, null, null, null, null, false, null, null);
 
         CliCommand command = null;
         CliCommand subjectCommand = null;
@@ -51,6 +51,9 @@ public final class CliArgumentParser
         String className = null;
         String classRegex = null;
         String classContains = null;
+        CliArguments.ObjectsGrouping objectsGrouping = CliArguments.ObjectsGrouping.CLASS;
+        String packageName = null;
+        String classLoaderName = null;
         List<String> selectFields = new ArrayList<String>();
         List<String> fieldPaths = new ArrayList<String>();
         boolean includeSubclasses = false;
@@ -147,6 +150,30 @@ public final class CliArgumentParser
             else if ("--class-contains".equals(arg)) //$NON-NLS-1$
             {
                 classContains = nextArg(args, ++ii, "--class-contains"); //$NON-NLS-1$
+            }
+            else if (arg.startsWith("--by=")) //$NON-NLS-1$
+            {
+                objectsGrouping = CliArguments.ObjectsGrouping.parse(arg.substring("--by=".length())); //$NON-NLS-1$
+            }
+            else if ("--by".equals(arg)) //$NON-NLS-1$
+            {
+                objectsGrouping = CliArguments.ObjectsGrouping.parse(nextArg(args, ++ii, "--by")); //$NON-NLS-1$
+            }
+            else if (arg.startsWith("--package=")) //$NON-NLS-1$
+            {
+                packageName = arg.substring("--package=".length()); //$NON-NLS-1$
+            }
+            else if ("--package".equals(arg)) //$NON-NLS-1$
+            {
+                packageName = nextArg(args, ++ii, "--package"); //$NON-NLS-1$
+            }
+            else if (arg.startsWith("--class-loader=")) //$NON-NLS-1$
+            {
+                classLoaderName = arg.substring("--class-loader=".length()); //$NON-NLS-1$
+            }
+            else if ("--class-loader".equals(arg)) //$NON-NLS-1$
+            {
+                classLoaderName = nextArg(args, ++ii, "--class-loader"); //$NON-NLS-1$
             }
             else if (arg.startsWith("--select-fields=")) //$NON-NLS-1$
             {
@@ -248,8 +275,9 @@ public final class CliArgumentParser
             if (help)
             {
                 return new CliArguments(null, null, null, null, bytesDisplay, format, verbose, true, showNulls, limit,
-                                treeDepthLimit, objectAddress, className, classRegex, classContains, selectFields,
-                                fieldPaths, includeSubclasses, oqlQuery, queryCommand);
+                                treeDepthLimit, objectAddress, className, classRegex, classContains, objectsGrouping,
+                                packageName, classLoaderName, selectFields, fieldPaths, includeSubclasses, oqlQuery,
+                                queryCommand);
             }
             throw CliException.usage("Missing command"); //$NON-NLS-1$
         }
@@ -269,8 +297,9 @@ public final class CliArgumentParser
 
         CliArguments parsed = new CliArguments(command, subjectCommand, subjectName, heapFile, bytesDisplay, format, verbose, help,
                         showNulls,
-                        limit, treeDepthLimit, objectAddress, className, classRegex, classContains, selectFields,
-                        fieldPaths, includeSubclasses, oqlQuery, queryCommand);
+                        limit, treeDepthLimit, objectAddress, className, classRegex, classContains, objectsGrouping,
+                        packageName, classLoaderName, selectFields, fieldPaths, includeSubclasses, oqlQuery,
+                        queryCommand);
         validate(parsed);
         return parsed;
     }
@@ -353,6 +382,16 @@ public final class CliArgumentParser
                                     "instances accepts only one of --class, --class-regex or --class-contains"); //$NON-NLS-1$
                 if (hasClassRegex)
                     validateClassRegex(arguments.getClassRegex());
+                break;
+            case OBJECTS:
+                if (!isEmpty(arguments.getClassLoaderName())
+                                && arguments.getObjectsGrouping() == CliArguments.ObjectsGrouping.PACKAGE)
+                    throw CliException.usage("--class-loader is not supported with --by package"); //$NON-NLS-1$
+                if (!isEmpty(arguments.getPackageName())
+                                && arguments.getObjectsGrouping() == CliArguments.ObjectsGrouping.CLASS_LOADER)
+                    throw CliException.usage("--package is not supported with --by class-loader"); //$NON-NLS-1$
+                if (!isEmpty(arguments.getPackageName()) && !isValidPackageFilter(arguments.getPackageName()))
+                    throw CliException.usage("Invalid --package: " + arguments.getPackageName()); //$NON-NLS-1$
                 break;
             case OQL:
                 if (isEmpty(arguments.getOqlQuery()))
@@ -510,6 +549,9 @@ public final class CliArgumentParser
         String className = null;
         String classRegex = null;
         String classContains = null;
+        CliArguments.ObjectsGrouping objectsGrouping = CliArguments.ObjectsGrouping.CLASS;
+        String packageName = null;
+        String classLoaderName = null;
         List<String> selectFields = new ArrayList<String>();
         List<String> fieldPaths = new ArrayList<String>();
         boolean includeSubclasses = false;
@@ -541,6 +583,12 @@ public final class CliArgumentParser
                             classRegex = value;
                         else if ("--class-contains".equals(arg)) //$NON-NLS-1$
                             classContains = value;
+                        else if ("--by".equals(arg)) //$NON-NLS-1$
+                            objectsGrouping = safePartialObjectsGrouping(value, objectsGrouping);
+                        else if ("--package".equals(arg)) //$NON-NLS-1$
+                            packageName = value;
+                        else if ("--class-loader".equals(arg)) //$NON-NLS-1$
+                            classLoaderName = value;
                         else if ("--select-fields".equals(arg)) //$NON-NLS-1$
                             selectFields.add(value);
                         else if ("--field-paths".equals(arg)) //$NON-NLS-1$
@@ -577,6 +625,18 @@ public final class CliArgumentParser
                 else if (arg.startsWith("--class-contains=")) //$NON-NLS-1$
                 {
                     classContains = arg.substring("--class-contains=".length()); //$NON-NLS-1$
+                }
+                else if (arg.startsWith("--by=")) //$NON-NLS-1$
+                {
+                    objectsGrouping = safePartialObjectsGrouping(arg.substring("--by=".length()), objectsGrouping); //$NON-NLS-1$
+                }
+                else if (arg.startsWith("--package=")) //$NON-NLS-1$
+                {
+                    packageName = arg.substring("--package=".length()); //$NON-NLS-1$
+                }
+                else if (arg.startsWith("--class-loader=")) //$NON-NLS-1$
+                {
+                    classLoaderName = arg.substring("--class-loader=".length()); //$NON-NLS-1$
                 }
                 else if (arg.startsWith("--query=")) //$NON-NLS-1$
                 {
@@ -650,7 +710,8 @@ public final class CliArgumentParser
 
         return new CliArguments(command, subjectCommand, subjectName, heapFile, bytesDisplay, format, false, help, showNulls,
                         defaultLimit(command, queryCommand), treeDepthLimit, objectAddress, className, classRegex,
-                        classContains, selectFields, fieldPaths, includeSubclasses, oqlQuery, queryCommand);
+                        classContains, objectsGrouping, packageName, classLoaderName, selectFields, fieldPaths,
+                        includeSubclasses, oqlQuery, queryCommand);
     }
 
     private int defaultLimit(CliCommand command, String queryCommand)
@@ -684,6 +745,7 @@ public final class CliArgumentParser
                         || "--object".equals(option) || "--class".equals(option) //$NON-NLS-1$ //$NON-NLS-2$
                         || "--class-regex".equals(option) //$NON-NLS-1$
                         || "--class-contains".equals(option) //$NON-NLS-1$
+                        || "--by".equals(option) || "--package".equals(option) || "--class-loader".equals(option) //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         || "--select-fields".equals(option) || "--field-paths".equals(option) //$NON-NLS-1$ //$NON-NLS-2$
                         || "--query".equals(option) //$NON-NLS-1$
                         || "--query-file".equals(option) //$NON-NLS-1$
@@ -706,6 +768,8 @@ public final class CliArgumentParser
     {
         if (command == CliCommand.INSPECT_OBJECT)
             return DEFAULT_INSPECT_OBJECT_TREE_DEPTH;
+        if (command == CliCommand.BIGGEST_OBJECTS)
+            return 1;
         return DEFAULT_TREE_DEPTH;
     }
 
@@ -745,6 +809,24 @@ public final class CliArgumentParser
         {
             return fallback;
         }
+    }
+
+    private CliArguments.ObjectsGrouping safePartialObjectsGrouping(String value,
+                    CliArguments.ObjectsGrouping fallback)
+    {
+        try
+        {
+            return CliArguments.ObjectsGrouping.parse(value);
+        }
+        catch (CliException e)
+        {
+            return fallback;
+        }
+    }
+
+    private boolean isValidPackageFilter(String value)
+    {
+        return !isEmpty(value) && !value.startsWith(".") && !value.endsWith(".") && value.indexOf("..") < 0; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
     }
 
     private CliException removedOption(String option)

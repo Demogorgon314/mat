@@ -86,15 +86,16 @@ public class CliCommandExecutorTest
     }
 
     @Test
-    public void executesHistogramCommandAgainstHprofSnapshot() throws Exception
+    public void executesObjectsCommandAgainstHprofSnapshotAsJson() throws Exception
     {
         File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
-        String json = executeJson(new String[] { "histogram", heap.getAbsolutePath(), "--format", "json", "--limit", "5" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+        String json = executeJson(new String[] { "objects", heap.getAbsolutePath(), "--format", "json", "--limit", "5" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
 
         assertTrue(json.contains("\"schemaVersion\":\"mat-cli/v1\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"resultKind\":\"table\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"items\":[{")); //$NON-NLS-1$
-        assertTrue(json.contains("\"class_name\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"class\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"retained_size\":")); //$NON-NLS-1$
         assertFalse(json.contains("\"schema\":")); //$NON-NLS-1$
     }
 
@@ -358,29 +359,59 @@ public class CliCommandExecutorTest
     }
 
     @Test
-    public void executesTopConsumersCommandAgainstHprofSnapshotAsStructuredJson() throws Exception
+    public void executesObjectsClassLoaderCommandAgainstHprofSnapshotAsJson() throws Exception
     {
         File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
-        String json = executeJson(new String[] { "top-consumers", heap.getAbsolutePath(), "--format", "json",
-                        "--limit", "5" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+        String json = executeJson(new String[] { "objects", heap.getAbsolutePath(), "--by", "class-loader", "--format",
+                        "json", "--limit", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
 
         assertTrue(json.contains("\"schemaVersion\":\"mat-cli/v1\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"resultKind\":\"top-consumers\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"biggestObjects\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"resultKind\":\"table\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"class_loader\":")); //$NON-NLS-1$
         assertTrue(json.contains("\"classes\":")); //$NON-NLS-1$
-        assertTrue(json.contains("\"classLoaders\":")); //$NON-NLS-1$
-        assertTrue(json.contains("\"packages\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"classes_w_o_instances\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"objects\":0")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesObjectsClassLoaderGroupingWithFilterAsClassRowsAgainstHprofSnapshotAsJson() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String json = executeJson(new String[] { "objects", heap.getAbsolutePath(), "--by", "class-loader",
+                        "--class-loader", "<system class loader>", "--format", "json", "--limit",
+                        "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$
+
+        assertTrue(json.contains("\"schemaVersion\":\"mat-cli/v1\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"resultKind\":\"table\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"class\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"class_loader\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"classes_w_o_instances\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"objects\":0")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesObjectsClassCommandWithClassLoaderFilterAgainstHprofSnapshotAsJson() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String json = executeJson(new String[] { "objects", heap.getAbsolutePath(), "--class-loader",
+                        "<system class loader>", "--format", "json", "--limit", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertTrue(json.contains("\"schemaVersion\":\"mat-cli/v1\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"resultKind\":\"table\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"class\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"class_loader\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"objects\":0")); //$NON-NLS-1$
     }
 
     @Test
     public void executesDescribeCommandInJsonMode() throws Exception
     {
-        String json = executeJson(new String[] { "describe", "histogram", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+        String json = executeJson(new String[] { "describe", "objects", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
         assertTrue(json.contains("\"schemaVersion\":\"mat-cli/v1\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"resultKind\":\"describe\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"name\":\"histogram\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"usage\":\"mat-cli histogram <heap> [--limit N] [--format text|json]\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"objects\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"usage\":\"mat-cli objects <heap> [--by class|package|class-loader] [--package PKG] [--class-loader TEXT] [--limit N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]\"")); //$NON-NLS-1$
     }
 
     @Test
@@ -389,7 +420,7 @@ public class CliCommandExecutorTest
         String json = executeJson(new String[] { "describe", "inspect-object", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
         assertTrue(json.contains("\"name\":\"inspect-object\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"usage\":\"mat-cli inspect-object <heap> --object 0x... [--select-fields FIELD | --field-paths PATH] [--show-nulls] [--limit N] [--depth N] [--format text|json]\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"usage\":\"mat-cli inspect-object <heap> --object 0x... [--select-fields FIELD | --field-paths PATH] [--show-nulls] [--limit N] [--depth N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"--select-fields\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"--field-paths\"")); //$NON-NLS-1$
         assertFalse(json.contains("\"name\":\"--select-field\"")); //$NON-NLS-1$
@@ -403,7 +434,7 @@ public class CliCommandExecutorTest
 
         assertTrue(json.contains("\"resultKind\":\"describe\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"instances\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"usage\":\"mat-cli instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--format text|json]\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"usage\":\"mat-cli instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"--class-regex\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"--class-contains\"")); //$NON-NLS-1$
     }
@@ -411,12 +442,13 @@ public class CliCommandExecutorTest
     @Test
     public void executesSchemaCommandInJsonMode() throws Exception
     {
-        String json = executeJson(new String[] { "schema", "top-consumers", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+        String json = executeJson(new String[] { "schema", "biggest-objects", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
         assertTrue(json.contains("\"resultKind\":\"schema\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"name\":\"top-consumers\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"payloadKind\":\"top-consumers\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"payloadFields\":[\"totalRetainedHeap\",\"biggestObjects[]\",\"biggestObjects[].objectAddress\",\"biggestObjectsTruncated when true\",\"classes[]\",\"classes[].objectAddress\",\"classesTruncated when true\",\"classLoaders[]\",\"classLoaders[].objectAddress\",\"classLoadersTruncated when true\",\"packages when available\",\"packagesTruncated when true\"]")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"biggest-objects\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"payloadKind\":\"table\"")); //$NON-NLS-1$
+        assertTrue(json.contains(
+                        "\"payloadFields\":[\"items[]\",\"items[]._address when no address column\",\"items[].retained_size\",\"items[].shallow_size\",\"items[].retained\",\"items[].level\"]")); //$NON-NLS-1$
         assertTrue(json.contains("\"jsonEnvelope\":[\"schemaVersion\",\"resultKind\",\"truncated\"")); //$NON-NLS-1$
     }
 
@@ -431,59 +463,96 @@ public class CliCommandExecutorTest
     }
 
     @Test
-    public void executesTopConsumersTextAndJsonWithMatchingAggregates() throws Exception
+    public void executesObjectsPackageTextAndJsonWithMatchingRoot() throws Exception
     {
         File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
-        String text = execute(new String[] { "top-consumers", heap.getAbsolutePath(), "--format", "text", "--limit",
-                        "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
-        String json = execute(new String[] { "top-consumers", heap.getAbsolutePath(), "--format", "json", "--limit",
-                        "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+        String text = execute(new String[] { "objects", heap.getAbsolutePath(), "--by", "package", "--format", "text",
+                        "--limit", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+        String json = execute(new String[] { "objects", heap.getAbsolutePath(), "--by", "package", "--format", "json",
+                        "--limit", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
 
-        assertTrue(text.contains("57.41%  67,312  class java.lang.System @ 0x2c59b178")); //$NON-NLS-1$
-        assertTrue(json.contains("\"label\":\"class java.lang.System @ 0x2c59b178\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"retainedBytes\":67312")); //$NON-NLS-1$
-        assertFalse(json.contains("\"retainedPercentText\":")); //$NON-NLS-1$
-
-        assertTrue(text.contains("75.18%  88,144  302  java.lang.Class")); //$NON-NLS-1$
-        assertTrue(json.contains("\"label\":\"java.lang.Class\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"count\":302")); //$NON-NLS-1$
-        assertTrue(json.contains("\"retainedBytes\":88144")); //$NON-NLS-1$
-
-        assertTrue(text.contains("100.00%  117,248  357  <system class loader>")); //$NON-NLS-1$
-        assertTrue(json.contains("\"label\":\"<system class loader>\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"retainedBytes\":117248")); //$NON-NLS-1$
-        assertTrue(json.contains("\"topDominators\":357")); //$NON-NLS-1$
+        assertTrue(text.contains("package,  retained%,  retained bytes, #top-dominators")); //$NON-NLS-1$
+        assertTrue(text.contains("<all>  (100.00%)")); //$NON-NLS-1$
+        assertTrue(text.contains("|-") || text.contains("'-")); //$NON-NLS-1$ //$NON-NLS-2$
+        String firstChild = firstTreeChild(text);
+        assertTrue(firstChild, firstChild != null);
+        assertFalse(firstChild, firstChild.contains("  0 B  ")); //$NON-NLS-1$
+        assertTrue(json.contains("\"resultKind\":\"tree\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"root\":{\"name\":\"<all>\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"retainedBytes\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"topDominators\":")); //$NON-NLS-1$
     }
 
     @Test
-    public void executesHistogramCommandWithJsonTableContract() throws Exception
+    public void executesObjectsPackageCommandWithPackageReroot() throws Exception
     {
         File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
-        String json = executeJson(new String[] { "histogram", heap.getAbsolutePath(), "--format", "json", "--limit", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+        String json = executeJson(new String[] { "objects", heap.getAbsolutePath(), "--by", "package", "--package",
+                        "java", "--format", "json", "--limit", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
+
+        assertTrue(json.contains("\"resultKind\":\"tree\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"root\":{\"name\":\"java\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesObjectsCommandWithJsonTableContract() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String json = executeJson(new String[] { "objects", heap.getAbsolutePath(), "--format", "json", "--limit", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
 
         assertTrue(json.contains("\"schemaVersion\":\"mat-cli/v1\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"resultKind\":\"table\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"items\":[{")); //$NON-NLS-1$
-        assertTrue(json.contains("\"retained_heap\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"retained_size\":")); //$NON-NLS-1$
+        assertFalse(json.contains("\"objects\":0")); //$NON-NLS-1$
         assertFalse(json.contains("\"suggestedNextCommands\":")); //$NON-NLS-1$
     }
 
     @Test
-    public void executesTopConsumersCommandWithJsonContract() throws Exception
+    public void executesBiggestObjectsCommandWithJsonContract() throws Exception
     {
         File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
-        String json = executeJson(new String[] { "top-consumers", heap.getAbsolutePath(), "--format", "json", "--limit", "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+        String json = executeJson(new String[] { "biggest-objects", heap.getAbsolutePath(), "--format", "json", "--limit",
+                        "2" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
 
-        assertTrue(json.contains("\"resultKind\":\"top-consumers\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"biggestObjects\":[{")); //$NON-NLS-1$
-        assertTrue(json.contains("\"classes\":[{")); //$NON-NLS-1$
-        assertTrue(json.contains("\"classLoaders\":[{")); //$NON-NLS-1$
-        assertTrue(json.contains("\"objectAddress\":\"0x")); //$NON-NLS-1$
-        assertTrue(json.contains("\"packages\":{\"name\":\"<all>\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"packagesTruncated\":true")); //$NON-NLS-1$
-        assertFalse(json.contains("\"objectId\":")); //$NON-NLS-1$
-        assertFalse(json.contains("\"_context\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"resultKind\":\"table\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"items\":[{")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"retained_size\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"shallow_size\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"retained\":")); //$NON-NLS-1$
+        assertTrue(json.contains("\"level\":1")); //$NON-NLS-1$
+        assertTrue(json.contains("\"_address\":\"0x")); //$NON-NLS-1$
         assertFalse(json.contains("\"suggestedNextCommands\":")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesBiggestObjectsCommandAsTextWithIndentedNames() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String text = execute(new String[] { "biggest-objects", heap.getAbsolutePath(), "--format", "text", "--depth",
+                        "2", "--limit", "100" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertTrue(text.contains("Name")); //$NON-NLS-1$
+        assertTrue(text.contains("Retained Size")); //$NON-NLS-1$
+        assertTrue(text.contains("Shallow Size")); //$NON-NLS-1$
+        assertTrue(text.contains("Retained %")); //$NON-NLS-1$
+        assertTrue(text.contains("Level")); //$NON-NLS-1$
+
+        String levelTwoLine = firstTableRowWithLevel(text, 2);
+        assertTrue(levelTwoLine, levelTwoLine != null);
+        assertTrue(levelTwoLine, levelTwoLine.startsWith("  ")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void executesBiggestObjectsCommandWithExpandedDepth() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String json = executeJson(new String[] { "biggest-objects", heap.getAbsolutePath(), "--format", "json", "--depth",
+                        "2", "--limit", "1000" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertTrue(json.contains("\"level\":1")); //$NON-NLS-1$
+        assertTrue(json.contains("\"level\":2")); //$NON-NLS-1$
     }
 
     @Test
@@ -538,6 +607,8 @@ public class CliCommandExecutorTest
         assertTrue(script.contains("# bash completion for mat-cli")); //$NON-NLS-1$
         assertTrue(script.contains("complete -F _mat_cli_completion mat-cli")); //$NON-NLS-1$
         assertTrue(script.contains("|completion)")); //$NON-NLS-1$
+        assertTrue(script.contains("objects|")); //$NON-NLS-1$
+        assertTrue(script.contains("biggest-objects")); //$NON-NLS-1$
         assertTrue(script.contains("--format")); //$NON-NLS-1$
     }
 
@@ -550,6 +621,7 @@ public class CliCommandExecutorTest
         assertTrue(script.contains("compdef _mat-cli mat-cli")); //$NON-NLS-1$
         assertTrue(script.contains("|completion)")); //$NON-NLS-1$
         assertTrue(script.contains("--query-file")); //$NON-NLS-1$
+        assertTrue(script.contains("biggest-objects")); //$NON-NLS-1$
     }
 
     @Test
@@ -635,8 +707,8 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"resultKind\":\"error\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"kind\":\"invalid_argument\"")); //$NON-NLS-1$
         assertTrue(json.contains("No object found at address 0xdeadbeef")); //$NON-NLS-1$
-        assertTrue(json.contains("mat-cli histogram")); //$NON-NLS-1$
-        assertTrue(json.contains("mat-cli top-consumers")); //$NON-NLS-1$
+        assertTrue(json.contains("mat-cli objects")); //$NON-NLS-1$
+        assertTrue(json.contains("mat-cli biggest-objects")); //$NON-NLS-1$
     }
 
     @Test
@@ -646,7 +718,8 @@ public class CliCommandExecutorTest
         String json = executeJson(new String[] { "summary", heap.getAbsolutePath(), "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
         assertTrue(json.contains("thread_overview")); //$NON-NLS-1$
-        assertTrue(json.contains("mat-cli histogram")); //$NON-NLS-1$
+        assertTrue(json.contains("mat-cli objects")); //$NON-NLS-1$
+        assertTrue(json.contains("mat-cli biggest-objects")); //$NON-NLS-1$
         assertFalse(json.contains("--format json")); //$NON-NLS-1$
     }
 
@@ -1002,5 +1075,35 @@ public class CliCommandExecutorTest
             }
         }
         return total;
+    }
+
+    private String firstTreeChild(String text)
+    {
+        String[] lines = text.split("\\R"); //$NON-NLS-1$
+        for (String line : lines)
+        {
+            if (line.startsWith("|-") || line.startsWith("'-")) //$NON-NLS-1$ //$NON-NLS-2$
+                return line;
+        }
+        return null;
+    }
+
+    private String firstTableRowWithLevel(String text, int level)
+    {
+        String[] lines = text.split("\\R"); //$NON-NLS-1$
+        for (String line : lines)
+        {
+            if (line.indexOf('|') < 0 || line.startsWith("-")) //$NON-NLS-1$
+                continue;
+
+            String[] cells = line.split("\\|"); //$NON-NLS-1$
+            if (cells.length == 0)
+                continue;
+
+            String last = cells[cells.length - 1].trim();
+            if (Integer.toString(level).equals(last))
+                return line;
+        }
+        return null;
     }
 }

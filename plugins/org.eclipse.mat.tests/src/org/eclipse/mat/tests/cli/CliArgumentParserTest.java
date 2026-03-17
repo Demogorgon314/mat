@@ -33,14 +33,15 @@ import org.junit.Test;
 public class CliArgumentParserTest
 {
     @Test
-    public void parsesHistogramArguments() throws Exception
+    public void parsesObjectsArgumentsWithDefaultClassGrouping() throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
-        CliArguments arguments = parser.parse(new String[] { "histogram", "sample.hprof", "--limit", "5", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+        CliArguments arguments = parser.parse(new String[] { "objects", "sample.hprof", "--limit", "5", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
 
-        assertEquals(CliCommand.HISTOGRAM, arguments.getCommand());
+        assertEquals(CliCommand.OBJECTS, arguments.getCommand());
         assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
         assertEquals(BytesDisplay.Smart, arguments.getBytesDisplay());
+        assertEquals(CliArguments.ObjectsGrouping.CLASS, arguments.getObjectsGrouping());
         assertEquals(5, arguments.getLimit());
         assertEquals("sample.hprof", arguments.getHeapFile().getName()); //$NON-NLS-1$
     }
@@ -50,7 +51,7 @@ public class CliArgumentParserTest
     {
         CliArgumentParser parser = new CliArgumentParser();
         CliArguments arguments = parser
-                        .parse(new String[] { "histogram", "sample.hprof", "--bytes-display", "megabytes" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+                        .parse(new String[] { "objects", "sample.hprof", "--bytes-display", "megabytes" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
         assertEquals(BytesDisplay.Megabytes, arguments.getBytesDisplay());
     }
@@ -61,7 +62,7 @@ public class CliArgumentParserTest
         CliArgumentParser parser = new CliArgumentParser();
         try
         {
-            parser.parse(new String[] { "histogram", "sample.hprof", "--bytes-display", "wat" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+            parser.parse(new String[] { "objects", "sample.hprof", "--bytes-display", "wat" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
             fail("Expected invalid --bytes-display rejection"); //$NON-NLS-1$
         }
         catch (CliException e)
@@ -69,6 +70,42 @@ public class CliArgumentParserTest
             assertTrue(e.getMessage().contains("Invalid --bytes-display")); //$NON-NLS-1$
             assertTrue(e.getMessage().contains("bytes, kilobytes, megabytes, gigabytes, smart")); //$NON-NLS-1$
         }
+    }
+
+    @Test
+    public void parsesObjectsPackageGroupingAndFilter() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(
+                        new String[] { "objects", "sample.hprof", "--by", "package", "--package", "org.apache" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertEquals(CliCommand.OBJECTS, arguments.getCommand());
+        assertEquals(CliArguments.ObjectsGrouping.PACKAGE, arguments.getObjectsGrouping());
+        assertEquals("org.apache", arguments.getPackageName()); //$NON-NLS-1$
+    }
+
+    @Test
+    public void parsesObjectsClassLoaderGroupingAndFilter() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "objects", "sample.hprof", "--by", "class-loader",
+                        "--class-loader", "AppClassLoader" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertEquals(CliCommand.OBJECTS, arguments.getCommand());
+        assertEquals(CliArguments.ObjectsGrouping.CLASS_LOADER, arguments.getObjectsGrouping());
+        assertEquals("AppClassLoader", arguments.getClassLoaderName()); //$NON-NLS-1$
+    }
+
+    @Test
+    public void parsesObjectsClassGroupingWithClassLoaderFilterByDefault() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser
+                        .parse(new String[] { "objects", "sample.hprof", "--class-loader", "AppClassLoader" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        assertEquals(CliCommand.OBJECTS, arguments.getCommand());
+        assertEquals(CliArguments.ObjectsGrouping.CLASS, arguments.getObjectsGrouping());
+        assertEquals("AppClassLoader", arguments.getClassLoaderName()); //$NON-NLS-1$
     }
 
     @Test
@@ -350,12 +387,82 @@ public class CliArgumentParserTest
     }
 
     @Test
+    public void defaultsBiggestObjectsDepthToOne() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser.parse(new String[] { "biggest-objects", "sample.hprof" }); //$NON-NLS-1$ //$NON-NLS-2$
+
+        assertEquals(CliCommand.BIGGEST_OBJECTS, arguments.getCommand());
+        assertEquals(1, arguments.getTreeDepthLimit());
+    }
+
+    @Test
+    public void rejectsObjectsClassLoaderFilterWithPackageGrouping() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        try
+        {
+            parser.parse(new String[] { "objects", "sample.hprof", "--by", "package", "--class-loader",
+                            "AppClassLoader" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+            fail("Expected --class-loader validation"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertTrue(e.getMessage().contains("--class-loader is not supported with --by package")); //$NON-NLS-1$
+        }
+    }
+
+    @Test
+    public void rejectsObjectsPackageFilterWithClassLoaderGrouping() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        try
+        {
+            parser.parse(new String[] { "objects", "sample.hprof", "--by", "class-loader", "--package", "java" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+            fail("Expected --package validation"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertTrue(e.getMessage().contains("--package is not supported with --by class-loader")); //$NON-NLS-1$
+        }
+    }
+
+    @Test
+    public void rejectsLegacyCliCommandsWithMigrationHint() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        try
+        {
+            parser.parse(new String[] { "histogram", "sample.hprof" }); //$NON-NLS-1$ //$NON-NLS-2$
+            fail("Expected histogram migration error"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertTrue(e.getMessage().contains("replaced by `objects`")); //$NON-NLS-1$
+        }
+
+        try
+        {
+            parser.parse(new String[] { "top-consumers", "sample.hprof" }); //$NON-NLS-1$ //$NON-NLS-2$
+            fail("Expected top-consumers migration error"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertTrue(e.getMessage().contains("replaced by `biggest-objects`")); //$NON-NLS-1$
+            assertTrue(e.getMessage().contains("objects <heap> --by package")); //$NON-NLS-1$
+        }
+    }
+
+    @Test
     public void rejectsRemovedProfileOption() throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
         try
         {
-            parser.parse(new String[] { "describe", "histogram", "--profile", "agent" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+            parser.parse(new String[] { "describe", "objects", "--profile", "agent" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
             fail("Expected removed --profile option to be rejected"); //$NON-NLS-1$
         }
         catch (CliException e)
@@ -369,10 +476,10 @@ public class CliArgumentParserTest
     public void parsesDescribeCommandWithoutHeap() throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
-        CliArguments arguments = parser.parse(new String[] { "describe", "histogram", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+        CliArguments arguments = parser.parse(new String[] { "describe", "objects", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
         assertEquals(CliCommand.DESCRIBE, arguments.getCommand());
-        assertEquals(CliCommand.HISTOGRAM, arguments.getSubjectCommand());
+        assertEquals(CliCommand.OBJECTS, arguments.getSubjectCommand());
         assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
     }
 
@@ -502,7 +609,7 @@ public class CliArgumentParserTest
                     throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
-        CliArguments arguments = parser.parse(new String[] { "histogram", "sample.hprof", "--limit", "500000" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+        CliArguments arguments = parser.parse(new String[] { "objects", "sample.hprof", "--limit", "500000" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
         assertEquals(10000, arguments.getLimit());
     }
@@ -570,9 +677,9 @@ public class CliArgumentParserTest
     public void parsesCommandSpecificHelpBeforeCommand() throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
-        CliArguments arguments = parser.parse(new String[] { "help", "histogram" }); //$NON-NLS-1$ //$NON-NLS-2$
+        CliArguments arguments = parser.parse(new String[] { "help", "objects" }); //$NON-NLS-1$ //$NON-NLS-2$
 
-        assertEquals(CliCommand.HISTOGRAM, arguments.getCommand());
+        assertEquals(CliCommand.OBJECTS, arguments.getCommand());
         assertTrue(arguments.isHelp());
         assertNull(arguments.getHeapFile());
     }
@@ -613,17 +720,18 @@ public class CliArgumentParserTest
     }
 
     @Test
-    public void helpIncludesDepthAndTopConsumersLimit()
+    public void helpIncludesObjectsAndBiggestObjectsCommands()
     {
         String help = CliHelp.generalHelp();
 
         assertTrue(help.contains("threads <heap> [--limit N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("objects <heap> [--by class|package|class-loader] [--package PKG] [--class-loader TEXT] [--limit N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("inspect-object <heap> --object 0x... [--select-fields FIELD | --field-paths PATH] [--show-nulls] [--limit N] [--depth N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
-        assertTrue(help.contains("top-consumers <heap> [--limit N] [--depth N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("biggest-objects <heap> [--limit N] [--depth N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("completion <bash|zsh> [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("--bytes-display MODE Byte display mode for text output: bytes|kilobytes|megabytes|gigabytes|smart (default: smart)")); //$NON-NLS-1$
-        assertTrue(help.contains("--depth N            Maximum tree or section depth (default: 8, inspect-object: 3)")); //$NON-NLS-1$
+        assertTrue(help.contains("--depth N            Maximum tree or section depth (default: 8, inspect-object: 3, biggest-objects: 1)")); //$NON-NLS-1$
         assertTrue(help.contains("--field-paths PATH    Inspect dotted field paths such as cleaner.offsetMap; may be repeated")); //$NON-NLS-1$
         assertTrue(help.contains("--select-fields FIELD Inspect direct fields from the root object; may be repeated")); //$NON-NLS-1$
         assertTrue(help.contains("--show-nulls         Show nested null fields and array slots in text output")); //$NON-NLS-1$
@@ -631,6 +739,8 @@ public class CliArgumentParserTest
         assertTrue(help.contains("Inner class names containing '$' must be quoted or escaped")); //$NON-NLS-1$
         assertFalse(help.contains("--field-path PATH")); //$NON-NLS-1$
         assertFalse(help.contains("--select-field FIELD")); //$NON-NLS-1$
+        assertFalse(help.contains("top-consumers <heap>")); //$NON-NLS-1$
+        assertFalse(help.contains("histogram <heap>")); //$NON-NLS-1$
     }
 
     @Test
