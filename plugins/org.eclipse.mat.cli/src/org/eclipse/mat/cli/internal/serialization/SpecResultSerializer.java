@@ -145,7 +145,7 @@ public class SpecResultSerializer
     {
         boolean truncated = false;
         List<Spec> children = spec.getChildren();
-        int limit = Math.min(children.size(), options.getLimit());
+        int limit = Math.min(children.size(), options.getEffectiveLimit());
         if (children.size() > limit)
             truncated = true;
 
@@ -295,7 +295,7 @@ public class SpecResultSerializer
                 }
                 return;
             }
-            int limit = Math.min(children.size(), options.getLimit());
+            int limit = Math.min(children.size(), options.getEffectiveLimit());
             for (int ii = 0; ii < limit; ii++)
             {
                 builder.append('\n');

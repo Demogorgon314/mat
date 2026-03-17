@@ -33,7 +33,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
         Column[] columns = tree.getColumns();
         ColumnSchema[] schema = buildColumnSchemas(columns);
         writer.name("items").beginArray(); //$NON-NLS-1$
-        TruncationState state = new TruncationState(options.getTreeNodeLimit());
+        TruncationState state = new TruncationState(options.getEffectiveTreeNodeLimit());
         writeAgentNodes(writer, tree, columns, schema, tree.getElements(), 0, options, state, new PathState(), false);
         writer.endArray();
         return state.truncated;
@@ -49,7 +49,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
         Column[] columns = tree.getColumns();
         ColumnSchema[] schema = buildColumnSchemas(columns);
         StringBuilder builder = new StringBuilder();
-        TruncationState state = new TruncationState(Integer.MAX_VALUE);
+        TruncationState state = new TruncationState(options.getEffectiveTreeNodeLimit());
         appendNodes(builder, tree, columns, schema, tree.getElements(), 0, options, state, new PathState(), null,
                         textStyle(tree), showNulls);
         return builder.toString();
@@ -59,7 +59,8 @@ public class TreeResultSerializer extends StructuredResultSerializer
                     List<?> rows, int depth, SerializationOptions options, TruncationState state, PathState path,
                     boolean dropNullChildren)
     {
-        VisibleNodeBatch batch = collectVisibleNodes(tree, columns, schema, rows, options.getLimit(), dropNullChildren);
+        VisibleNodeBatch batch = collectVisibleNodes(tree, columns, schema, rows, options.getEffectiveLimit(),
+                        dropNullChildren);
         if (batch.truncated)
             state.truncated = true;
 
@@ -92,7 +93,8 @@ public class TreeResultSerializer extends StructuredResultSerializer
         if (node.hasChildren && !cycle)
         {
             List<?> children = tree.getChildren(node.row);
-            VisibleNodeBatch childBatch = collectVisibleNodes(tree, columns, schema, children, options.getLimit(), true);
+            VisibleNodeBatch childBatch = collectVisibleNodes(tree, columns, schema, children, options.getEffectiveLimit(),
+                            true);
             childrenTruncated = childBatch.truncated;
             if (depth + 1 >= options.getTreeDepthLimit())
             {
@@ -138,7 +140,7 @@ public class TreeResultSerializer extends StructuredResultSerializer
                     String parentPath, TreeTextStyle style, boolean showNulls)
     {
         List<TextNode> visibleRows = visibleRows(tree, columns, schema, rows, parentPath, style, showNulls);
-        int limit = Math.min(visibleRows.size(), options.getLimit());
+        int limit = Math.min(visibleRows.size(), options.getEffectiveLimit());
         if (visibleRows.size() > limit)
             state.truncated = true;
 

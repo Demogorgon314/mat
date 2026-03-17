@@ -165,6 +165,17 @@ public class CliCommandExecutorTest
     }
 
     @Test
+    public void ignoresInstanceLimitInDumpMode() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String json = executeJson(new String[] { "instances", heap.getAbsolutePath(), "--format", "json", "--class",
+                        "java.lang.String", "--limit", "1", "--dump" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
+
+        assertTrue(countOccurrences(json, "\"object_address\":\"0x") > 1); //$NON-NLS-1$
+        assertTrue(json.contains("\"truncated\":false")); //$NON-NLS-1$
+    }
+
+    @Test
     public void executesInstancesContainsCommandAgainstHprofSnapshotAsJson() throws Exception
     {
         File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
@@ -336,6 +347,24 @@ public class CliCommandExecutorTest
     }
 
     @Test
+    public void ignoresInspectObjectLimitInDumpModeForTextAndJson() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String objectAddress = firstObjectAddress(heap, "java.lang.String"); //$NON-NLS-1$
+
+        String text = execute(new String[] { "inspect-object", heap.getAbsolutePath(), "--object", objectAddress,
+                        "--select-fields", "value", "--limit", "1", "--depth", "3", "--dump", "--format", "text" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$ //$NON-NLS-9$
+        String json = executeJson(new String[] { "inspect-object", heap.getAbsolutePath(), "--format", "json",
+                        "--object", objectAddress, "--select-fields", "value", "--limit", "1", "--depth", "3",
+                        "--dump" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$ //$NON-NLS-9$ //$NON-NLS-10$
+
+        assertTrue(text.contains("[1] = ")); //$NON-NLS-1$
+        assertTrue(countOccurrences(json, "\"kind\":\"element\"") > 1); //$NON-NLS-1$
+        assertFalse(json.contains("\"_meta\":{\"value\":{\"kind\":\"text_preview\"")); //$NON-NLS-1$
+        assertFalse(json.contains("\"_meta\":{\"value\":{\"kind\":\"hex_preview\"")); //$NON-NLS-1$
+    }
+
+    @Test
     public void failsMissingInspectObjectFieldPathsWithExecutionError() throws Exception
     {
         File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
@@ -411,7 +440,7 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"schemaVersion\":\"mat-cli/v1\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"resultKind\":\"describe\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"objects\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"usage\":\"mat-cli objects <heap> [--by class|package|class-loader] [--package PKG] [--class-loader TEXT] [--limit N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"usage\":\"mat-cli objects <heap> [--by class|package|class-loader] [--package PKG] [--class-loader TEXT] [--limit N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]\"")); //$NON-NLS-1$
     }
 
     @Test
@@ -420,7 +449,7 @@ public class CliCommandExecutorTest
         String json = executeJson(new String[] { "describe", "inspect-object", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
         assertTrue(json.contains("\"name\":\"inspect-object\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"usage\":\"mat-cli inspect-object <heap> --object 0x... [--select-fields FIELD | --field-paths PATH] [--show-nulls] [--limit N] [--depth N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"usage\":\"mat-cli inspect-object <heap> --object 0x... [--select-fields FIELD | --field-paths PATH] [--show-nulls] [--limit N] [--depth N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"--select-fields\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"--field-paths\"")); //$NON-NLS-1$
         assertFalse(json.contains("\"name\":\"--select-field\"")); //$NON-NLS-1$
@@ -434,7 +463,7 @@ public class CliCommandExecutorTest
 
         assertTrue(json.contains("\"resultKind\":\"describe\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"instances\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"usage\":\"mat-cli instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"usage\":\"mat-cli instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"--class-regex\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"--class-contains\"")); //$NON-NLS-1$
     }
@@ -492,6 +521,19 @@ public class CliCommandExecutorTest
 
         assertTrue(json.contains("\"resultKind\":\"tree\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"root\":{\"name\":\"java\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void ignoresPackageTreeLimitInDumpModeButStillHonorsDepth() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String expanded = executeJson(new String[] { "objects", heap.getAbsolutePath(), "--by", "package", "--format",
+                        "json", "--limit", "1", "--depth", "2", "--dump" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$
+        String depthLimited = executeJson(new String[] { "objects", heap.getAbsolutePath(), "--by", "package", "--format",
+                        "json", "--limit", "1", "--depth", "1", "--dump" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$
+
+        assertTrue(countOccurrences(expanded, "\"topDominators\":") > 2); //$NON-NLS-1$
+        assertTrue(depthLimited.contains("\"_childrenTruncated\":true")); //$NON-NLS-1$
     }
 
     @Test
@@ -567,6 +609,18 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"items\":[{")); //$NON-NLS-1$
         assertTrue(json.contains("\"address\":\"0x")); //$NON-NLS-1$
         assertTrue(json.contains("\"value\":")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void ignoresOqlLimitInDumpModeForTableResults() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String json = executeJson(new String[] { "oql", heap.getAbsolutePath(), "--format", "json", "--query",
+                        "select s.@objectAddress as ADDRESS, toString(s) as VALUE from java.lang.String s", "--limit",
+                        "1", "--dump" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
+
+        assertTrue(countOccurrences(json, "\"address\":\"0x") > 1); //$NON-NLS-1$
+        assertTrue(json.contains("\"truncated\":false")); //$NON-NLS-1$
     }
 
     @Test
@@ -910,6 +964,18 @@ public class CliCommandExecutorTest
 
         fail("Expected at least one instance for " + Arrays.toString(classNames)); //$NON-NLS-1$
         return null;
+    }
+
+    private int countOccurrences(String text, String token)
+    {
+        int count = 0;
+        int index = 0;
+        while ((index = text.indexOf(token, index)) >= 0)
+        {
+            count++;
+            index += token.length();
+        }
+        return count;
     }
 
     private static final class ResolvedObjectAddress

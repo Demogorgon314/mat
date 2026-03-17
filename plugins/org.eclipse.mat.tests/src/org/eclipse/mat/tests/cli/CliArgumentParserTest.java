@@ -47,6 +47,18 @@ public class CliArgumentParserTest
     }
 
     @Test
+    public void parsesDumpArguments() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser
+                        .parse(new String[] { "objects", "sample.hprof", "--dump", "--limit", "5", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        assertTrue(arguments.isDump());
+        assertEquals(5, arguments.getLimit());
+        assertEquals(CliArguments.OutputFormat.JSON, arguments.getFormat());
+    }
+
+    @Test
     public void parsesExplicitBytesDisplay() throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
@@ -654,6 +666,23 @@ public class CliArgumentParserTest
     }
 
     @Test
+    public void rejectsUnsupportedDumpCommand() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        try
+        {
+            parser.parse(new String[] { "summary", "sample.hprof", "--dump" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+            fail("Expected unsupported --dump rejection"); //$NON-NLS-1$
+        }
+        catch (CliException e)
+        {
+            assertEquals(2, e.getExitCode());
+            assertTrue(e.getMessage().contains("summary does not support --dump")); //$NON-NLS-1$
+        }
+    }
+
+    @Test
     public void parsesHelpWithoutCommand() throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
@@ -725,13 +754,14 @@ public class CliArgumentParserTest
         String help = CliHelp.generalHelp();
 
         assertTrue(help.contains("threads <heap> [--limit N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
-        assertTrue(help.contains("objects <heap> [--by class|package|class-loader] [--package PKG] [--class-loader TEXT] [--limit N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
-        assertTrue(help.contains("instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
-        assertTrue(help.contains("inspect-object <heap> --object 0x... [--select-fields FIELD | --field-paths PATH] [--show-nulls] [--limit N] [--depth N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
-        assertTrue(help.contains("biggest-objects <heap> [--limit N] [--depth N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("objects <heap> [--by class|package|class-loader] [--package PKG] [--class-loader TEXT] [--limit N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("inspect-object <heap> --object 0x... [--select-fields FIELD | --field-paths PATH] [--show-nulls] [--limit N] [--depth N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("biggest-objects <heap> [--limit N] [--depth N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("completion <bash|zsh> [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("--bytes-display MODE Byte display mode for text output: bytes|kilobytes|megabytes|gigabytes|smart (default: smart)")); //$NON-NLS-1$
         assertTrue(help.contains("--depth N            Maximum tree or section depth (default: 8, inspect-object: 3, biggest-objects: 1)")); //$NON-NLS-1$
+        assertTrue(help.contains("--dump               Emit full structured values for supported commands, ignore --limit, and only honor --depth")); //$NON-NLS-1$
         assertTrue(help.contains("--field-paths PATH    Inspect dotted field paths such as cleaner.offsetMap; may be repeated")); //$NON-NLS-1$
         assertTrue(help.contains("--select-fields FIELD Inspect direct fields from the root object; may be repeated")); //$NON-NLS-1$
         assertTrue(help.contains("--show-nulls         Show nested null fields and array slots in text output")); //$NON-NLS-1$
@@ -749,8 +779,9 @@ public class CliArgumentParserTest
         String help = CliHelp.commandHelp(CliCommand.PATH2GC);
 
         assertTrue(help.contains("Command: path2gc")); //$NON-NLS-1$
-        assertTrue(help.contains("Usage: mat-cli path2gc <heap> --object 0x... [--limit N] [--depth N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("Usage: mat-cli path2gc <heap> --object 0x... [--limit N] [--depth N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("--bytes-display bytes|kilobytes|megabytes|gigabytes|smart: Select byte unit rendering for text output. Defaults to smart.")); //$NON-NLS-1$
+        assertTrue(help.contains("--dump: Emit full structured values for file redirection, ignore --limit, and only honor --depth.")); //$NON-NLS-1$
         assertTrue(help.contains("--object 0x... (required): Object address to resolve from the snapshot.")); //$NON-NLS-1$
         assertTrue(help.contains("inspect-object <heap> --object 0x...")); //$NON-NLS-1$
         assertFalse(help.contains("inspect-object <heap> --object 0x... --format json")); //$NON-NLS-1$

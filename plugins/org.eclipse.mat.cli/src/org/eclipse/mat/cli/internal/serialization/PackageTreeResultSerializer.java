@@ -37,7 +37,7 @@ public final class PackageTreeResultSerializer
             return false;
         }
 
-        TruncationState state = new TruncationState(options.getTreeNodeLimit());
+        TruncationState state = new TruncationState(options.getEffectiveTreeNodeLimit());
         writeNode(writer, root, options, state, 0);
         return state.truncated;
     }
@@ -53,7 +53,7 @@ public final class PackageTreeResultSerializer
         if (root == null)
             return builder.toString();
 
-        TruncationState state = new TruncationState(options.getTreeNodeLimit());
+        TruncationState state = new TruncationState(options.getEffectiveTreeNodeLimit());
         appendNode(builder, root, new StringBuilder(), options, state, 0);
         return builder.toString();
     }
@@ -69,7 +69,7 @@ public final class PackageTreeResultSerializer
 
         state.remainingNodes--;
         List<PackageTreeResult.Node> children = node.getChildren();
-        int limit = Math.min(children.size(), options.getLimit());
+        int limit = Math.min(children.size(), options.getEffectiveLimit());
         boolean childrenTruncated = children.size() > limit;
 
         writer.beginObject();
@@ -121,7 +121,7 @@ public final class PackageTreeResultSerializer
         builder.append(numberFormatter.format(node.getTopDominators())).append('\n');
 
         List<PackageTreeResult.Node> children = node.getChildren();
-        int limit = Math.min(children.size(), options.getLimit());
+        int limit = Math.min(children.size(), options.getEffectiveLimit());
         if (children.size() > limit)
             state.truncated = true;
         if (depth + 1 >= options.getTreeDepthLimit())

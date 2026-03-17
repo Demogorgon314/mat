@@ -32,6 +32,7 @@ final class InstancesResult implements IResultTable
     {
         private final ISnapshot snapshot;
         private final int objectId;
+        private final boolean dump;
 
         private IObject object;
         private String className;
@@ -40,10 +41,11 @@ final class InstancesResult implements IResultTable
         private Bytes shallowHeap;
         private Bytes retainedHeap;
 
-        Row(ISnapshot snapshot, int objectId)
+        Row(ISnapshot snapshot, int objectId, boolean dump)
         {
             this.snapshot = snapshot;
             this.objectId = objectId;
+            this.dump = dump;
         }
 
         private void resolve()
@@ -55,7 +57,7 @@ final class InstancesResult implements IResultTable
             {
                 object = snapshot.getObject(objectId);
                 className = object.getClazz().getName();
-                preview = ObjectDisplayHelper.previewValue(object);
+                preview = ObjectDisplayHelper.previewValue(object, dump);
                 objectAddress = Long.valueOf(object.getObjectAddress());
                 shallowHeap = new Bytes(object.getUsedHeapSize());
                 retainedHeap = new Bytes(object.getRetainedHeapSize());

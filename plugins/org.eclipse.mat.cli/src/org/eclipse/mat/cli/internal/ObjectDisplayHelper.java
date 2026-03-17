@@ -37,12 +37,17 @@ final class ObjectDisplayHelper
 
     static Object previewValue(IObject object)
     {
+        return previewValue(object, false);
+    }
+
+    static Object previewValue(IObject object, boolean dump)
+    {
         if (object == null)
             return null;
 
         if (object instanceof IPrimitiveArray)
         {
-            Object preview = primitiveArrayPreview((IPrimitiveArray) object);
+            Object preview = primitiveArrayPreview((IPrimitiveArray) object, dump);
             if (preview != null)
                 return preview;
         }
@@ -51,7 +56,7 @@ final class ObjectDisplayHelper
         {
             String stringValue = object.getClassSpecificName();
             if (stringValue != null)
-                return textPreview(stringValue, Integer.valueOf(stringValue.length()), null);
+                return textPreview(stringValue, Integer.valueOf(stringValue.length()), null, dump);
         }
 
         String preview = object.getClassSpecificName();
@@ -86,13 +91,18 @@ final class ObjectDisplayHelper
 
     static DisplayValue quotedTextValue(String text)
     {
+        return quotedTextValue(text, false);
+    }
+
+    static DisplayValue quotedTextValue(String text, boolean dump)
+    {
         if (text == null)
             return null;
 
-        return quotedTextValue(text, Integer.valueOf(text.length()), null, text.length() > TEXT_PREVIEW_LIMIT);
+        return quotedTextValue(text, Integer.valueOf(text.length()), null, text.length() > TEXT_PREVIEW_LIMIT, dump);
     }
 
-    private static Object primitiveArrayPreview(IPrimitiveArray array)
+    private static Object primitiveArrayPreview(IPrimitiveArray array, boolean dump)
     {
         if (array == null)
             return null;
@@ -100,38 +110,38 @@ final class ObjectDisplayHelper
         switch (array.getType())
         {
             case Type.CHAR:
-                return charArrayPreview(array);
+                return charArrayPreview(array, dump);
             case Type.BYTE:
-                return byteArrayPreview(array);
+                return byteArrayPreview(array, dump);
             default:
                 return null;
         }
     }
 
-    private static DisplayValue charArrayPreview(IPrimitiveArray array)
+    private static DisplayValue charArrayPreview(IPrimitiveArray array, boolean dump)
     {
         int length = array.getLength();
-        int sampleLength = Math.min(length, TEXT_PREVIEW_LIMIT);
+        int sampleLength = dump ? length : Math.min(length, TEXT_PREVIEW_LIMIT);
         if (sampleLength == 0)
-            return textPreview("", Integer.valueOf(length), null, false); //$NON-NLS-1$
+            return textPreview("", Integer.valueOf(length), null, false, dump); //$NON-NLS-1$
         char[] chars = (char[]) array.getValueArray(0, sampleLength);
-        return textPreview(new String(chars), Integer.valueOf(length), null, length > sampleLength);
+        return textPreview(new String(chars), Integer.valueOf(length), null, length > sampleLength, dump);
     }
 
-    private static DisplayValue byteArrayPreview(IPrimitiveArray array)
+    private static DisplayValue byteArrayPreview(IPrimitiveArray array, boolean dump)
     {
         int length = array.getLength();
-        int sampleLength = Math.min(length, BYTE_TEXT_SAMPLE);
+        int sampleLength = dump ? length : Math.min(length, BYTE_TEXT_SAMPLE);
         if (sampleLength == 0)
-            return textPreview("", Integer.valueOf(length), "utf8", false); //$NON-NLS-1$ //$NON-NLS-2$
+            return textPreview("", Integer.valueOf(length), "utf8", false, dump); //$NON-NLS-1$ //$NON-NLS-2$
         byte[] sample = (byte[]) array.getValueArray(0, sampleLength);
         String decoded = decodeUtf8(sample);
         if (decoded != null && isMostlyPrintable(decoded))
         {
-            return textPreview(decoded, Integer.valueOf(length), "utf8", length > sampleLength); //$NON-NLS-1$
+            return textPreview(decoded, Integer.valueOf(length), "utf8", length > sampleLength, dump); //$NON-NLS-1$
         }
 
-        int hexLength = Math.min(length, BYTE_HEX_SAMPLE);
+        int hexLength = dump ? length : Math.min(length, BYTE_HEX_SAMPLE);
         byte[] hexBytes = (byte[]) array.getValueArray(0, hexLength);
         boolean truncated = length > hexLength;
         StringBuilder builder = new StringBuilder(Math.max(1, hexLength * 3));
@@ -146,34 +156,45 @@ final class ObjectDisplayHelper
         }
         if (truncated)
             builder.append(" ..."); //$NON-NLS-1$
-        return new DisplayValue(builder.toString(),
-                        new DisplayValue.Metadata("hex_preview", Integer.valueOf(length), Boolean.valueOf(truncated), //$NON-NLS-1$
-                                        "hex")); //$NON-NLS-1$
+        return dump ? new DisplayValue(builder.toString())
+                        : new DisplayValue(builder.toString(),
+                                        new DisplayValue.Metadata("hex_preview", Integer.valueOf(length),
+                                                        Boolean.valueOf(truncated), "hex")); //$NON-NLS-1$
     }
 
     private static DisplayValue textPreview(String text, Integer length, String encoding)
     {
-        return textPreview(text, length, encoding, text != null && text.length() > TEXT_PREVIEW_LIMIT);
+        return textPreview(text, length, encoding, text != null && text.length() > TEXT_PREVIEW_LIMIT, false);
     }
 
-    private static DisplayValue textPreview(String text, Integer length, String encoding, boolean truncated)
+    private static DisplayValue textPreview(String text, Integer length, String encoding, boolean dump)
     {
-        String sample = text == null ? null : text.substring(0, Math.min(text.length(), TEXT_PREVIEW_LIMIT));
+        return textPreview(text, length, encoding, text != null && text.length() > TEXT_PREVIEW_LIMIT, dump);
+    }
+
+    private static DisplayValue textPreview(String text, Integer length, String encoding, boolean truncated, boolean dump)
+    {
+        String sample = text == null ? null
+                        : text.substring(0, Math.min(text.length(), dump ? text.length() : TEXT_PREVIEW_LIMIT));
         String rendered = escapeText(sample);
-        if (truncated)
+        if (truncated && !dump)
             rendered = rendered + "..."; //$NON-NLS-1$
-        return new DisplayValue(rendered, new DisplayValue.Metadata("text_preview", length, //$NON-NLS-1$
-                        Boolean.valueOf(truncated), encoding));
+        return dump ? new DisplayValue(rendered)
+                        : new DisplayValue(rendered, new DisplayValue.Metadata("text_preview", length, //$NON-NLS-1$
+                                        Boolean.valueOf(truncated), encoding));
     }
 
-    private static DisplayValue quotedTextValue(String text, Integer length, String encoding, boolean truncated)
+    private static DisplayValue quotedTextValue(String text, Integer length, String encoding, boolean truncated,
+                    boolean dump)
     {
-        String sample = text == null ? null : text.substring(0, Math.min(text.length(), TEXT_PREVIEW_LIMIT));
+        String sample = text == null ? null
+                        : text.substring(0, Math.min(text.length(), dump ? text.length() : TEXT_PREVIEW_LIMIT));
         String rendered = escapeText(sample, true);
-        if (truncated)
+        if (truncated && !dump)
             rendered = rendered + "..."; //$NON-NLS-1$
-        return new DisplayValue("\"" + rendered + "\"", new DisplayValue.Metadata("text_preview", length, //$NON-NLS-1$ //$NON-NLS-2$
-                        Boolean.valueOf(truncated), encoding));
+        return dump ? new DisplayValue("\"" + rendered + "\"") //$NON-NLS-1$ //$NON-NLS-2$
+                        : new DisplayValue("\"" + rendered + "\"", new DisplayValue.Metadata("text_preview", length, //$NON-NLS-1$ //$NON-NLS-2$
+                                        Boolean.valueOf(truncated), encoding));
     }
 
     private static String decodeUtf8(byte[] bytes)

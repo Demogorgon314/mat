@@ -31,7 +31,7 @@ public final class CliArgumentParser
     {
         if (args == null || args.length == 0)
             return new CliArguments(null, null, null, null, BytesDisplay.Smart, CliArguments.OutputFormat.TEXT, false, true,
-                            false, DEFAULT_LIMIT, DEFAULT_TREE_DEPTH, null, null, null, null,
+                            false, false, DEFAULT_LIMIT, DEFAULT_TREE_DEPTH, null, null, null, null,
                             CliArguments.ObjectsGrouping.CLASS, null, null, null, null, false, null, null);
 
         CliCommand command = null;
@@ -43,6 +43,7 @@ public final class CliArgumentParser
         boolean verbose = false;
         boolean help = false;
         boolean showNulls = false;
+        boolean dump = false;
         int limit = DEFAULT_LIMIT;
         boolean limitExplicit = false;
         int treeDepthLimit = DEFAULT_TREE_DEPTH;
@@ -243,6 +244,10 @@ public final class CliArgumentParser
             {
                 showNulls = true;
             }
+            else if ("--dump".equals(arg)) //$NON-NLS-1$
+            {
+                dump = true;
+            }
             else if (arg.startsWith("--")) //$NON-NLS-1$
             {
                 throw CliException.usage("Unknown option: " + arg); //$NON-NLS-1$
@@ -274,8 +279,8 @@ public final class CliArgumentParser
         {
             if (help)
             {
-                return new CliArguments(null, null, null, null, bytesDisplay, format, verbose, true, showNulls, limit,
-                                treeDepthLimit, objectAddress, className, classRegex, classContains, objectsGrouping,
+                return new CliArguments(null, null, null, null, bytesDisplay, format, verbose, true, showNulls, dump,
+                                limit, treeDepthLimit, objectAddress, className, classRegex, classContains, objectsGrouping,
                                 packageName, classLoaderName, selectFields, fieldPaths, includeSubclasses, oqlQuery,
                                 queryCommand);
             }
@@ -296,7 +301,7 @@ public final class CliArgumentParser
             limit = defaultLimit(command, queryCommand);
 
         CliArguments parsed = new CliArguments(command, subjectCommand, subjectName, heapFile, bytesDisplay, format, verbose, help,
-                        showNulls,
+                        showNulls, dump,
                         limit, treeDepthLimit, objectAddress, className, classRegex, classContains, objectsGrouping,
                         packageName, classLoaderName, selectFields, fieldPaths, includeSubclasses, oqlQuery,
                         queryCommand);
@@ -358,6 +363,9 @@ public final class CliArgumentParser
         if (arguments.getCommand().requiresSnapshot() && arguments.getHeapFile() == null)
             throw CliException.usage("Missing heap dump path"); //$NON-NLS-1$
 
+        if (arguments.isDump() && !supportsDump(arguments.getCommand()))
+            throw CliException.usage(arguments.getCommand().getToken() + " does not support --dump"); //$NON-NLS-1$
+
         switch (arguments.getCommand())
         {
             case PATH2GC:
@@ -414,6 +422,26 @@ public final class CliArgumentParser
     private boolean isEmpty(String value)
     {
         return value == null || value.length() == 0;
+    }
+
+    private boolean supportsDump(CliCommand command)
+    {
+        if (command == null)
+            return false;
+
+        switch (command)
+        {
+            case OBJECTS:
+            case INSTANCES:
+            case INSPECT_OBJECT:
+            case BIGGEST_OBJECTS:
+            case PATH2GC:
+            case OQL:
+            case QUERY:
+                return true;
+            default:
+                return false;
+        }
     }
 
     private void validateCompletionShell(String shell) throws CliException
@@ -545,6 +573,7 @@ public final class CliArgumentParser
         File heapFile = null;
         BytesDisplay bytesDisplay = BytesDisplay.Smart;
         boolean help = args == null || args.length == 0;
+        boolean dump = false;
         String objectAddress = null;
         String className = null;
         String classRegex = null;
@@ -667,6 +696,10 @@ public final class CliArgumentParser
                 {
                     showNulls = true;
                 }
+                else if ("--dump".equals(arg)) //$NON-NLS-1$
+                {
+                    dump = true;
+                }
                 else if (arg.startsWith("--")) //$NON-NLS-1$
                 {
                     continue;
@@ -709,6 +742,7 @@ public final class CliArgumentParser
             treeDepthLimit = defaultTreeDepth(command);
 
         return new CliArguments(command, subjectCommand, subjectName, heapFile, bytesDisplay, format, false, help, showNulls,
+                        dump,
                         defaultLimit(command, queryCommand), treeDepthLimit, objectAddress, className, classRegex,
                         classContains, objectsGrouping, packageName, classLoaderName, selectFields, fieldPaths,
                         includeSubclasses, oqlQuery, queryCommand);

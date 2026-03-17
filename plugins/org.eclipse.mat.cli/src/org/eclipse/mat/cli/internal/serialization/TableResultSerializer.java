@@ -28,7 +28,7 @@ public class TableResultSerializer extends StructuredResultSerializer
         ColumnSchema[] schema = buildColumnSchemas(columns);
 
         int rowCount = table.getRowCount();
-        int limit = Math.min(rowCount, options.getLimit());
+        int limit = Math.min(rowCount, options.getEffectiveLimit());
         boolean truncated = rowCount > limit;
 
         writer.name("items").beginArray(); //$NON-NLS-1$
@@ -47,7 +47,7 @@ public class TableResultSerializer extends StructuredResultSerializer
     public String toText(IResultTable table, SerializationOptions options)
     {
         Column[] columns = table.getColumns();
-        int limit = Math.min(table.getRowCount(), options.getLimit());
+        int limit = Math.min(table.getRowCount(), options.getEffectiveLimit());
         List<String[]> rows = new ArrayList<String[]>(limit);
         int[] widths = new int[columns.length];
 
@@ -63,7 +63,8 @@ public class TableResultSerializer extends StructuredResultSerializer
             for (int jj = 0; jj < columns.length; jj++)
             {
                 values[jj] = safe(displayValue(columns[jj], row, safeColumnValue(table, row, jj), options));
-                widths[jj] = Math.min(Math.max(widths[jj], values[jj].length()), 80);
+                widths[jj] = options.isDump() ? Math.max(widths[jj], values[jj].length())
+                                : Math.min(Math.max(widths[jj], values[jj].length()), 80);
             }
             rows.add(values);
         }
@@ -73,7 +74,7 @@ public class TableResultSerializer extends StructuredResultSerializer
         appendSeparator(builder, widths);
         for (String[] row : rows)
         {
-            appendRow(builder, widths, row);
+            appendRow(builder, widths, row, options.isDump());
         }
         if (table.getRowCount() > limit)
         {
@@ -106,9 +107,14 @@ public class TableResultSerializer extends StructuredResultSerializer
 
     private void appendRow(StringBuilder builder, int[] widths, String[] values)
     {
+        appendRow(builder, widths, values, false);
+    }
+
+    private void appendRow(StringBuilder builder, int[] widths, String[] values, boolean dump)
+    {
         for (int ii = 0; ii < values.length; ii++)
         {
-            String value = truncate(values[ii], widths[ii]);
+            String value = dump ? values[ii] : truncate(values[ii], widths[ii]);
             builder.append(value);
             for (int pad = value.length(); pad < widths[ii]; pad++)
                 builder.append(' ');
