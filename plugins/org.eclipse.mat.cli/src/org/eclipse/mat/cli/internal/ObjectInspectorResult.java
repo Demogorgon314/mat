@@ -96,19 +96,38 @@ final class ObjectInspectorResult implements IResultTree, TreeTextStyleProvider
     }
 
     private final List<Node> roots;
+    private final boolean dump;
 
     ObjectInspectorResult(IObject object)
     {
+        this(object, false);
+    }
+
+    ObjectInspectorResult(IObject object, boolean dump)
+    {
+        this.dump = dump;
         this.roots = Collections.singletonList(objectNode("object", "<object>", object)); //$NON-NLS-1$ //$NON-NLS-2$
     }
 
     ObjectInspectorResult(RootValue value)
     {
+        this(value, false);
+    }
+
+    ObjectInspectorResult(RootValue value, boolean dump)
+    {
+        this.dump = dump;
         this.roots = Collections.singletonList(rootNode(value));
     }
 
     ObjectInspectorResult(List<RootValue> values)
     {
+        this(values, false);
+    }
+
+    ObjectInspectorResult(List<RootValue> values, boolean dump)
+    {
+        this.dump = dump;
         List<Node> resolvedRoots = new ArrayList<Node>(values.size());
         for (RootValue value : values)
         {
@@ -320,11 +339,11 @@ final class ObjectInspectorResult implements IResultTree, TreeTextStyleProvider
 
     private Node objectNode(String kind, String name, IObject object)
     {
-        Object inlineValue = ObjectInspectorDisplayHelper.inlineValue(object);
+        Object inlineValue = ObjectInspectorDisplayHelper.inlineValue(object, dump);
         if (inlineValue != null)
             return new Node(kind, name, object.getClazz().getName(), inlineValue, null);
 
-        return new Node(kind, name, object.getClazz().getName(), ObjectDisplayHelper.previewValue(object), object);
+        return new Node(kind, name, object.getClazz().getName(), ObjectDisplayHelper.previewValue(object, dump), object);
     }
 
     private Node primitiveNode(String kind, String name, String type, Object value)

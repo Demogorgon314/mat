@@ -57,6 +57,7 @@ public final class CliArguments
     private final boolean verbose;
     private final boolean help;
     private final boolean showNulls;
+    private final boolean dump;
     private final int limit;
     private final int treeDepthLimit;
     private final String objectAddress;
@@ -73,7 +74,8 @@ public final class CliArguments
     private final String queryCommand;
 
     CliArguments(CliCommand command, CliCommand subjectCommand, String subjectName, File heapFile,
-                    BytesDisplay bytesDisplay, OutputFormat format, boolean verbose, boolean help, boolean showNulls, int limit,
+                    BytesDisplay bytesDisplay, OutputFormat format, boolean verbose, boolean help, boolean showNulls,
+                    boolean dump, int limit,
                     int treeDepthLimit,
                     String objectAddress, String className, String classRegex, String classContains,
                     ObjectsGrouping objectsGrouping, String packageName, String classLoaderName,
@@ -89,6 +91,7 @@ public final class CliArguments
         this.verbose = verbose;
         this.help = help;
         this.showNulls = showNulls;
+        this.dump = dump;
         this.limit = limit;
         this.treeDepthLimit = treeDepthLimit;
         this.objectAddress = objectAddress;
@@ -153,6 +156,11 @@ public final class CliArguments
     public boolean isShowNulls()
     {
         return showNulls;
+    }
+
+    public boolean isDump()
+    {
+        return dump;
     }
 
     public int getLimit()

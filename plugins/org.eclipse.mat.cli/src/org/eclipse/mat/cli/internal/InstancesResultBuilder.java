@@ -22,7 +22,7 @@ import org.eclipse.mat.util.IProgressListener;
 final class InstancesResultBuilder
 {
     public InstancesResult build(ISnapshot snapshot, String className, String classRegex, boolean includeSubclasses,
-                    String classContains, IProgressListener listener) throws SnapshotException, CliException
+                    String classContains, boolean dump, IProgressListener listener) throws SnapshotException, CliException
     {
         String selector = className != null ? className : classRegex != null ? classRegex : classContains;
         Collection<IClass> classes = className != null ? snapshot.getClassesByName(className, includeSubclasses)
@@ -37,7 +37,7 @@ final class InstancesResultBuilder
             {
                 if (listener.isCanceled())
                     throw new IProgressListener.OperationCanceledException();
-                rows.add(new InstancesResult.Row(snapshot, objectId));
+                rows.add(new InstancesResult.Row(snapshot, objectId, dump));
             }
         }
 

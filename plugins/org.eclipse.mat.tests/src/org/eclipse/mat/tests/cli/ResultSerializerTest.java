@@ -266,6 +266,18 @@ public class ResultSerializerTest
     }
 
     @Test
+    public void doesNotTruncateTableTextInDumpMode()
+    {
+        TableResultSerializer serializer = new TableResultSerializer();
+
+        String text = serializer.toText(new WideTable(), new SerializationOptions(1, 8, BytesDisplay.Smart, true));
+
+        assertTrue(text.contains(WideTable.LONG_NAME)); //$NON-NLS-1$
+        assertTrue(text.contains("Beta")); //$NON-NLS-1$
+        assertFalse(text.contains("... 1 more rows")); //$NON-NLS-1$
+    }
+
+    @Test
     public void serializesDisplayValueMetadataInAgentTreeJson()
     {
         TreeResultSerializer serializer = new TreeResultSerializer();
@@ -475,6 +487,24 @@ public class ResultSerializerTest
     }
 
     @Test
+    public void ignoresTreeLimitAndBudgetInDumpMode()
+    {
+        TreeResultSerializer serializer = new TreeResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeJson(writer, new BudgetTree(),
+                        new SerializationOptions(1, 8, 2, false, true, null, BytesDisplay.Smart));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"name\":\"Child A\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"Child B\"")); //$NON-NLS-1$
+        assertFalse(json.contains("\"_childrenTruncated\":true")); //$NON-NLS-1$
+    }
+
+    @Test
     public void serializesCompositeResultToJson() throws Exception
     {
         SpecResultSerializer serializer = new SpecResultSerializer(new TableResultSerializer(), new TreeResultSerializer(),
@@ -664,6 +694,24 @@ public class ResultSerializerTest
     }
 
     @Test
+    public void ignoresPackageTreeLimitInDumpMode() throws Exception
+    {
+        PackageTreeResultSerializer serializer = new PackageTreeResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeJson(writer, samplePackageTreeResult(),
+                        new SerializationOptions(1, 8, 2, false, true, null, BytesDisplay.Smart));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"name\":\"org\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"com\"")); //$NON-NLS-1$
+        assertFalse(json.contains("\"_childrenTruncated\":true")); //$NON-NLS-1$
+    }
+
+    @Test
     public void serializesPackageTreeToText() throws Exception
     {
         PackageTreeResultSerializer serializer = new PackageTreeResultSerializer();
@@ -716,6 +764,25 @@ public class ResultSerializerTest
         assertFalse(truncated);
         assertTrue(json.contains("\"resultType\":\"unsupported\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"unsupportedType\":\"org.eclipse.mat.tests.cli.ResultSerializerTest$UnsupportedResult\"")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void ignoresSectionLimitInDumpMode() throws Exception
+    {
+        SpecResultSerializer serializer = new SpecResultSerializer(new TableResultSerializer(), new TreeResultSerializer(),
+                        new TextResultSerializer(), new PieResultSerializer());
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeJson(writer, sampleSection(),
+                        new SerializationOptions(1, 8, 2, false, true, null, BytesDisplay.Smart));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"name\":\"Overview\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"Sample Table\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"name\":\"Sample Tree\"")); //$NON-NLS-1$
     }
 
     @Test
@@ -992,6 +1059,45 @@ public class ResultSerializerTest
         public List<?> getChildren(Object parent)
         {
             return ((Node) parent).children;
+        }
+    }
+
+    private static final class WideTable implements IResultTable
+    {
+        private static final String LONG_NAME = "AlphaAlphaAlphaAlphaAlphaAlphaAlphaAlphaAlphaAlphaAlphaAlphaAlphaAlphaAlphaAlpha"; //$NON-NLS-1$
+        private final List<Row> rows = Arrays.asList(new Row(LONG_NAME, Integer.valueOf(7), 42),
+                        new Row("Beta", Integer.valueOf(8), 43)); //$NON-NLS-1$
+        private final Column[] columns = new Column[] { new Column("Name", String.class), new Column("Count", int.class) }; //$NON-NLS-1$ //$NON-NLS-2$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            Row value = (Row) row;
+            return columnIndex == 0 ? value.name : value.count;
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            return null;
+        }
+
+        public int getRowCount()
+        {
+            return rows.size();
+        }
+
+        public Object getRow(int rowId)
+        {
+            return rows.get(rowId);
         }
     }
 

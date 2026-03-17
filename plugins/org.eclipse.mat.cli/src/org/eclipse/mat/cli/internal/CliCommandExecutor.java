@@ -204,7 +204,7 @@ public class CliCommandExecutor
             case INSTANCES:
                 return snapshotResult(snapshot, new InstancesResultBuilder().build(snapshot, arguments.getClassName(),
                                 arguments.getClassRegex(), arguments.isIncludeSubclasses(),
-                                arguments.getClassContains(), listener), null, null);
+                                arguments.getClassContains(), arguments.isDump(), listener), null, null);
             case INSPECT_OBJECT:
                 return executeInspectObject(arguments, snapshot);
             case BIGGEST_OBJECTS:
@@ -271,7 +271,8 @@ public class CliCommandExecutor
         String primaryObjectAddress = arguments.getObjectAddress();
         List<String> fieldPaths = arguments.getInspectionFieldPaths();
         if (fieldPaths.isEmpty())
-            return snapshotResult(snapshot, new ObjectInspectorResult(object), primaryObjectAddress, null);
+            return snapshotResult(snapshot, new ObjectInspectorResult(object, arguments.isDump()), primaryObjectAddress,
+                            null);
 
         List<ObjectInspectorResult.RootValue> resolved = resolveInspectionValues(object, fieldPaths);
         for (ObjectInspectorResult.RootValue value : resolved)
@@ -282,7 +283,8 @@ public class CliCommandExecutor
                 break;
             }
         }
-        return snapshotResult(snapshot, new ObjectInspectorResult(resolved), primaryObjectAddress, null);
+        return snapshotResult(snapshot, new ObjectInspectorResult(resolved, arguments.isDump()), primaryObjectAddress,
+                        null);
     }
 
     private CliExecution executeOql(CliArguments arguments, ISnapshot snapshot, IProgressListener listener)

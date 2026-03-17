@@ -61,6 +61,9 @@ _mat_cli_option_kind_for_command() {
         objects:--format)
             printf '%s\n' 'enum:text json'
             ;;
+        objects:--dump)
+            printf '%s\n' 'none'
+            ;;
         instances:--class)
             printf '%s\n' 'free-text'
             ;;
@@ -82,6 +85,9 @@ _mat_cli_option_kind_for_command() {
         instances:--format)
             printf '%s\n' 'enum:text json'
             ;;
+        instances:--dump)
+            printf '%s\n' 'none'
+            ;;
         inspect-object:--object)
             printf '%s\n' 'free-text'
             ;;
@@ -99,6 +105,9 @@ _mat_cli_option_kind_for_command() {
             ;;
         inspect-object:--depth)
             printf '%s\n' 'free-text'
+            ;;
+        inspect-object:--dump)
+            printf '%s\n' 'none'
             ;;
         inspect-object:--bytes-display)
             printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
@@ -118,6 +127,9 @@ _mat_cli_option_kind_for_command() {
         biggest-objects:--format)
             printf '%s\n' 'enum:text json'
             ;;
+        biggest-objects:--dump)
+            printf '%s\n' 'none'
+            ;;
         path2gc:--object)
             printf '%s\n' 'free-text'
             ;;
@@ -126,6 +138,9 @@ _mat_cli_option_kind_for_command() {
             ;;
         path2gc:--depth)
             printf '%s\n' 'free-text'
+            ;;
+        path2gc:--dump)
+            printf '%s\n' 'none'
             ;;
         path2gc:--bytes-display)
             printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
@@ -148,6 +163,9 @@ _mat_cli_option_kind_for_command() {
         oql:--depth)
             printf '%s\n' 'free-text'
             ;;
+        oql:--dump)
+            printf '%s\n' 'none'
+            ;;
         oql:--bytes-display)
             printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
             ;;
@@ -168,6 +186,9 @@ _mat_cli_option_kind_for_command() {
             ;;
         query:--depth)
             printf '%s\n' 'free-text'
+            ;;
+        query:--dump)
+            printf '%s\n' 'none'
             ;;
         query:--bytes-display)
             printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
@@ -212,25 +233,25 @@ _mat_cli_options_for_command() {
             printf '%s\n' '--limit --bytes-display --format --help --verbose'
             ;;
         objects)
-            printf '%s\n' '--by --package --class-loader --limit --bytes-display --format --help --verbose'
+            printf '%s\n' '--by --package --class-loader --limit --bytes-display --format --dump --help --verbose'
             ;;
         instances)
-            printf '%s\n' '--class --class-regex --class-contains --include-subclasses --limit --bytes-display --format --help --verbose'
+            printf '%s\n' '--class --class-regex --class-contains --include-subclasses --limit --bytes-display --format --dump --help --verbose'
             ;;
         inspect-object)
-            printf '%s\n' '--object --select-fields --field-paths --show-nulls --limit --depth --bytes-display --format --help --verbose'
+            printf '%s\n' '--object --select-fields --field-paths --show-nulls --limit --depth --dump --bytes-display --format --help --verbose'
             ;;
         biggest-objects)
-            printf '%s\n' '--limit --depth --bytes-display --format --help --verbose'
+            printf '%s\n' '--limit --depth --bytes-display --format --dump --help --verbose'
             ;;
         path2gc)
-            printf '%s\n' '--object --limit --depth --bytes-display --format --help --verbose'
+            printf '%s\n' '--object --limit --depth --dump --bytes-display --format --help --verbose'
             ;;
         oql)
-            printf '%s\n' '--query --query-file --query-stdin --limit --depth --bytes-display --format --help --verbose'
+            printf '%s\n' '--query --query-file --query-stdin --limit --depth --dump --bytes-display --format --help --verbose'
             ;;
         query)
-            printf '%s\n' '--command --command-file --command-stdin --limit --depth --bytes-display --format --help --verbose'
+            printf '%s\n' '--command --command-file --command-stdin --limit --depth --dump --bytes-display --format --help --verbose'
             ;;
         describe)
             printf '%s\n' '--format --help --verbose'

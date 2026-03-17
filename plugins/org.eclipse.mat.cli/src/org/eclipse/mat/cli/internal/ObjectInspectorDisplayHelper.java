@@ -50,6 +50,11 @@ final class ObjectInspectorDisplayHelper
 
     static Object inlineValue(IObject object)
     {
+        return inlineValue(object, false);
+    }
+
+    static Object inlineValue(IObject object, boolean dump)
+    {
         if (object == null || !isInlineCandidate(object))
             return null;
 
@@ -58,7 +63,7 @@ final class ObjectInspectorDisplayHelper
             return null;
 
         if (QUOTED_INLINE_TYPES.contains(object.getClazz().getName()))
-            return ObjectDisplayHelper.quotedTextValue(resolved);
+            return ObjectDisplayHelper.quotedTextValue(resolved, dump);
 
         return resolved;
     }

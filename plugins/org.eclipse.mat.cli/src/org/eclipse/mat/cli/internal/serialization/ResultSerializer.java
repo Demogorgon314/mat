@@ -101,7 +101,7 @@ public class ResultSerializer
 
         IResult result = execution.getResult();
         SerializationOptions options = new SerializationOptions(arguments.getLimit(), arguments.getTreeDepthLimit(),
-                        false, null, arguments.getBytesDisplay());
+                        false, arguments.isDump(), null, arguments.getBytesDisplay());
         if (result instanceof TextResult)
         {
             out.println(textSerializer.toText((TextResult) result));
@@ -164,7 +164,7 @@ public class ResultSerializer
         else
         {
             SerializationOptions options = new SerializationOptions(arguments.getLimit(),
-                            arguments.getTreeDepthLimit(), true, execution.getObjectAddressResolver(),
+                            arguments.getTreeDepthLimit(), true, arguments.isDump(), execution.getObjectAddressResolver(),
                             arguments.getBytesDisplay());
             IResult result = execution.getResult();
             if (result instanceof TextResult)

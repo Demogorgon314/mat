@@ -44,6 +44,8 @@ public final class CliHelp
         help.append("  --depth N            Maximum tree or section depth (default: 8, inspect-object: 3, biggest-objects: 1)\n"); //$NON-NLS-1$
         help.append("  --verbose            Print detailed diagnostics on failure\n"); //$NON-NLS-1$
         help.append("  --help               Show general or command-specific help\n\n"); //$NON-NLS-1$
+        help.append("Structured-output options:\n"); //$NON-NLS-1$
+        help.append("  --dump               Emit full structured values for supported commands, ignore --limit, and only honor --depth\n\n"); //$NON-NLS-1$
         help.append("Inspect-object options:\n"); //$NON-NLS-1$
         help.append("  --select-fields FIELD Inspect direct fields from the root object; may be repeated\n"); //$NON-NLS-1$
         help.append("  --field-paths PATH    Inspect dotted field paths such as cleaner.offsetMap; may be repeated\n"); //$NON-NLS-1$
