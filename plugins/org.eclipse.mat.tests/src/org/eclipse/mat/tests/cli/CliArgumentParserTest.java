@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.regex.Pattern;
 
 import org.eclipse.mat.cli.internal.CliArgumentParser;
 import org.eclipse.mat.cli.internal.CliArguments;
@@ -753,12 +754,14 @@ public class CliArgumentParserTest
     {
         String help = CliHelp.generalHelp();
 
-        assertTrue(help.contains("threads <heap> [--limit N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
-        assertTrue(help.contains("objects <heap> [--by class|package|class-loader] [--package PKG] [--class-loader TEXT] [--limit N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
-        assertTrue(help.contains("instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
-        assertTrue(help.contains("inspect-object <heap> --object 0x... [--select-fields FIELD | --field-paths PATH] [--show-nulls] [--limit N] [--depth N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
-        assertTrue(help.contains("biggest-objects <heap> [--limit N] [--depth N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
-        assertTrue(help.contains("completion <bash|zsh> [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("Usage:\n  mat-cli <command> <heap> [options]\n  mat-cli <command> [options]\n  mat-cli <command> --help\n  mat-cli --help")); //$NON-NLS-1$
+        assertHelpContainsCommandSummary(help, "summary", "Read basic heap metadata such as object counts and used heap."); //$NON-NLS-1$ //$NON-NLS-2$
+        assertHelpContainsCommandSummary(help, "objects", "Inspect objects grouped by class, package, or class loader."); //$NON-NLS-1$ //$NON-NLS-2$
+        assertHelpContainsCommandSummary(help, "inspect-object", //$NON-NLS-1$
+                        "Inspect one object like MAT's object inspector, or jump directly to one or more field paths for targeted state checks."); //$NON-NLS-1$
+        assertHelpContainsCommandSummary(help, "describe", //$NON-NLS-1$
+                        "Describe a CLI command, its options, and the result kinds it can return."); //$NON-NLS-1$
+        assertHelpContainsCommandSummary(help, "completion", "Generate a bash or zsh shell completion script for mat-cli."); //$NON-NLS-1$ //$NON-NLS-2$
         assertTrue(help.contains("--bytes-display MODE Byte display mode for text output: bytes|kilobytes|megabytes|gigabytes|smart (default: smart)")); //$NON-NLS-1$
         assertTrue(help.contains("--depth N            Maximum tree or section depth (default: 8, inspect-object: 3, biggest-objects: 1)")); //$NON-NLS-1$
         assertTrue(help.contains("--dump               Emit full structured values for supported commands, ignore --limit, and only honor --depth")); //$NON-NLS-1$
@@ -767,6 +770,12 @@ public class CliArgumentParserTest
         assertTrue(help.contains("--show-nulls         Show nested null fields and array slots in text output")); //$NON-NLS-1$
         assertTrue(help.contains("Use 'mat-cli <command> --help' for command-specific help.")); //$NON-NLS-1$
         assertTrue(help.contains("Inner class names containing '$' must be quoted or escaped")); //$NON-NLS-1$
+        assertFalse(help.contains("mat-cli describe <command> [options]")); //$NON-NLS-1$
+        assertFalse(help.contains("mat-cli schema <command> [options]")); //$NON-NLS-1$
+        assertFalse(help.contains("mat-cli list-queries [options]")); //$NON-NLS-1$
+        assertFalse(help.contains("mat-cli describe-query <query-id> [options]")); //$NON-NLS-1$
+        assertFalse(help.contains("mat-cli completion <bash|zsh> [options]")); //$NON-NLS-1$
+        assertFalse(help.contains("objects <heap> [--by class|package|class-loader]")); //$NON-NLS-1$
         assertFalse(help.contains("--field-path PATH")); //$NON-NLS-1$
         assertFalse(help.contains("--select-field FIELD")); //$NON-NLS-1$
         assertFalse(help.contains("top-consumers <heap>")); //$NON-NLS-1$
@@ -806,5 +815,12 @@ public class CliArgumentParserTest
         assertTrue(help.contains("Command: completion")); //$NON-NLS-1$
         assertTrue(help.contains("Usage: mat-cli completion <bash|zsh> [--format text|json]")); //$NON-NLS-1$
         assertTrue(help.contains("bash|zsh")); //$NON-NLS-1$
+    }
+
+    private void assertHelpContainsCommandSummary(String help, String command, String summary)
+    {
+        Pattern pattern = Pattern.compile("^\\s*" + Pattern.quote(command) + "\\s+" + Pattern.quote(summary) + "$", //$NON-NLS-1$ //$NON-NLS-2$
+                        Pattern.MULTILINE);
+        assertTrue(pattern.matcher(help).find());
     }
 }
