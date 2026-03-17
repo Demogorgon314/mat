@@ -27,6 +27,7 @@ public final class CliHelp
         StringBuilder help = new StringBuilder();
         help.append("Usage:\n"); //$NON-NLS-1$
         help.append("  mat-cli <command> <heap> [options]\n"); //$NON-NLS-1$
+        help.append("  mat-cli <command> [options]\n"); //$NON-NLS-1$
         help.append("  mat-cli <command> --help\n"); //$NON-NLS-1$
         help.append("  mat-cli --help\n\n"); //$NON-NLS-1$
         help.append("Commands:\n"); //$NON-NLS-1$

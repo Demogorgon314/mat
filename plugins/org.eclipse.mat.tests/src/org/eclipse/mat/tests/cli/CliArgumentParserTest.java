@@ -754,7 +754,7 @@ public class CliArgumentParserTest
     {
         String help = CliHelp.generalHelp();
 
-        assertTrue(help.contains("Usage:\n  mat-cli <command> <heap> [options]\n  mat-cli <command> --help\n  mat-cli --help")); //$NON-NLS-1$
+        assertTrue(help.contains("Usage:\n  mat-cli <command> <heap> [options]\n  mat-cli <command> [options]\n  mat-cli <command> --help\n  mat-cli --help")); //$NON-NLS-1$
         assertHelpContainsCommandSummary(help, "summary", "Read basic heap metadata such as object counts and used heap."); //$NON-NLS-1$ //$NON-NLS-2$
         assertHelpContainsCommandSummary(help, "objects", "Inspect objects grouped by class, package, or class loader."); //$NON-NLS-1$ //$NON-NLS-2$
         assertHelpContainsCommandSummary(help, "inspect-object", //$NON-NLS-1$
