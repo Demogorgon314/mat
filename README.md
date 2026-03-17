@@ -48,52 +48,29 @@ npx skills add https://github.com/Demogorgon314/mat-cli --skill mat-cli-heapdump
 
 ### Shell Completion
 
-`mat-cli` ships first-party `bash` and `zsh` completion scripts in the release archive:
+If you install `mat-cli` with Homebrew, `bash` and `zsh` completion files are installed automatically.
+
+The standalone release zip also includes:
 
 - `completion/bash/mat-cli`
 - `completion/zsh/_mat-cli`
 
-You can also generate the same scripts at runtime:
+You can generate the same scripts at runtime:
 
 ```bash
-./mat-cli completion bash
-./mat-cli completion zsh
+mat-cli completion bash
+mat-cli completion zsh
 ```
 
-Temporary activation in the current shell:
+For a quick one-off session:
 
 ```bash
-source <(./mat-cli completion bash)
-source <(./mat-cli completion zsh)
+source <(mat-cli completion bash)
+source <(mat-cli completion zsh)
 ```
 
-Persistent `bash` installation:
-
-```bash
-mkdir -p ~/.local/share/bash-completion/completions
-cp ./completion/bash/mat-cli ~/.local/share/bash-completion/completions/mat-cli
-```
-
-Or generate it directly:
-
-```bash
-mkdir -p ~/.local/share/bash-completion/completions
-./mat-cli completion bash > ~/.local/share/bash-completion/completions/mat-cli
-```
-
-Persistent `zsh` installation:
-
-```bash
-mkdir -p ~/.zfunc
-cp ./completion/zsh/_mat-cli ~/.zfunc/_mat-cli
-```
-
-Or generate it directly:
-
-```bash
-mkdir -p ~/.zfunc
-./mat-cli completion zsh > ~/.zfunc/_mat-cli
-```
+For a persistent manual install, copy one of those files, or the output of `mat-cli completion <bash|zsh>`,
+into your shell's completion directory.
 
 If your `zsh` setup does not already load `~/.zfunc`, add this once to your shell startup file before `compinit`:
 
