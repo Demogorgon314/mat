@@ -18,6 +18,22 @@ import org.eclipse.mat.query.BytesDisplay;
 
 public final class CliArguments
 {
+    public enum ObjectsGrouping
+    {
+        CLASS, PACKAGE, CLASS_LOADER;
+
+        public static ObjectsGrouping parse(String value) throws CliException
+        {
+            if ("class".equalsIgnoreCase(value)) //$NON-NLS-1$
+                return CLASS;
+            if ("package".equalsIgnoreCase(value)) //$NON-NLS-1$
+                return PACKAGE;
+            if ("class-loader".equalsIgnoreCase(value)) //$NON-NLS-1$
+                return CLASS_LOADER;
+            throw CliException.usage("Unsupported --by value: " + value); //$NON-NLS-1$
+        }
+    }
+
     public enum OutputFormat
     {
         TEXT, JSON;
@@ -47,6 +63,9 @@ public final class CliArguments
     private final String className;
     private final String classRegex;
     private final String classContains;
+    private final ObjectsGrouping objectsGrouping;
+    private final String packageName;
+    private final String classLoaderName;
     private final List<String> selectFields;
     private final List<String> fieldPaths;
     private final boolean includeSubclasses;
@@ -57,6 +76,7 @@ public final class CliArguments
                     BytesDisplay bytesDisplay, OutputFormat format, boolean verbose, boolean help, boolean showNulls, int limit,
                     int treeDepthLimit,
                     String objectAddress, String className, String classRegex, String classContains,
+                    ObjectsGrouping objectsGrouping, String packageName, String classLoaderName,
                     List<String> selectFields, List<String> fieldPaths, boolean includeSubclasses, String oqlQuery,
                     String queryCommand)
     {
@@ -75,6 +95,9 @@ public final class CliArguments
         this.className = className;
         this.classRegex = classRegex;
         this.classContains = classContains;
+        this.objectsGrouping = objectsGrouping == null ? ObjectsGrouping.CLASS : objectsGrouping;
+        this.packageName = packageName;
+        this.classLoaderName = classLoaderName;
         this.selectFields = immutableCopy(selectFields);
         this.fieldPaths = immutableCopy(fieldPaths);
         this.includeSubclasses = includeSubclasses;
@@ -160,6 +183,21 @@ public final class CliArguments
     public String getClassContains()
     {
         return classContains;
+    }
+
+    public ObjectsGrouping getObjectsGrouping()
+    {
+        return objectsGrouping;
+    }
+
+    public String getPackageName()
+    {
+        return packageName;
+    }
+
+    public String getClassLoaderName()
+    {
+        return classLoaderName;
     }
 
     public List<String> getSelectFields()

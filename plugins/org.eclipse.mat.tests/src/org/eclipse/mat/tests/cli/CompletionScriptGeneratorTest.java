@@ -32,8 +32,12 @@ public class CompletionScriptGeneratorTest
         assertTrue(script.contains("--format")); //$NON-NLS-1$
         assertTrue(script.contains("enum:text json")); //$NON-NLS-1$
         assertTrue(script.contains("summary:0")); //$NON-NLS-1$
+        assertTrue(script.contains("objects:0")); //$NON-NLS-1$
+        assertTrue(script.contains("biggest-objects:0")); //$NON-NLS-1$
         assertTrue(script.contains("describe:0")); //$NON-NLS-1$
         assertTrue(script.contains("completion:0")); //$NON-NLS-1$
+        assertTrue(script.contains("objects:--by")); //$NON-NLS-1$
+        assertTrue(script.contains("enum:class package class-loader")); //$NON-NLS-1$
         assertTrue(script.contains("file")); //$NON-NLS-1$
         assertTrue(script.contains("--query-file")); //$NON-NLS-1$
         assertTrue(script.contains("--command-file")); //$NON-NLS-1$
@@ -49,6 +53,8 @@ public class CompletionScriptGeneratorTest
         assertTrue(script.contains("compdef _mat-cli mat-cli")); //$NON-NLS-1$
         assertTrue(script.contains("--format")); //$NON-NLS-1$
         assertTrue(script.contains("enum:text json")); //$NON-NLS-1$
+        assertTrue(script.contains("objects:0")); //$NON-NLS-1$
+        assertTrue(script.contains("biggest-objects:0")); //$NON-NLS-1$
         assertTrue(script.contains("completion:0")); //$NON-NLS-1$
         assertTrue(script.contains("_files")); //$NON-NLS-1$
     }

@@ -22,7 +22,6 @@ import org.eclipse.mat.query.IResult;
 import org.eclipse.mat.query.IResultPie;
 import org.eclipse.mat.query.IResultTable;
 import org.eclipse.mat.query.IResultTree;
-import org.eclipse.mat.query.refined.RefinedResultBuilder;
 import org.eclipse.mat.query.results.CompositeResult;
 import org.eclipse.mat.query.results.TextResult;
 import org.eclipse.mat.report.QuerySpec;
@@ -36,7 +35,6 @@ import org.eclipse.mat.snapshot.model.IClass;
 import org.eclipse.mat.snapshot.model.IInstance;
 import org.eclipse.mat.snapshot.model.IObject;
 import org.eclipse.mat.snapshot.model.ObjectReference;
-import org.eclipse.mat.snapshot.query.RetainedSizeDerivedData;
 import org.eclipse.mat.snapshot.query.SnapshotQuery;
 import org.eclipse.mat.util.ConsoleProgressListener;
 import org.eclipse.mat.util.IProgressListener;
@@ -201,18 +199,18 @@ public class CliCommandExecutor
             case THREADS:
                 return snapshotResult(snapshot, new ThreadsResultBuilder().build(snapshot, listener, arguments.getLimit()),
                                 null, null);
-            case HISTOGRAM:
-                RefinedResultBuilder histogram = SnapshotQuery.lookup("histogram", snapshot).refine(listener); //$NON-NLS-1$
-                histogram.addDefaultContextDerivedColumn(RetainedSizeDerivedData.APPROXIMATE);
-                return snapshotResult(snapshot, histogram.build(), null, null);
+            case OBJECTS:
+                return executeObjects(arguments, snapshot, listener);
             case INSTANCES:
                 return snapshotResult(snapshot, new InstancesResultBuilder().build(snapshot, arguments.getClassName(),
                                 arguments.getClassRegex(), arguments.isIncludeSubclasses(),
                                 arguments.getClassContains(), listener), null, null);
             case INSPECT_OBJECT:
                 return executeInspectObject(arguments, snapshot);
-            case TOP_CONSUMERS:
-                return snapshotResult(snapshot, new TopConsumersResultBuilder().build(snapshot, listener), null, null);
+            case BIGGEST_OBJECTS:
+                return snapshotResult(snapshot,
+                                new BiggestObjectsResultBuilder().build(snapshot, arguments.getTreeDepthLimit(), listener),
+                                null, null);
             case PATH2GC:
                 return executePath2Gc(arguments, snapshot, listener);
             case OQL:
@@ -227,6 +225,32 @@ public class CliCommandExecutor
                 return execute(arguments);
             default:
                 throw CliException.usage("Unsupported command: " + arguments.getCommand().getToken()); //$NON-NLS-1$
+        }
+    }
+
+    private CliExecution executeObjects(CliArguments arguments, ISnapshot snapshot, IProgressListener listener)
+                    throws Exception
+    {
+        ObjectsResultBuilder builder = new ObjectsResultBuilder();
+        switch (arguments.getObjectsGrouping())
+        {
+            case CLASS:
+                return snapshotResult(snapshot,
+                                builder.buildClass(snapshot, arguments.getPackageName(), arguments.getClassLoaderName(),
+                                                listener),
+                                null, null);
+            case CLASS_LOADER:
+                if (arguments.getClassLoaderName() != null && arguments.getClassLoaderName().length() > 0)
+                    return snapshotResult(snapshot,
+                                    builder.buildClass(snapshot, null, arguments.getClassLoaderName(), listener), null,
+                                    null);
+                return snapshotResult(snapshot,
+                                builder.buildClassLoader(snapshot, arguments.getClassLoaderName(), listener), null, null);
+            case PACKAGE:
+                return snapshotResult(snapshot, builder.buildPackage(snapshot, arguments.getPackageName(), listener), null,
+                                null);
+            default:
+                throw CliException.usage("Unsupported --by value: " + arguments.getObjectsGrouping()); //$NON-NLS-1$
         }
     }
 

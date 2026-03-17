@@ -223,6 +223,8 @@ public final class CliCommandCatalog
     private static final List<String> FORMAT_VALUES = immutableCopy(Arrays.asList("text", "json")); //$NON-NLS-1$ //$NON-NLS-2$
     private static final List<String> BYTES_DISPLAY_VALUES = immutableCopy(
                     Arrays.asList("bytes", "kilobytes", "megabytes", "gigabytes", "smart")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+    private static final List<String> OBJECT_GROUPING_VALUES = immutableCopy(
+                    Arrays.asList("class", "package", "class-loader")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
     private static final List<String> COMPLETION_SHELLS = immutableCopy(Arrays.asList("bash", "zsh")); //$NON-NLS-1$ //$NON-NLS-2$
     private static final List<String> COMMAND_TOKENS = buildCommandTokens();
     private static final List<OptionDefinition> GLOBAL_OPTIONS = immutableCopy(Arrays.asList(
@@ -254,6 +256,16 @@ public final class CliCommandCatalog
     private static final List<OptionDefinition> FORMAT_LIMIT_AND_DEPTH_OPTIONS = Arrays.asList(
                     freeTextOption("--limit", "N", false, "Limit rows, sections, or children per level."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                     freeTextOption("--depth", "N", false, "Limit nested tree or section depth."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                    BYTES_DISPLAY_OPTION,
+                    enumOption("--format", "text|json", false, "Select text or JSON output.", FORMAT_VALUES)); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+    private static final List<OptionDefinition> OBJECTS_OPTIONS = Arrays.asList(
+                    enumOption("--by", "class|package|class-loader", false, //$NON-NLS-1$ //$NON-NLS-2$
+                                    "Choose whether to group by class, package, or class loader. Defaults to class.", OBJECT_GROUPING_VALUES), //$NON-NLS-1$
+                    freeTextOption("--package", "PKG", false, //$NON-NLS-1$ //$NON-NLS-2$
+                                    "Filter classes by package when grouping by class, or re-root the package tree when grouping by package."), //$NON-NLS-1$
+                    freeTextOption("--class-loader", "TEXT", false, //$NON-NLS-1$ //$NON-NLS-2$
+                                    "Filter class rows by class loader label when grouping by class, or drill into the matching class loader and show its classes when grouping by class-loader."), //$NON-NLS-1$
+                    freeTextOption("--limit", "N", false, "Limit rows or package-tree children per level."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                     BYTES_DISPLAY_OPTION,
                     enumOption("--format", "text|json", false, "Select text or JSON output.", FORMAT_VALUES)); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
     private static final Map<String, Integer> QUERY_LIMIT_OVERRIDES = queryLimitOverrides();
@@ -320,7 +332,7 @@ public final class CliCommandCatalog
                         "mat-cli summary <heap> [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]", true, heapArgument, RESULT_FORMAT_OPTION, //$NON-NLS-1$
                         Arrays.asList(output("text", "summary", "Human-readable heap summary."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         output("json", "summary", "Compact mat-cli/v1 summary JSON envelope.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                        Arrays.asList("histogram <heap>", "top-consumers <heap>", //$NON-NLS-1$ //$NON-NLS-2$
+                        Arrays.asList("objects <heap>", "biggest-objects <heap>", //$NON-NLS-1$ //$NON-NLS-2$
                                         "query <heap> --command \"thread_overview\""), //$NON-NLS-1$
                         "compact summary object with snapshot-wide counters and heap metadata, omitting absent strings.", //$NON-NLS-1$
                         Arrays.asList("summary.path", "summary.heapFormat", "summary.numberOfObjects", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
@@ -333,23 +345,24 @@ public final class CliCommandCatalog
                                         enumOption("--format", "text|json", false, "Select text or JSON output.", FORMAT_VALUES)), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                         Arrays.asList(output("text", "threads", "Thread report with overview plus per-thread stack sections."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         output("json", "threads", "Compact mat-cli/v1 thread report JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                        Arrays.asList("histogram <heap>", "top-consumers <heap>"), //$NON-NLS-1$ //$NON-NLS-2$
+                        Arrays.asList("objects <heap>", "biggest-objects <heap>"), //$NON-NLS-1$ //$NON-NLS-2$
                         "thread report payload with a summary, optional notice, and one compact entry per returned thread.", //$NON-NLS-1$
                         Arrays.asList("notice", "summary.totalThreads", "summary.returnedThreads", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         "summary.stackAvailableThreads", "summary.stateAvailableThreads", "threads[]", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         "threads[].name", "threads[].technicalName", "threads[].objectAddress", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         "threads[].state", "threads[].retainedBytes", "threads[].stackAvailable", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         "threads[].stackUnavailableReason when unavailable", "threads[].stackFrames[] when non-empty"))); //$NON-NLS-1$ //$NON-NLS-2$
-        definitions.put(CliCommand.HISTOGRAM, new CommandDefinition(CliCommand.HISTOGRAM,
-                        "Group objects by class and report shallow heap plus approximate retained heap.", //$NON-NLS-1$
-                        "mat-cli histogram <heap> [--limit N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]", true, heapArgument, //$NON-NLS-1$
-                        FORMAT_AND_LIMIT_OPTIONS,
-                        Arrays.asList(output("text", "table", "Text table with formatted columns."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        output("json", "table", "Compact keyed table JSON.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                        Arrays.asList("top-consumers <heap>", "query <heap> --command \"histogram\""), //$NON-NLS-1$ //$NON-NLS-2$
-                        "table payload with normalized column ids, non-null cell values only, optional row addresses, and per-cell metadata for approximate retained sizes.", //$NON-NLS-1$
-                        Arrays.asList("items[]", "items[]._address when no address column", //$NON-NLS-1$ //$NON-NLS-2$
-                                        "items[]._meta.retained_heap.kind when approximate"))); //$NON-NLS-1$
+        definitions.put(CliCommand.OBJECTS, new CommandDefinition(CliCommand.OBJECTS,
+                        "Inspect objects grouped by class, package, or class loader.", //$NON-NLS-1$
+                        "mat-cli objects <heap> [--by class|package|class-loader] [--package PKG] [--class-loader TEXT] [--limit N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]", true, //$NON-NLS-1$
+                        heapArgument, OBJECTS_OPTIONS,
+                        Arrays.asList(output("text", "table|tree", "Text table or package tree depending on --by."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        output("json", "table|tree", "Compact table JSON or package tree JSON depending on --by.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                        Arrays.asList("biggest-objects <heap>", "instances <heap> --class <fqcn>"), //$NON-NLS-1$ //$NON-NLS-2$
+                        "table payload for class/class-loader views, or tree payload rooted at root for the package view.", //$NON-NLS-1$
+                        Arrays.asList("items[] when --by class|class-loader", "items[]._address when no address column", //$NON-NLS-1$ //$NON-NLS-2$
+                                        "items[]._meta.retained_size.kind when approximate", "root when --by package", //$NON-NLS-1$ //$NON-NLS-2$
+                                        "root._children[] when returned"))); //$NON-NLS-1$
         definitions.put(CliCommand.INSTANCES, new CommandDefinition(CliCommand.INSTANCES,
                         "List live objects for one class so you can pick a concrete instance to inspect.", //$NON-NLS-1$
                         "mat-cli instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]", //$NON-NLS-1$
@@ -385,19 +398,16 @@ public final class CliCommandCatalog
                                         "items[]._meta.value.kind when previewed", //$NON-NLS-1$
                                         "items[]._meta.value.length when previewed", //$NON-NLS-1$
                                         "items[]._meta.value.encoding when byte[] previewed"))); //$NON-NLS-1$
-        definitions.put(CliCommand.TOP_CONSUMERS, new CommandDefinition(CliCommand.TOP_CONSUMERS,
-                        "Show the largest dominators grouped the same way as MAT top consumers.", //$NON-NLS-1$
-                        "mat-cli top-consumers <heap> [--limit N] [--depth N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]", true, //$NON-NLS-1$
+        definitions.put(CliCommand.BIGGEST_OBJECTS, new CommandDefinition(CliCommand.BIGGEST_OBJECTS,
+                        "Show the biggest objects by retained size, optionally expanding deeper dominator levels.", //$NON-NLS-1$
+                        "mat-cli biggest-objects <heap> [--limit N] [--depth N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]", true, //$NON-NLS-1$
                         heapArgument, FORMAT_LIMIT_AND_DEPTH_OPTIONS,
-                        Arrays.asList(output("text", "top-consumers", "Text report matching MAT top consumers."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        output("json", "top-consumers", //$NON-NLS-1$ //$NON-NLS-2$
-                                                        "Compact aggregated JSON without display-only duplicates.")), //$NON-NLS-1$
-                        Arrays.asList("histogram <heap>", "path2gc <heap> --object 0x..."), //$NON-NLS-1$ //$NON-NLS-2$
-                        "aggregated payload with biggestObjects, classes, classLoaders, and optional packages.", //$NON-NLS-1$
-                        Arrays.asList("totalRetainedHeap", "biggestObjects[]", "biggestObjects[].objectAddress", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        "biggestObjectsTruncated when true", "classes[]", "classes[].objectAddress", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        "classesTruncated when true", "classLoaders[]", "classLoaders[].objectAddress", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                                        "classLoadersTruncated when true", "packages when available", "packagesTruncated when true"))); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                        Arrays.asList(output("text", "table", "Text table of dominator objects."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        output("json", "table", "Compact keyed table JSON for dominator objects.")), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                        Arrays.asList("path2gc <heap> --object 0x...", "inspect-object <heap> --object 0x..."), //$NON-NLS-1$ //$NON-NLS-2$
+                        "table payload listing the biggest dominator objects with retained size, shallow size, retained percentage, level, and optional row addresses.", //$NON-NLS-1$
+                        Arrays.asList("items[]", "items[]._address when no address column", "items[].retained_size", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                                        "items[].shallow_size", "items[].retained", "items[].level"))); //$NON-NLS-1$ //$NON-NLS-2$
         definitions.put(CliCommand.PATH2GC, new CommandDefinition(CliCommand.PATH2GC,
                         "Find paths from an object to GC roots using MAT's native query.", //$NON-NLS-1$
                         "mat-cli path2gc <heap> --object 0x... [--limit N] [--depth N] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]", true, //$NON-NLS-1$
@@ -428,7 +438,7 @@ public final class CliCommandCatalog
                         Arrays.asList(output("text", "text|table|tree|pie", "Depends on the OQL result."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         output("json", "text|table|tree|pie", //$NON-NLS-1$ //$NON-NLS-2$
                                                         "Compact mat-cli/v1 JSON envelope around the resolved result kind.")), //$NON-NLS-1$
-                        Arrays.asList("histogram <heap>", "query <heap> --command \"histogram\""), //$NON-NLS-1$ //$NON-NLS-2$
+                        Arrays.asList("objects <heap>", "query <heap> --command \"histogram\""), //$NON-NLS-1$ //$NON-NLS-2$
                         "same payload contract as the resolved result kind returned by the OQL query.", //$NON-NLS-1$
                         Arrays.asList("resultKind", "items[] when table/tree/pie", "items[].slot when tree siblings were compacted", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         "content when text"))); //$NON-NLS-1$
@@ -444,11 +454,11 @@ public final class CliCommandCatalog
                                         freeTextOption("--depth", "N", false, "Limit nested tree or section depth."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         BYTES_DISPLAY_OPTION,
                                         enumOption("--format", "text|json", false, "Select text or JSON output.", FORMAT_VALUES)), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                        Arrays.asList(output("text", "text|table|tree|section|pie|top-consumers", //$NON-NLS-1$ //$NON-NLS-2$
+                        Arrays.asList(output("text", "text|table|tree|section|pie", //$NON-NLS-1$ //$NON-NLS-2$
                                         "Depends on the resolved query result."),
-                                        output("json", "text|table|tree|section|pie|top-consumers", //$NON-NLS-1$ //$NON-NLS-2$
+                                        output("json", "text|table|tree|section|pie", //$NON-NLS-1$ //$NON-NLS-2$
                                                         "Compact mat-cli/v1 JSON envelope around the resolved result kind.")), //$NON-NLS-1$
-                        Arrays.asList("schema histogram", "describe top-consumers"), //$NON-NLS-1$ //$NON-NLS-2$
+                        Arrays.asList("schema objects", "describe biggest-objects"), //$NON-NLS-1$ //$NON-NLS-2$
                         "same payload contract as the resolved result kind returned by the parsed query.", //$NON-NLS-1$
                         Arrays.asList("resultKind", "items[] when table/tree/pie", "items[].slot when tree siblings were compacted", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                                         "sections[] when section"))); //$NON-NLS-1$ //$NON-NLS-2$

@@ -20,7 +20,7 @@ If you are looking for the full Eclipse MAT desktop/RCP distribution, official p
 
 - Analyze Java heap dumps from the command line
 - Text and JSON output modes
-- Built-in commands such as `summary`, `threads`, `histogram`, `instances`, `inspect-object`, `top-consumers`, `path2gc`, `oql`, and `query`
+- Built-in commands such as `summary`, `threads`, `objects`, `instances`, `inspect-object`, `biggest-objects`, `path2gc`, `oql`, and `query`
 - Standalone zip releases and Homebrew installation
 - Built on top of Eclipse MAT internals and query engine
 
@@ -112,9 +112,9 @@ compinit
 
 ```bash
 mat-cli --help
-mat-cli histogram --help
+mat-cli objects --help
 mat-cli summary path/to/heap.hprof
-mat-cli histogram path/to/heap.hprof --limit 10
+mat-cli objects path/to/heap.hprof --limit 10
 mat-cli oql path/to/heap.hprof --query "SELECT * FROM java.lang.String s"
 ```
 
@@ -131,18 +131,19 @@ Useful discovery commands:
 
 A typical heap-dump workflow is:
 
-`summary` -> `histogram` / `top-consumers` -> `instances` -> `inspect-object` -> `path2gc`
+`summary` -> `objects` / `biggest-objects` -> `instances` -> `inspect-object` -> `path2gc`
 
 The sample outputs below were generated from a small test heap bundled in this repository. Your object addresses, counts, retained sizes, and field values will differ on real dumps.
 
 ### Quick Overview
 
-Use `summary` to understand the snapshot, then `histogram` or `top-consumers` to see which classes and objects dominate memory:
+Use `summary` to understand the snapshot, then `objects` or `biggest-objects` to see which classes, packages, class loaders, and objects dominate memory:
 
 ```bash
 mat-cli summary path/to/heap.hprof
-mat-cli histogram path/to/heap.hprof --limit 20
-mat-cli top-consumers path/to/heap.hprof --limit 20 --depth 3
+mat-cli objects path/to/heap.hprof --by class --limit 20
+mat-cli objects path/to/heap.hprof --by package --limit 20
+mat-cli biggest-objects path/to/heap.hprof --limit 20 --depth 3
 ```
 
 Example output:
@@ -160,13 +161,13 @@ Creation Date: 2010-02-05T14:27:34.534Z
 ```
 
 ```text
-Class Name         | Objects | Shallow Heap | Retained Heap
--------------------+---------+--------------+---------------+
-byte[]             | 11      | 43,264       | >= 43,264
-char[]             | 148     | 43,120       | >= 43,120
-java.lang.Object[] | 203     | 7,600        | >= 7,968
-java.lang.String   | 154     | 3,696        | >= 12,232
-java.lang.Class    | 317     | 3,640        | >= 88,200
+Class             | Objects | Shallow Size | Retained Size
+------------------+---------+--------------+----------------
+byte[]            | 11      | 43,264B      | >= 43,264B
+char[]            | 148     | 43,120B      | >= 43,120B
+java.lang.Object[]| 203     | 7,600B       | >= 7,968B
+java.lang.String  | 154     | 3,696B       | >= 12,232B
+java.lang.Class   | 317     | 3,640B       | >= 88,200B
 ... 304 more rows
 ```
 

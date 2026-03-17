@@ -13,10 +13,10 @@ public enum CliCommand
 {
     SUMMARY("summary", true, false, false, false), //$NON-NLS-1$
     THREADS("threads", true, false, false, false), //$NON-NLS-1$
-    HISTOGRAM("histogram", true, false, false, false), //$NON-NLS-1$
+    OBJECTS("objects", true, false, false, false), //$NON-NLS-1$
     INSTANCES("instances", true, false, false, false), //$NON-NLS-1$
     INSPECT_OBJECT("inspect-object", true, false, false, false), //$NON-NLS-1$
-    TOP_CONSUMERS("top-consumers", true, false, false, false), //$NON-NLS-1$
+    BIGGEST_OBJECTS("biggest-objects", true, false, false, false), //$NON-NLS-1$
     PATH2GC("path2gc", true, false, false, false), //$NON-NLS-1$
     OQL("oql", true, false, false, false), //$NON-NLS-1$
     QUERY("query", true, false, false, false), //$NON-NLS-1$
@@ -74,6 +74,16 @@ public enum CliCommand
 
     public static CliCommand parse(String token) throws CliException
     {
+        if ("histogram".equals(token)) //$NON-NLS-1$
+        {
+            throw CliException.usage(
+                            "`histogram` has been replaced by `objects`. Use `mat-cli objects <heap>`."); //$NON-NLS-1$
+        }
+        if ("top-consumers".equals(token)) //$NON-NLS-1$
+        {
+            throw CliException.usage(
+                            "`top-consumers` has been replaced by `biggest-objects` and `objects --by package`. Use `mat-cli biggest-objects <heap>` or `mat-cli objects <heap> --by package`."); //$NON-NLS-1$
+        }
         for (CliCommand command : values())
         {
             if (command.token.equals(token))
