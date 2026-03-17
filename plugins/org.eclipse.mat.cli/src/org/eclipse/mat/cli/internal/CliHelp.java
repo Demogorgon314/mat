@@ -27,11 +27,6 @@ public final class CliHelp
         StringBuilder help = new StringBuilder();
         help.append("Usage:\n"); //$NON-NLS-1$
         help.append("  mat-cli <command> <heap> [options]\n"); //$NON-NLS-1$
-        help.append("  mat-cli describe <command> [options]\n"); //$NON-NLS-1$
-        help.append("  mat-cli schema <command> [options]\n"); //$NON-NLS-1$
-        help.append("  mat-cli list-queries [options]\n"); //$NON-NLS-1$
-        help.append("  mat-cli describe-query <query-id> [options]\n"); //$NON-NLS-1$
-        help.append("  mat-cli completion <bash|zsh> [options]\n"); //$NON-NLS-1$
         help.append("  mat-cli <command> --help\n"); //$NON-NLS-1$
         help.append("  mat-cli --help\n\n"); //$NON-NLS-1$
         help.append("Commands:\n"); //$NON-NLS-1$
@@ -104,18 +99,30 @@ public final class CliHelp
 
     private static void appendCommandSynopsis(StringBuilder help)
     {
+        int maxTokenLength = 0;
+        for (CliCommand command : CliCommand.values())
+        {
+            maxTokenLength = Math.max(maxTokenLength, command.getToken().length());
+        }
         for (CliCommand command : CliCommand.values())
         {
             CommandDefinition definition = CliCommandCatalog.lookup(command);
             if (definition != null)
-                help.append("  ").append(stripExecutable(definition.getUsage())).append('\n'); //$NON-NLS-1$
+            {
+                help.append("  ").append(definition.getCommand().getToken()); //$NON-NLS-1$
+                appendPadding(help, maxTokenLength - definition.getCommand().getToken().length() + 2);
+                help.append(definition.getSummary()).append('\n');
+            }
         }
         help.append('\n');
     }
 
-    private static String stripExecutable(String usage)
+    private static void appendPadding(StringBuilder builder, int count)
     {
-        return usage.startsWith("mat-cli ") ? usage.substring("mat-cli ".length()) : usage; //$NON-NLS-1$ //$NON-NLS-2$
+        for (int index = 0; index < count; index++)
+        {
+            builder.append(' ');
+        }
     }
 
     private static String jsonPayloadKind(CommandDefinition definition)
