@@ -611,6 +611,36 @@ public class ResultSerializerTest
     }
 
     @Test
+    public void ignoresPieLimitInDumpModeForJson()
+    {
+        PieResultSerializer serializer = new PieResultSerializer();
+        JsonWriter writer = new JsonWriter();
+        writer.beginObject();
+        boolean truncated = serializer.writeJson(writer, new SamplePie(),
+                        new SerializationOptions(1, 8, BytesDisplay.Smart, true));
+        writer.name("truncated").value(truncated); //$NON-NLS-1$
+        writer.endObject();
+
+        String json = writer.toString();
+        assertFalse(truncated);
+        assertTrue(json.contains("\"label\":\"Suspect 1\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"label\":\"Suspect 2\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"truncated\":false")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void ignoresPieLimitInDumpModeForText()
+    {
+        PieResultSerializer serializer = new PieResultSerializer();
+
+        String text = serializer.toText(new SamplePie(), new SerializationOptions(1, 8, BytesDisplay.Smart, true));
+
+        assertTrue(text.contains("- Suspect 1: 42")); //$NON-NLS-1$
+        assertTrue(text.contains("- Suspect 2: 21")); //$NON-NLS-1$
+        assertFalse(text.contains("more slices")); //$NON-NLS-1$
+    }
+
+    @Test
     public void marksTreeCyclesInAgentJson()
     {
         TreeResultSerializer serializer = new TreeResultSerializer();

@@ -29,7 +29,7 @@ public class PieResultSerializer
     public boolean writeAgentJson(JsonWriter writer, IResultPie pie, SerializationOptions options)
     {
         List<? extends Slice> slices = pie.getSlices();
-        int limit = Math.min(slices.size(), options.getLimit());
+        int limit = Math.min(slices.size(), options.getEffectiveLimit());
         boolean truncated = slices.size() > limit;
 
         writer.name("items").beginArray(); //$NON-NLS-1$
@@ -45,7 +45,7 @@ public class PieResultSerializer
     {
         StringBuilder builder = new StringBuilder();
         List<? extends Slice> slices = pie.getSlices();
-        int limit = Math.min(slices.size(), options.getLimit());
+        int limit = Math.min(slices.size(), options.getEffectiveLimit());
         for (int ii = 0; ii < limit; ii++)
         {
             Slice slice = slices.get(ii);
