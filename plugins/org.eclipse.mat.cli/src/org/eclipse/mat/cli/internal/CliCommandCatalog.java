@@ -270,7 +270,6 @@ public final class CliCommandCatalog
                     freeTextOption("--limit", "N", false, "Limit rows or package-tree children per level."), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
                     BYTES_DISPLAY_OPTION,
                     enumOption("--format", "text|json", false, "Select text or JSON output.", FORMAT_VALUES)); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-    private static final Map<String, Integer> QUERY_LIMIT_OVERRIDES = queryLimitOverrides();
     private static final Map<CliCommand, CommandDefinition> DEFINITIONS = definitions();
 
     private CliCommandCatalog()
@@ -279,11 +278,6 @@ public final class CliCommandCatalog
     public static CommandDefinition lookup(CliCommand command)
     {
         return DEFINITIONS.get(command);
-    }
-
-    public static Integer queryDefaultLimit(String queryIdentifier)
-    {
-        return queryIdentifier == null ? null : QUERY_LIMIT_OVERRIDES.get(queryIdentifier);
     }
 
     public static List<OptionDefinition> globalOptions()
@@ -556,14 +550,6 @@ public final class CliCommandCatalog
     private static PositionalDefinition filePositional(String name)
     {
         return new PositionalDefinition(name, CompletionValueType.FILE, null);
-    }
-
-    private static Map<String, Integer> queryLimitOverrides()
-    {
-        Map<String, Integer> limits = new HashMap<String, Integer>();
-        limits.put("gc_roots", Integer.valueOf(100)); //$NON-NLS-1$
-        limits.put("thread_overview", Integer.valueOf(100)); //$NON-NLS-1$
-        return Collections.unmodifiableMap(limits);
     }
 
     private static List<String> buildCommandTokens()

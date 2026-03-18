@@ -298,7 +298,7 @@ public final class CliArgumentParser
                             queryCommandFile, "--command-stdin", queryCommandStdin); //$NON-NLS-1$
 
         if (!limitExplicit)
-            limit = defaultLimit(command, queryCommand);
+            limit = defaultLimit(command);
 
         CliArguments parsed = new CliArguments(command, subjectCommand, subjectName, heapFile, bytesDisplay, format, verbose, help,
                         showNulls, dump,
@@ -743,34 +743,16 @@ public final class CliArgumentParser
 
         return new CliArguments(command, subjectCommand, subjectName, heapFile, bytesDisplay, format, false, help, showNulls,
                         dump,
-                        defaultLimit(command, queryCommand), treeDepthLimit, objectAddress, className, classRegex,
+                        defaultLimit(command), treeDepthLimit, objectAddress, className, classRegex,
                         classContains, objectsGrouping, packageName, classLoaderName, selectFields, fieldPaths,
                         includeSubclasses, oqlQuery, queryCommand);
     }
 
-    private int defaultLimit(CliCommand command, String queryCommand)
+    private int defaultLimit(CliCommand command)
     {
         if (command == CliCommand.THREADS)
             return Integer.MAX_VALUE;
-
-        if (command == CliCommand.QUERY)
-        {
-            String queryIdentifier = queryIdentifier(queryCommand);
-            Integer override = CliCommandCatalog.queryDefaultLimit(queryIdentifier);
-            if (override != null)
-                return override.intValue();
-        }
         return DEFAULT_LIMIT;
-    }
-
-    private String queryIdentifier(String queryCommand)
-    {
-        if (isEmpty(queryCommand))
-            return null;
-
-        String trimmed = queryCommand.trim();
-        int separator = trimmed.indexOf(' ');
-        return separator < 0 ? trimmed : trimmed.substring(0, separator);
     }
 
     private boolean expectsValue(String option)

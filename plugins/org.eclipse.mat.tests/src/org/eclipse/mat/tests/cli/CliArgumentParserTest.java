@@ -627,13 +627,13 @@ public class CliArgumentParserTest
     }
 
     @Test
-    public void appliesQuerySpecificDefaultLimit()
+    public void appliesDefaultLimitToQueries()
                     throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
         CliArguments arguments = parser.parse(new String[] { "query", "sample.hprof", "--command", "thread_overview" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
-        assertEquals(100, arguments.getLimit());
+        assertEquals(20, arguments.getLimit());
     }
 
     @Test
