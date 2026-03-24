@@ -25,7 +25,7 @@ from java.lang.String s
 Run it with:
 
 ```bash
-mat-cli oql <heap> --query-file strings.oql --format json --limit 20
+mat-cli oql <heap> --query-file strings.oql --format markdown --limit 20
 ```
 
 Use this pattern when you need both an address and a human-readable rendering.

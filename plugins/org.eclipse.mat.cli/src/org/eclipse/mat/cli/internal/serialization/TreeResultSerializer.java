@@ -55,6 +55,25 @@ public class TreeResultSerializer extends StructuredResultSerializer
         return builder.toString();
     }
 
+    public String toMarkdown(IResultTree tree, SerializationOptions options)
+    {
+        return toMarkdown(tree, options, false);
+    }
+
+    public String toMarkdown(IResultTree tree, SerializationOptions options, boolean showNulls)
+    {
+        Column[] columns = tree.getColumns();
+        ColumnSchema[] schema = buildColumnSchemas(columns);
+        StringBuilder builder = new StringBuilder();
+        String columnsLegend = markdownColumnsLegend(columns);
+        if (columnsLegend != null)
+            builder.append(columnsLegend).append('\n').append('\n');
+        TruncationState state = new TruncationState(options.getEffectiveTreeNodeLimit());
+        appendMarkdownNodes(builder, tree, columns, schema, tree.getElements(), 0, options, state, new PathState(),
+                        null, textStyle(tree), showNulls);
+        return builder.toString();
+    }
+
     private void writeAgentNodes(JsonWriter writer, IResultTree tree, Column[] columns, ColumnSchema[] schema,
                     List<?> rows, int depth, SerializationOptions options, TruncationState state, PathState path,
                     boolean dropNullChildren)
@@ -183,6 +202,55 @@ public class TreeResultSerializer extends StructuredResultSerializer
             for (int pad = 0; pad < depth; pad++)
                 builder.append("  "); //$NON-NLS-1$
             builder.append("... ").append(visibleRows.size() - limit).append(" more nodes\n"); //$NON-NLS-1$ //$NON-NLS-2$
+        }
+    }
+
+    private void appendMarkdownNodes(StringBuilder builder, IResultTree tree, Column[] columns, ColumnSchema[] schema,
+                    List<?> rows, int depth, SerializationOptions options, TruncationState state, PathState path,
+                    String parentPath, TreeTextStyle style, boolean showNulls)
+    {
+        List<TextNode> visibleRows = visibleRows(tree, columns, schema, rows, parentPath, style, showNulls);
+        int limit = Math.min(visibleRows.size(), options.getEffectiveLimit());
+        if (visibleRows.size() > limit)
+            state.truncated = true;
+
+        for (int ii = 0; ii < limit; ii++)
+        {
+            TextNode node = visibleRows.get(ii);
+            Object row = node.row;
+            CellValue[] cells = node.cells;
+            boolean hasChildren = node.hasChildren;
+            Integer objectId = node.objectId;
+            String nodePath = node.path;
+
+            appendMarkdownIndent(builder, depth);
+            builder.append("- "); //$NON-NLS-1$
+            builder.append(formatRow(style, columns, schema, row, cells, objectId, node.valueKind, options)).append('\n');
+
+            if (path.isCycle(objectId))
+            {
+                appendMarkdownIndent(builder, depth + 1);
+                builder.append("- [cycle]\n"); //$NON-NLS-1$
+            }
+            else if (depth + 1 < options.getTreeDepthLimit() && hasChildren)
+            {
+                path.push(objectId);
+                appendMarkdownNodes(builder, tree, columns, schema, tree.getChildren(row), depth + 1, options, state,
+                                path, nodePath, style, showNulls);
+                path.pop(objectId);
+            }
+            else if (hasChildren)
+            {
+                state.truncated = true;
+                appendMarkdownIndent(builder, depth + 1);
+                builder.append("- ... more nodes\n"); //$NON-NLS-1$
+            }
+        }
+
+        if (visibleRows.size() > limit)
+        {
+            appendMarkdownIndent(builder, depth);
+            builder.append("- ... ").append(visibleRows.size() - limit).append(" more nodes\n"); //$NON-NLS-1$ //$NON-NLS-2$
         }
     }
 
@@ -345,6 +413,32 @@ public class TreeResultSerializer extends StructuredResultSerializer
 
         appendInspectorValue(builder, type, value, valueKind);
         return builder.toString();
+    }
+
+    private void appendMarkdownIndent(StringBuilder builder, int depth)
+    {
+        for (int ii = 0; ii < depth; ii++)
+            builder.append("  "); //$NON-NLS-1$
+    }
+
+    private String markdownColumnsLegend(Column[] columns)
+    {
+        if (columns == null || columns.length == 0)
+            return null;
+
+        StringBuilder builder = new StringBuilder("Columns: "); //$NON-NLS-1$
+        boolean appended = false;
+        for (int ii = 0; ii < columns.length; ii++)
+        {
+            String label = columns[ii] == null ? null : columns[ii].getLabel();
+            if (label == null || label.length() == 0)
+                continue;
+            if (appended)
+                builder.append(" | "); //$NON-NLS-1$
+            builder.append(label);
+            appended = true;
+        }
+        return appended ? builder.toString() : null;
     }
 
     private void appendInspectorValue(StringBuilder builder, String type, String value, String valueKind)

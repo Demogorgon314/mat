@@ -440,7 +440,7 @@ public class CliCommandExecutorTest
         assertTrue(json.contains("\"schemaVersion\":\"mat-cli/v1\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"resultKind\":\"describe\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"objects\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"usage\":\"mat-cli objects <heap> [--by class|package|class-loader] [--package PKG] [--class-loader TEXT] [--limit N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"usage\":\"mat-cli objects <heap> [--by class|package|class-loader] [--package PKG] [--class-loader TEXT] [--limit N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json|markdown]\"")); //$NON-NLS-1$
     }
 
     @Test
@@ -449,7 +449,7 @@ public class CliCommandExecutorTest
         String json = executeJson(new String[] { "describe", "inspect-object", "--format", "json" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
 
         assertTrue(json.contains("\"name\":\"inspect-object\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"usage\":\"mat-cli inspect-object <heap> --object 0x... [--select-fields FIELD | --field-paths PATH] [--show-nulls] [--limit N] [--depth N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"usage\":\"mat-cli inspect-object <heap> --object 0x... [--select-fields FIELD | --field-paths PATH] [--show-nulls] [--limit N] [--depth N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json|markdown]\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"--select-fields\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"--field-paths\"")); //$NON-NLS-1$
         assertFalse(json.contains("\"name\":\"--select-field\"")); //$NON-NLS-1$
@@ -463,7 +463,7 @@ public class CliCommandExecutorTest
 
         assertTrue(json.contains("\"resultKind\":\"describe\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"instances\"")); //$NON-NLS-1$
-        assertTrue(json.contains("\"usage\":\"mat-cli instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]\"")); //$NON-NLS-1$
+        assertTrue(json.contains("\"usage\":\"mat-cli instances <heap> [--class <fqcn> | --class-regex <regex> | --class-contains <text>] [--include-subclasses] [--limit N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json|markdown]\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"--class-regex\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"name\":\"--class-contains\"")); //$NON-NLS-1$
     }

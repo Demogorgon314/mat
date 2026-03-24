@@ -27,9 +27,12 @@ import org.eclipse.mat.cli.internal.CliArgumentParser;
 import org.eclipse.mat.cli.internal.CliArguments;
 import org.eclipse.mat.cli.internal.CliExitCodes;
 import org.eclipse.mat.cli.internal.CliException;
+import org.eclipse.mat.cli.internal.CliCommand;
+import org.eclipse.mat.cli.internal.CliCommandCatalog;
 import org.eclipse.mat.cli.internal.CliExecution;
 import org.eclipse.mat.cli.internal.DisplayValue;
 import org.eclipse.mat.cli.internal.PackageTreeResult;
+import org.eclipse.mat.cli.internal.CommandMetadataResult;
 import org.eclipse.mat.cli.internal.QueryMetadataResult;
 import org.eclipse.mat.cli.internal.SnapshotSummary;
 import org.eclipse.mat.cli.internal.ThreadsResult;
@@ -779,6 +782,164 @@ public class ResultSerializerTest
     }
 
     @Test
+    public void serializesSummaryToMarkdown() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        SnapshotInfo info = new SnapshotInfo("/tmp/sample.hprof", "/tmp/sample.", "OpenJDK", 8, new Date(0L), 10, 2, 3,
+                        1, 2048L); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+        info.setProperty("$heapFormat", "HPROF"); //$NON-NLS-1$ //$NON-NLS-2$
+        SnapshotSummary summary = SnapshotSummary.from(info);
+        CliArguments arguments = new CliArgumentParser()
+                        .parse(new String[] { "summary", "sample.hprof", "--format", "markdown" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serialize(arguments, CliExecution.summary(summary), stream);
+        }
+
+        String markdown = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(markdown.contains("### Result")); //$NON-NLS-1$
+        assertTrue(markdown.contains("- Path: /tmp/sample.hprof")); //$NON-NLS-1$
+        assertTrue(markdown.contains("Used Heap: 2.00 KB (2048 bytes)")); //$NON-NLS-1$
+        assertTrue(markdown.contains("### Suggested next commands")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesTableResultToMarkdown() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        CliArguments arguments = new CliArgumentParser()
+                        .parse(new String[] { "objects", "sample.hprof", "--format", "markdown" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serialize(arguments, CliExecution.result(new MarkdownTable()), stream);
+        }
+
+        String markdown = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(markdown.contains("| Name | Count |")); //$NON-NLS-1$
+        assertTrue(markdown.contains("Alpha\\|Beta\\\\Gamma<br>Delta")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesPackageTreeToMarkdownWithColumnsLegend() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        CliArguments arguments = new CliArgumentParser()
+                        .parse(new String[] { "objects", "sample.hprof", "--by", "package", "--format", "markdown" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serialize(arguments, CliExecution.result(samplePackageTreeResult()), stream);
+        }
+
+        String markdown = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(markdown.contains("### Result")); //$NON-NLS-1$
+        assertTrue(markdown.contains("Columns: package | retained% | retained bytes | #top-dominators")); //$NON-NLS-1$
+        assertTrue(markdown.contains("- <all> (100.00%)")); //$NON-NLS-1$
+        assertTrue(markdown.contains("  - org (70.00%)")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesTreeToMarkdownWithColumnsLegend() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        CliArguments arguments = new CliArgumentParser()
+                        .parse(new String[] { "path2gc", "sample.hprof", "--object", "0x2a", "--format", "markdown" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serialize(arguments, CliExecution.result(new SampleTree()), stream);
+        }
+
+        String markdown = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(markdown.contains("### Result")); //$NON-NLS-1$
+        assertTrue(markdown.contains("Columns: Name | Depth")); //$NON-NLS-1$
+        assertTrue(markdown.contains("- Root [Depth=1]")); //$NON-NLS-1$
+        assertTrue(markdown.contains("  - Leaf [Depth=2]")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesThreadsToMarkdown() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        CliArguments arguments = new CliArgumentParser()
+                        .parse(new String[] { "threads", "sample.hprof", "--format", "markdown" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serialize(arguments, CliExecution.result(sampleThreadsResult()), stream);
+        }
+
+        String markdown = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(markdown.contains("### Overview")); //$NON-NLS-1$
+        assertTrue(markdown.contains("### Thread: \"main\" @ 0x2a")); //$NON-NLS-1$
+        assertTrue(markdown.contains("Stack: unavailable")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesCommandMetadataToMarkdown() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        CliArguments arguments = new CliArgumentParser()
+                        .parse(new String[] { "describe", "summary", "--format", "markdown" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serialize(arguments, CliExecution.result(new CommandMetadataResult(CommandMetadataResult.Kind.DESCRIBE,
+                            CliCommandCatalog.lookup(CliCommand.SUMMARY))), stream);
+        }
+
+        String markdown = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(markdown.contains("### Command")); //$NON-NLS-1$
+        assertTrue(markdown.contains("### Options")); //$NON-NLS-1$
+        assertTrue(markdown.contains("markdown-document")); //$NON-NLS-1$
+        assertTrue(markdown.contains("### Suggested next commands")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesCompletionToMarkdownWithShellFence() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        CliArguments arguments = new CliArgumentParser()
+                        .parse(new String[] { "completion", "bash", "--format", "markdown" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serialize(arguments, CliExecution.result(new TextResult("complete -F _mat_cli mat-cli\n", false)), stream); //$NON-NLS-1$
+        }
+
+        String markdown = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(markdown.contains("```bash")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesSpecToFlattenedMarkdownSections() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        CliArguments arguments = new CliArgumentParser()
+                        .parse(new String[] { "query", "sample.hprof", "--command", "histogram", "--format", "markdown" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serialize(arguments, CliExecution.result(sampleSection()), stream);
+        }
+
+        String markdown = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(markdown.contains("### Top Consumers / Overview")); //$NON-NLS-1$
+        assertTrue(markdown.contains("### Top Consumers / Sample Table")); //$NON-NLS-1$
+        assertTrue(markdown.contains("### Top Consumers / Sample Tree")); //$NON-NLS-1$
+    }
+
+    @Test
     public void marksUnsupportedNestedCompositeResult() throws Exception
     {
         SpecResultSerializer serializer = new SpecResultSerializer(new TableResultSerializer(), new TreeResultSerializer(),
@@ -838,6 +999,28 @@ public class ResultSerializerTest
         assertTrue(json.contains("\"rootCauseMessage\":\"reader is closed\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"kind\":\"snapshot_lifecycle\"")); //$NON-NLS-1$
         assertTrue(json.contains("\"retryable\":false")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesMarkdownErrorEnvelope() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        CliArguments arguments = new CliArgumentParser().partialParse(
+                        new String[] { "path2gc", "sample.hprof", "--format", "markdown", "--verbose" }, CliArguments.OutputFormat.MARKDOWN); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serializeError(arguments, CliArguments.OutputFormat.MARKDOWN, CliExitCodes.USAGE,
+                            CliException.usage("path2gc requires --object 0x..."), stream); //$NON-NLS-1$
+        }
+
+        String markdown = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(markdown.contains("### Error")); //$NON-NLS-1$
+        assertTrue(markdown.contains("### Hint")); //$NON-NLS-1$
+        assertTrue(markdown.contains("### Suggested next commands")); //$NON-NLS-1$
+        assertTrue(markdown.contains("### Diagnostics")); //$NON-NLS-1$
+        assertTrue(markdown.contains("mat-cli describe path2gc --format markdown")); //$NON-NLS-1$
     }
 
     @Test
@@ -1030,6 +1213,43 @@ public class ResultSerializerTest
                     return value.objectId;
                 }
             };
+        }
+
+        public int getRowCount()
+        {
+            return rows.size();
+        }
+
+        public Object getRow(int rowId)
+        {
+            return rows.get(rowId);
+        }
+    }
+
+    private static final class MarkdownTable implements IResultTable
+    {
+        private final List<Row> rows = Collections.singletonList(new Row("Alpha|Beta\\Gamma\nDelta", Integer.valueOf(7), 42)); //$NON-NLS-1$
+        private final Column[] columns = new Column[] { new Column("Name", String.class), new Column("Count", int.class) }; //$NON-NLS-1$ //$NON-NLS-2$
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public Column[] getColumns()
+        {
+            return columns;
+        }
+
+        public Object getColumnValue(Object row, int columnIndex)
+        {
+            Row value = (Row) row;
+            return columnIndex == 0 ? value.name : value.count;
+        }
+
+        public IContextObject getContext(Object row)
+        {
+            return null;
         }
 
         public int getRowCount()

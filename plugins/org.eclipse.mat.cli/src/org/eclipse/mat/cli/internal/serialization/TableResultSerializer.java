@@ -83,6 +83,43 @@ public class TableResultSerializer extends StructuredResultSerializer
         return builder.toString();
     }
 
+    public String toMarkdown(IResultTable table, SerializationOptions options)
+    {
+        Column[] columns = table.getColumns();
+        List<String> headers = new ArrayList<String>(columns.length);
+        for (Column column : columns)
+        {
+            headers.add(column.getLabel());
+        }
+
+        int rowCount = table.getRowCount();
+        int limit = Math.min(rowCount, options.getEffectiveLimit());
+        List<List<String>> rows = new ArrayList<List<String>>(limit);
+        for (int ii = 0; ii < limit; ii++)
+        {
+            Object row = table.getRow(ii);
+            List<String> values = new ArrayList<String>(columns.length);
+            for (int jj = 0; jj < columns.length; jj++)
+            {
+                String value = safe(displayValue(columns[jj], row, safeColumnValue(table, row, jj), options));
+                values.add(value);
+            }
+            rows.add(values);
+        }
+
+        if (headers.isEmpty())
+            return rowCount > limit ? "... " + (rowCount - limit) + " more rows" : ""; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+
+        StringBuilder builder = new StringBuilder();
+        builder.append(MarkdownDocument.table(headers, rows));
+        if (rowCount > limit)
+        {
+            builder.append('\n').append('\n');
+            builder.append("... ").append(rowCount - limit).append(" more rows"); //$NON-NLS-1$ //$NON-NLS-2$
+        }
+        return builder.toString();
+    }
+
     private String[] labels(Column[] columns)
     {
         String[] labels = new String[columns.length];

@@ -48,6 +48,32 @@ public class CliArgumentParserTest
     }
 
     @Test
+    public void parsesMarkdownFormat() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+        CliArguments arguments = parser
+                        .parse(new String[] { "objects", "sample.hprof", "--limit", "5", "--format", "markdown" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+
+        assertEquals(CliArguments.OutputFormat.MARKDOWN, arguments.getFormat());
+    }
+
+    @Test
+    public void detectsMarkdownFormatBeforeValidation() throws Exception
+    {
+        CliArgumentParser parser = new CliArgumentParser();
+
+        assertEquals(CliArguments.OutputFormat.MARKDOWN,
+                        parser.detectFormat(new String[] { "path2gc", "sample.hprof", "--format", "markdown" })); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+    }
+
+    @Test
+    public void helpMentionsMarkdownFormat() throws Exception
+    {
+        assertTrue(CliHelp.generalHelp().contains("--format text|json|markdown")); //$NON-NLS-1$
+        assertTrue(CliHelp.commandHelp(CliCommand.SUMMARY).contains("[--format text|json|markdown]")); //$NON-NLS-1$
+    }
+
+    @Test
     public void parsesDumpArguments() throws Exception
     {
         CliArgumentParser parser = new CliArgumentParser();
@@ -762,7 +788,7 @@ public class CliArgumentParserTest
         assertHelpContainsCommandSummary(help, "describe", //$NON-NLS-1$
                         "Describe a CLI command, its options, and the result kinds it can return."); //$NON-NLS-1$
         assertHelpContainsCommandSummary(help, "completion", "Generate a bash or zsh shell completion script for mat-cli."); //$NON-NLS-1$ //$NON-NLS-2$
-        assertTrue(help.contains("--bytes-display MODE Byte display mode for text output: bytes|kilobytes|megabytes|gigabytes|smart (default: smart)")); //$NON-NLS-1$
+        assertTrue(help.contains("--bytes-display MODE Byte display mode for text and markdown output: bytes|kilobytes|megabytes|gigabytes|smart (default: smart)")); //$NON-NLS-1$
         assertTrue(help.contains("--depth N            Maximum tree or section depth (default: 8, inspect-object: 3, biggest-objects: 1)")); //$NON-NLS-1$
         assertTrue(help.contains("--dump               Emit full structured values for supported commands, ignore --limit, and only honor --depth")); //$NON-NLS-1$
         assertTrue(help.contains("--field-paths PATH    Inspect dotted field paths such as cleaner.offsetMap; may be repeated")); //$NON-NLS-1$
@@ -788,8 +814,8 @@ public class CliArgumentParserTest
         String help = CliHelp.commandHelp(CliCommand.PATH2GC);
 
         assertTrue(help.contains("Command: path2gc")); //$NON-NLS-1$
-        assertTrue(help.contains("Usage: mat-cli path2gc <heap> --object 0x... [--limit N] [--depth N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json]")); //$NON-NLS-1$
-        assertTrue(help.contains("--bytes-display bytes|kilobytes|megabytes|gigabytes|smart: Select byte unit rendering for text output. Defaults to smart.")); //$NON-NLS-1$
+        assertTrue(help.contains("Usage: mat-cli path2gc <heap> --object 0x... [--limit N] [--depth N] [--dump] [--bytes-display bytes|kilobytes|megabytes|gigabytes|smart] [--format text|json|markdown]")); //$NON-NLS-1$
+        assertTrue(help.contains("--bytes-display bytes|kilobytes|megabytes|gigabytes|smart: Select byte unit rendering for text and Markdown output. Defaults to smart.")); //$NON-NLS-1$
         assertTrue(help.contains("--dump: Emit full structured values for file redirection, ignore --limit, and only honor --depth.")); //$NON-NLS-1$
         assertTrue(help.contains("--object 0x... (required): Object address to resolve from the snapshot.")); //$NON-NLS-1$
         assertTrue(help.contains("inspect-object <heap> --object 0x...")); //$NON-NLS-1$
@@ -803,7 +829,7 @@ public class CliArgumentParserTest
         String help = CliHelp.commandHelp(CliCommand.DESCRIBE);
 
         assertTrue(help.contains("Command: describe")); //$NON-NLS-1$
-        assertTrue(help.contains("Usage: mat-cli describe <command> [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("Usage: mat-cli describe <command> [--format text|json|markdown]")); //$NON-NLS-1$
         assertTrue(help.contains("Positional arguments:")); //$NON-NLS-1$
     }
 
@@ -813,7 +839,7 @@ public class CliArgumentParserTest
         String help = CliHelp.commandHelp(CliCommand.COMPLETION);
 
         assertTrue(help.contains("Command: completion")); //$NON-NLS-1$
-        assertTrue(help.contains("Usage: mat-cli completion <bash|zsh> [--format text|json]")); //$NON-NLS-1$
+        assertTrue(help.contains("Usage: mat-cli completion <bash|zsh> [--format text|json|markdown]")); //$NON-NLS-1$
         assertTrue(help.contains("bash|zsh")); //$NON-NLS-1$
     }
 

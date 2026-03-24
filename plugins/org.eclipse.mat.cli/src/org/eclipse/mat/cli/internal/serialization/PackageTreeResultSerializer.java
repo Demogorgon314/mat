@@ -17,6 +17,7 @@ import org.eclipse.mat.cli.internal.PackageTreeResult;
 public final class PackageTreeResultSerializer
 {
     private static final String SEPARATOR = "--------------------------------------------------------------------------------"; //$NON-NLS-1$
+    private static final String MARKDOWN_COLUMNS = "Columns: package | retained% | retained bytes | #top-dominators"; //$NON-NLS-1$
 
     private final NumberFormat percentFormatter = NumberFormat.getIntegerInstance();
     private final NumberFormat numberFormatter = NumberFormat.getNumberInstance();
@@ -55,6 +56,19 @@ public final class PackageTreeResultSerializer
 
         TruncationState state = new TruncationState(options.getEffectiveTreeNodeLimit());
         appendNode(builder, root, new StringBuilder(), options, state, 0);
+        return builder.toString();
+    }
+
+    public String toMarkdown(PackageTreeResult result, SerializationOptions options)
+    {
+        PackageTreeResult.Node root = result.getRoot();
+        if (root == null)
+            return MARKDOWN_COLUMNS + "\n\n- No packages found."; //$NON-NLS-1$
+
+        StringBuilder builder = new StringBuilder(1024);
+        builder.append(MARKDOWN_COLUMNS).append('\n').append('\n');
+        TruncationState state = new TruncationState(options.getEffectiveTreeNodeLimit());
+        appendMarkdownNode(builder, root, options, state, 0);
         return builder.toString();
     }
 
@@ -148,6 +162,50 @@ public final class PackageTreeResultSerializer
             prefix.append("- "); //$NON-NLS-1$
             appendNode(builder, children.get(ii), prefix, options, state, depth + 1);
             prefix.setLength(originalLength);
+        }
+    }
+
+    private void appendMarkdownNode(StringBuilder builder, PackageTreeResult.Node node, SerializationOptions options,
+                    TruncationState state, int depth)
+    {
+        if (state.remainingNodes <= 0)
+        {
+            state.truncated = true;
+            return;
+        }
+
+        state.remainingNodes--;
+        for (int ii = 0; ii < depth; ii++)
+            builder.append("  "); //$NON-NLS-1$
+        builder.append("- ").append(node.getName()).append(" (").append(formatPercent(node.getRetainedPercent())) //$NON-NLS-1$ //$NON-NLS-2$
+                        .append(") ").append(options.getBytesFormatter().format(node.getRetainedBytes())).append(' ') //$NON-NLS-1$
+                        .append(numberFormatter.format(node.getTopDominators())).append('\n');
+
+        List<PackageTreeResult.Node> children = node.getChildren();
+        int limit = Math.min(children.size(), options.getEffectiveLimit());
+        if (children.size() > limit)
+            state.truncated = true;
+        if (depth + 1 >= options.getTreeDepthLimit())
+        {
+            if (!children.isEmpty())
+            {
+                state.truncated = true;
+                for (int ii = 0; ii <= depth; ii++)
+                    builder.append("  "); //$NON-NLS-1$
+                builder.append("- Section truncated by depth.\n"); //$NON-NLS-1$
+            }
+            return;
+        }
+
+        for (int ii = 0; ii < limit; ii++)
+        {
+            appendMarkdownNode(builder, children.get(ii), options, state, depth + 1);
+        }
+        if (children.size() > limit)
+        {
+            for (int ii = 0; ii <= depth; ii++)
+                builder.append("  "); //$NON-NLS-1$
+            builder.append("- ... ").append(children.size() - limit).append(" more nodes\n"); //$NON-NLS-1$ //$NON-NLS-2$
         }
     }
 

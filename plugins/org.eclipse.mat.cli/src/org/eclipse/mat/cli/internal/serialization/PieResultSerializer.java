@@ -10,6 +10,7 @@
 package org.eclipse.mat.cli.internal.serialization;
 
 import java.awt.Color;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -58,6 +59,37 @@ public class PieResultSerializer
         if (slices.size() > limit)
         {
             builder.append("... ").append(slices.size() - limit).append(" more slices\n"); //$NON-NLS-1$ //$NON-NLS-2$
+        }
+        return builder.toString();
+    }
+
+    public String toMarkdown(IResultPie pie, SerializationOptions options)
+    {
+        List<? extends Slice> slices = pie.getSlices();
+        int limit = Math.min(slices.size(), options.getEffectiveLimit());
+        List<List<String>> rows = new ArrayList<List<String>>(limit);
+        for (int ii = 0; ii < limit; ii++)
+        {
+            Slice slice = slices.get(ii);
+            List<String> row = new ArrayList<String>(5);
+            row.add(slice.getLabel());
+            row.add(formatValue(slice.getValue()));
+            row.add(slice.getDescription());
+            String objectAddress = null;
+            Integer objectId = contextObjectId(slice.getContext());
+            if (objectId != null)
+                objectAddress = options.resolveObjectAddress(objectId.intValue());
+            row.add(objectAddress);
+            row.add(color(slice));
+            rows.add(row);
+        }
+
+        StringBuilder builder = new StringBuilder();
+        builder.append(MarkdownDocument.table(java.util.Arrays.asList("Label", "Value", "Description", "Address", "Color"), rows)); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+        if (slices.size() > limit)
+        {
+            builder.append('\n').append('\n');
+            builder.append("... ").append(slices.size() - limit).append(" more slices"); //$NON-NLS-1$ //$NON-NLS-2$
         }
         return builder.toString();
     }

@@ -62,9 +62,9 @@ public final class CliCommandCatalog
                         CompletionValueType completionValueType, List<String> completionCandidates)
         {
             this.name = name;
-            this.valueHint = valueHint;
+            this.valueHint = "--format".equals(name) ? expandFormatHint(valueHint) : valueHint; //$NON-NLS-1$
             this.required = required;
-            this.description = description;
+            this.description = "--format".equals(name) ? expandFormatDescription(description) : description; //$NON-NLS-1$
             this.completionValueType = completionValueType;
             this.completionCandidates = immutableCopy(completionCandidates);
         }
@@ -149,11 +149,11 @@ public final class CliCommandCatalog
         {
             this.command = command;
             this.summary = summary;
-            this.usage = usage;
+            this.usage = usage == null ? null : usage.replace("text|json", "text|json|markdown"); //$NON-NLS-1$ //$NON-NLS-2$
             this.requiresSnapshot = requiresSnapshot;
             this.positionalArguments = immutableCopy(positionalArguments);
             this.options = immutableCopy(options);
-            this.outputs = immutableCopy(outputs);
+            this.outputs = immutableCopy(withMarkdownOutput(outputs));
             this.suggestedNextCommands = immutableCopy(suggestedNextCommands);
             this.agentPayloadDescription = agentPayloadDescription;
             this.agentPayloadFields = immutableCopy(agentPayloadFields);
@@ -220,7 +220,7 @@ public final class CliCommandCatalog
         }
     }
 
-    private static final List<String> FORMAT_VALUES = immutableCopy(Arrays.asList("text", "json")); //$NON-NLS-1$ //$NON-NLS-2$
+    private static final List<String> FORMAT_VALUES = immutableCopy(Arrays.asList("text", "json", "markdown")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
     private static final List<String> BYTES_DISPLAY_VALUES = immutableCopy(
                     Arrays.asList("bytes", "kilobytes", "megabytes", "gigabytes", "smart")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
     private static final List<String> OBJECT_GROUPING_VALUES = immutableCopy(
@@ -233,7 +233,7 @@ public final class CliCommandCatalog
                     enumOption("--format", "text|json", false, "Select text or JSON output.", FORMAT_VALUES))); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
     private static final OptionDefinition BYTES_DISPLAY_OPTION = enumOption("--bytes-display",
                     "bytes|kilobytes|megabytes|gigabytes|smart", false, //$NON-NLS-1$ //$NON-NLS-2$
-                    "Select byte unit rendering for text output. Defaults to smart.", BYTES_DISPLAY_VALUES); //$NON-NLS-1$
+                    "Select byte unit rendering for text and Markdown output. Defaults to smart.", BYTES_DISPLAY_VALUES); //$NON-NLS-1$
     private static final OptionDefinition DUMP_OPTION = flagOption("--dump",
                     "Emit full structured values for file redirection, ignore --limit, and only honor --depth."); //$NON-NLS-1$ //$NON-NLS-2$
     private static final List<OptionDefinition> FORMAT_OPTION = Collections.singletonList(
@@ -565,6 +565,44 @@ public final class CliCommandCatalog
     private static OutputDefinition output(String format, String resultKind, String description)
     {
         return new OutputDefinition(format, resultKind, description);
+    }
+
+    private static List<OutputDefinition> withMarkdownOutput(List<OutputDefinition> outputs)
+    {
+        ArrayList<OutputDefinition> expanded = new ArrayList<OutputDefinition>(outputs == null ? 1 : outputs.size() + 1);
+        boolean hasMarkdown = false;
+        if (outputs != null)
+        {
+            expanded.addAll(outputs);
+            for (OutputDefinition output : outputs)
+            {
+                if ("markdown".equals(output.getFormat())) //$NON-NLS-1$
+                {
+                    hasMarkdown = true;
+                    break;
+                }
+            }
+        }
+        if (!hasMarkdown)
+        {
+            expanded.add(output("markdown", "markdown-document", //$NON-NLS-1$ //$NON-NLS-2$
+                            "Sectioned Markdown document for terminal and agent consumption.")); //$NON-NLS-1$
+        }
+        return expanded;
+    }
+
+    private static String expandFormatHint(String valueHint)
+    {
+        if ("text|json".equals(valueHint)) //$NON-NLS-1$
+            return "text|json|markdown"; //$NON-NLS-1$
+        return valueHint;
+    }
+
+    private static String expandFormatDescription(String description)
+    {
+        if ("Select text or JSON output.".equals(description)) //$NON-NLS-1$
+            return "Select text, JSON, or Markdown output."; //$NON-NLS-1$
+        return description;
     }
 
     private static <T> List<T> immutableCopy(List<T> values)

@@ -9,6 +9,7 @@
  *******************************************************************************/
 package org.eclipse.mat.cli.internal.serialization;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.mat.cli.internal.ThreadsResult;
@@ -86,6 +87,44 @@ public class ThreadsResultSerializer
         return builder.toString();
     }
 
+    public void appendMarkdown(MarkdownDocument document, ThreadsResult result, SerializationOptions options)
+    {
+        document.addSection("Result", result.getNotice()); //$NON-NLS-1$
+        List<String> summary = new ArrayList<String>(4);
+        summary.add("Total threads: " + result.getSummary().getTotalThreads()); //$NON-NLS-1$
+        summary.add("Returned threads: " + result.getSummary().getReturnedThreads()); //$NON-NLS-1$
+        summary.add("Stacks available: " + result.getSummary().getStackAvailableThreads()); //$NON-NLS-1$
+        summary.add("States available: " + result.getSummary().getStateAvailableThreads()); //$NON-NLS-1$
+        document.addSection("Summary", MarkdownDocument.bullets(summary)); //$NON-NLS-1$
+        document.addSection("Overview", overviewMarkdown(result.getThreads(), options)); //$NON-NLS-1$
+
+        for (ThreadsResult.ThreadEntry entry : result.getThreads())
+        {
+            StringBuilder builder = new StringBuilder();
+            List<String> details = new ArrayList<String>(4);
+            details.add("State: " + entry.getState()); //$NON-NLS-1$
+            details.add("Retained Heap: " + formatBytes(entry.getRetainedBytes(), options)); //$NON-NLS-1$
+            if (entry.getTechnicalName() != null && entry.getTechnicalName().length() > 0)
+                details.add("Technical Name: " + entry.getTechnicalName()); //$NON-NLS-1$
+            if (!entry.isStackAvailable())
+            {
+                details.add("Stack: unavailable"); //$NON-NLS-1$
+                if (entry.getStackUnavailableReason() != null && entry.getStackUnavailableReason().length() > 0)
+                    details.add("Reason: " + entry.getStackUnavailableReason()); //$NON-NLS-1$
+            }
+            builder.append(MarkdownDocument.bullets(details));
+            if (entry.isStackAvailable())
+            {
+                builder.append('\n').append('\n');
+                String stack = entry.getStackFrames().isEmpty() ? EMPTY_STACK
+                                : MarkdownDocument.joinLines(entry.getStackFrames());
+                builder.append(MarkdownDocument.fencedCode("text", stack)); //$NON-NLS-1$
+            }
+            document.addSection("Thread: \"" + entry.getName().replace("\"", "\\\"") + "\" @ " //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                            + entry.getObjectAddress(), builder.toString());
+        }
+    }
+
     private void writeSummary(JsonWriter writer, ThreadsResult.Summary summary)
     {
         writer.name("summary").beginObject(); //$NON-NLS-1$
@@ -134,6 +173,25 @@ public class ThreadsResultSerializer
                             entry.getObjectAddress(), stackLabel(entry), threadWidth, stateWidth, retainedWidth,
                             addressWidth, stackWidth);
         }
+    }
+
+    private String overviewMarkdown(List<ThreadsResult.ThreadEntry> threads, SerializationOptions options)
+    {
+        if (threads.isEmpty())
+            return "- No threads found."; //$NON-NLS-1$
+
+        List<List<String>> rows = new ArrayList<List<String>>(threads.size());
+        for (ThreadsResult.ThreadEntry entry : threads)
+        {
+            List<String> row = new ArrayList<String>(5);
+            row.add(entry.getName());
+            row.add(entry.getState());
+            row.add(formatBytes(entry.getRetainedBytes(), options));
+            row.add(entry.getObjectAddress());
+            row.add(stackLabel(entry));
+            rows.add(row);
+        }
+        return MarkdownDocument.table(java.util.Arrays.asList("Thread", "State", "Retained Heap", "Object Address", "Stack"), rows); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
     }
 
     private void appendThreadSection(StringBuilder builder, ThreadsResult.ThreadEntry entry, SerializationOptions options)

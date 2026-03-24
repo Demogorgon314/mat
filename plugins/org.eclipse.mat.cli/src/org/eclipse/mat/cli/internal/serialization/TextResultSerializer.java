@@ -41,4 +41,15 @@ public class TextResultSerializer
         text = text.replaceAll("&amp;", "&"); //$NON-NLS-1$ //$NON-NLS-2$
         return text;
     }
+
+    public String toMarkdown(TextResult result, String fenceInfo)
+    {
+        String text = toText(result);
+        if (text == null)
+            return ""; //$NON-NLS-1$
+        String normalized = text.replace("\r\n", "\n").replace('\r', '\n'); //$NON-NLS-1$ //$NON-NLS-2$
+        if (normalized.indexOf('\n') == -1)
+            return normalized;
+        return MarkdownDocument.fencedCode(fenceInfo, normalized);
+    }
 }
