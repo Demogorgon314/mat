@@ -1,0 +1,4 @@
+interface:
+  display_name: "MAT CLI"
+  short_description: "Triage Java heap dumps with MAT CLI"
+  default_prompt: "Use $mat-cli to triage this heap dump with mat-cli, isolate leak suspects, inspect retaining paths, and summarize the evidence."

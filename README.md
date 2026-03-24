@@ -34,10 +34,10 @@ brew install Demogorgon314/mat-cli/mat-cli
 
 ### Skills
 
-If you use the skills CLI from [`vercel-labs/skills`](https://github.com/vercel-labs/skills), install the MAT heap-dump investigation skill with:
+If you use the skills CLI from [`vercel-labs/skills`](https://github.com/vercel-labs/skills), install the MAT CLI skill with:
 
 ```bash
-npx skills add https://github.com/Demogorgon314/mat-cli --skill mat-cli-heapdump-investigator
+npx skills add https://github.com/Demogorgon314/mat-cli --skill mat-cli
 ```
 
 ### Release Zip
