@@ -1,6 +1,6 @@
 # MAT CLI Heapdump OQL Recipes
 
-Use these only after the dedicated commands fail to answer the question cleanly. For one object and one field, `inspect-object` is usually simpler and safer than OQL.
+Use these only after `objects`, `biggest-objects`, `instances`, and `inspect-object` fail to answer the question cleanly. For one object and one field, `inspect-object` is usually simpler and safer than OQL.
 
 ## Useful Pseudo Fields
 
@@ -11,7 +11,7 @@ MAT OQL exposes metadata fields that are useful in leak analysis:
 - `@retainedHeapSize`
 - `@name`
 
-Use them to connect OQL results back to `inspect-object`, `path2gc`, or `top-consumers`.
+Use them to connect OQL results back to `inspect-object`, `path2gc`, or `biggest-objects`.
 
 ## List Objects with Address and Readable Value
 

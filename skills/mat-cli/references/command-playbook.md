@@ -25,29 +25,33 @@ Use these first:
 
 ```bash
 mat-cli summary <heap> --format json
-mat-cli describe top-consumers --format json
+mat-cli describe objects --format json
 mat-cli schema threads --format json
 ```
 
-Use `describe` or `schema` when you need to know the stable JSON payload before scripting against a command. The dedicated commands already return stable `mat-cli/v2` envelopes, so prefer them over free-form MAT queries whenever possible.
+Use `describe` or `schema` when you need to know the stable JSON payload before scripting against a command. The dedicated commands already return stable `mat-cli/v1` envelopes, so prefer them over free-form MAT queries whenever possible.
 
 ## Biggest Objects and Dominators
 
 Start with retained heap, not just object count:
 
 ```bash
-mat-cli top-consumers <heap> --format json --limit 20 --depth 3
-mat-cli histogram <heap> --format json --limit 30
+mat-cli biggest-objects <heap> --format json --limit 20 --depth 3
+mat-cli objects <heap> --by class --format json --limit 30
+mat-cli objects <heap> --by package --format json --limit 20
+mat-cli objects <heap> --by class-loader --format json --limit 20
 ```
 
 Interpret the output like this:
 
-- `top-consumers` answers "what dominates retained memory right now?"
-- `histogram` answers "which classes are numerous or large in aggregate?"
-- `top-consumers.biggestObjects[].objectAddress` is the best bridge into `inspect-object`, `path2gc`, and `show_dominator_tree`.
-- `histogram` is a table result. Look for `class_name`, instance count, shallow heap, and retained heap columns.
+- `biggest-objects` answers "what dominates retained memory right now?"
+- `objects --by class` answers "which classes are numerous or large in aggregate?"
+- `objects --by package` answers "which package tree dominates retained memory?"
+- `objects --by class-loader` answers "which loaders own the most retained memory and classes?"
+- `biggest-objects.items[]._address` is the best bridge into `inspect-object`, `path2gc`, and `show_dominator_tree`.
+- `objects --by class` is a table result. Look for `class`, instance count, shallow size, and retained size columns.
 
-Use a smaller `--limit` when you only need the top suspects. Keep `histogram` tight enough to stay readable, then rerun with a larger limit only if the tail still looks interesting. Increase `--depth` on `top-consumers` when package aggregation matters.
+Use a smaller `--limit` when you only need the top suspects. Keep `objects --by class` tight enough to stay readable, then rerun with a larger limit only if the tail still looks interesting. Increase `--depth` on `biggest-objects` when you need deeper dominator levels.
 
 ## Class-Focused Drilldown
 
