@@ -9,6 +9,7 @@
  *******************************************************************************/
 package org.eclipse.mat.cli.internal.serialization;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.mat.cli.internal.QueryMetadataResult;
@@ -73,6 +74,40 @@ public class QueryMetadataSerializer
         if (query.getHelpUrl() != null && query.getHelpUrl().length() > 0)
             builder.append("Help URL: ").append(query.getHelpUrl()).append('\n'); //$NON-NLS-1$
         return builder.toString();
+    }
+
+    public void appendMarkdown(MarkdownDocument document, QueryMetadataResult result)
+    {
+        if (result.getKind() == QueryMetadataResult.Kind.LIST)
+        {
+            List<List<String>> rows = new ArrayList<List<String>>();
+            for (QueryMetadataResult.QueryDefinition query : result.getQueries())
+            {
+                List<String> row = new ArrayList<String>(3);
+                row.add(query.getIdentifier());
+                row.add(query.getSummary());
+                row.add(query.getUsage());
+                rows.add(row);
+            }
+            document.addSection("Result", MarkdownDocument.table(java.util.Arrays.asList("Identifier", "Summary", "Usage"), rows)); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+            return;
+        }
+
+        QueryMetadataResult.QueryDefinition query = result.getQuery();
+        List<String> details = new ArrayList<String>(5);
+        details.add("Identifier: " + query.getIdentifier()); //$NON-NLS-1$
+        details.add("Name: " + query.getName()); //$NON-NLS-1$
+        details.add("Usage: " + query.getUsage()); //$NON-NLS-1$
+        details.add("Category: " + query.getCategory()); //$NON-NLS-1$
+        details.add("Class: " + query.getCommandClass()); //$NON-NLS-1$
+        document.addSection("Query", MarkdownDocument.bullets(details)); //$NON-NLS-1$
+        document.addSection("Subjects", query.getSubjects() == null || query.getSubjects().isEmpty() ? "- None." //$NON-NLS-1$
+                        : MarkdownDocument.bullets(query.getSubjects()));
+        document.addSection("Arguments", argumentsMarkdown(query.getArguments())); //$NON-NLS-1$
+        if (query.getHelp() != null && query.getHelp().length() > 0)
+            document.addSection("Help", query.getHelp()); //$NON-NLS-1$
+        if (query.getHelpUrl() != null && query.getHelpUrl().length() > 0)
+            document.addSection("Help URL", MarkdownDocument.inlineCode(query.getHelpUrl())); //$NON-NLS-1$
     }
 
     private void writeQuery(JsonWriter writer, QueryMetadataResult.QueryDefinition query)
@@ -150,5 +185,28 @@ public class QueryMetadataSerializer
                 builder.append(" - ").append(argument.getHelp()); //$NON-NLS-1$
             builder.append('\n');
         }
+    }
+
+    private String argumentsMarkdown(List<QueryMetadataResult.QueryArgument> arguments)
+    {
+        if (arguments == null || arguments.isEmpty())
+            return "- None."; //$NON-NLS-1$
+
+        List<List<String>> rows = new ArrayList<List<String>>(arguments.size());
+        for (QueryMetadataResult.QueryArgument argument : arguments)
+        {
+            List<String> row = new ArrayList<String>(7);
+            row.add(argument.getName());
+            row.add(argument.getFlag());
+            row.add(argument.getType());
+            row.add(Boolean.toString(argument.isMandatory()));
+            row.add(Boolean.toString(argument.isMultiple()));
+            row.add(Boolean.toString(argument.isBoolean()));
+            row.add(argument.getHelp());
+            rows.add(row);
+        }
+        return MarkdownDocument.table(
+                        java.util.Arrays.asList("Name", "Flag", "Type", "Mandatory", "Multiple", "Boolean", "Help"), //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
+                        rows);
     }
 }

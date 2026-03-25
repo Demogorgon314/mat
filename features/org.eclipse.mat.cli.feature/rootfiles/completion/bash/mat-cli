@@ -21,7 +21,7 @@ _mat_cli_option_kind_global() {
             printf '%s\n' 'none'
             ;;
         --format)
-            printf '%s\n' 'enum:text json'
+            printf '%s\n' 'enum:text json markdown'
             ;;
     esac
 }
@@ -32,7 +32,7 @@ _mat_cli_option_kind_for_command() {
             printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
             ;;
         summary:--format)
-            printf '%s\n' 'enum:text json'
+            printf '%s\n' 'enum:text json markdown'
             ;;
         threads:--limit)
             printf '%s\n' 'free-text'
@@ -41,7 +41,7 @@ _mat_cli_option_kind_for_command() {
             printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
             ;;
         threads:--format)
-            printf '%s\n' 'enum:text json'
+            printf '%s\n' 'enum:text json markdown'
             ;;
         objects:--by)
             printf '%s\n' 'enum:class package class-loader'
@@ -59,7 +59,7 @@ _mat_cli_option_kind_for_command() {
             printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
             ;;
         objects:--format)
-            printf '%s\n' 'enum:text json'
+            printf '%s\n' 'enum:text json markdown'
             ;;
         objects:--dump)
             printf '%s\n' 'none'
@@ -83,7 +83,7 @@ _mat_cli_option_kind_for_command() {
             printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
             ;;
         instances:--format)
-            printf '%s\n' 'enum:text json'
+            printf '%s\n' 'enum:text json markdown'
             ;;
         instances:--dump)
             printf '%s\n' 'none'
@@ -113,7 +113,7 @@ _mat_cli_option_kind_for_command() {
             printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
             ;;
         inspect-object:--format)
-            printf '%s\n' 'enum:text json'
+            printf '%s\n' 'enum:text json markdown'
             ;;
         biggest-objects:--limit)
             printf '%s\n' 'free-text'
@@ -125,7 +125,7 @@ _mat_cli_option_kind_for_command() {
             printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
             ;;
         biggest-objects:--format)
-            printf '%s\n' 'enum:text json'
+            printf '%s\n' 'enum:text json markdown'
             ;;
         biggest-objects:--dump)
             printf '%s\n' 'none'
@@ -146,7 +146,7 @@ _mat_cli_option_kind_for_command() {
             printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
             ;;
         path2gc:--format)
-            printf '%s\n' 'enum:text json'
+            printf '%s\n' 'enum:text json markdown'
             ;;
         oql:--query)
             printf '%s\n' 'free-text'
@@ -170,7 +170,7 @@ _mat_cli_option_kind_for_command() {
             printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
             ;;
         oql:--format)
-            printf '%s\n' 'enum:text json'
+            printf '%s\n' 'enum:text json markdown'
             ;;
         query:--command)
             printf '%s\n' 'free-text'
@@ -194,22 +194,22 @@ _mat_cli_option_kind_for_command() {
             printf '%s\n' 'enum:bytes kilobytes megabytes gigabytes smart'
             ;;
         query:--format)
-            printf '%s\n' 'enum:text json'
+            printf '%s\n' 'enum:text json markdown'
             ;;
         describe:--format)
-            printf '%s\n' 'enum:text json'
+            printf '%s\n' 'enum:text json markdown'
             ;;
         schema:--format)
-            printf '%s\n' 'enum:text json'
+            printf '%s\n' 'enum:text json markdown'
             ;;
         list-queries:--format)
-            printf '%s\n' 'enum:text json'
+            printf '%s\n' 'enum:text json markdown'
             ;;
         describe-query:--format)
-            printf '%s\n' 'enum:text json'
+            printf '%s\n' 'enum:text json markdown'
             ;;
         completion:--format)
-            printf '%s\n' 'enum:text json'
+            printf '%s\n' 'enum:text json markdown'
             ;;
     esac
 }

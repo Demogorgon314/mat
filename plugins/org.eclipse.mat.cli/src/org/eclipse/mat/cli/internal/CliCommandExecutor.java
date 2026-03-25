@@ -23,6 +23,7 @@ import org.eclipse.mat.query.IResultPie;
 import org.eclipse.mat.query.IResultTable;
 import org.eclipse.mat.query.IResultTree;
 import org.eclipse.mat.query.results.CompositeResult;
+import org.eclipse.mat.query.results.DisplayFileResult;
 import org.eclipse.mat.query.results.TextResult;
 import org.eclipse.mat.report.QuerySpec;
 import org.eclipse.mat.report.SectionSpec;
@@ -608,6 +609,7 @@ public class CliCommandExecutor
 
         if (!(result instanceof TextResult || result instanceof ThreadsResult || result instanceof IResultTable
                         || result instanceof IResultTree || result instanceof IResultPie
+                        || result instanceof DisplayFileResult
                         || result instanceof CompositeResult || result instanceof Spec))
         {
             throw CliException.unsupported("Unsupported result type: " + result.getClass().getName()); //$NON-NLS-1$

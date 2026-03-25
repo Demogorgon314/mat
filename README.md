@@ -19,7 +19,7 @@ If you are looking for the full Eclipse MAT desktop/RCP distribution, official p
 ## Features
 
 - Analyze Java heap dumps from the command line
-- Text and JSON output modes
+- Text, Markdown, and JSON output modes
 - Built-in commands such as `summary`, `threads`, `objects`, `instances`, `inspect-object`, `biggest-objects`, `path2gc`, `oql`, and `query`
 - Standalone zip releases and Homebrew installation
 - Built on top of Eclipse MAT internals and query engine
@@ -99,6 +99,7 @@ Useful discovery commands:
 
 - `mat-cli <command> --help`
 - `mat-cli describe <command>`
+- `mat-cli describe <command> --format markdown`
 - `mat-cli schema <command> --format json`
 - `mat-cli list-queries --format json`
 - `mat-cli describe-query <query-id> --format json`

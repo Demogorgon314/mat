@@ -11,7 +11,10 @@ package org.eclipse.mat.cli.internal;
 
 import java.io.Serializable;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
+import org.eclipse.mat.cli.internal.serialization.MarkdownDocument;
 import org.eclipse.mat.query.BytesDisplay;
 import org.eclipse.mat.query.BytesFormat;
 import org.eclipse.mat.snapshot.SnapshotInfo;
@@ -80,6 +83,28 @@ public final class SnapshotSummary
         if (creationDate != null)
             builder.append("Creation Date: ").append(creationDate).append('\n'); //$NON-NLS-1$
         return builder.toString();
+    }
+
+    public String asMarkdown(BytesDisplay bytesDisplay)
+    {
+        List<String> items = new ArrayList<String>(10);
+        items.add("Path: " + path); //$NON-NLS-1$
+        items.add("Format: " + valueOrUnknown(heapFormat)); //$NON-NLS-1$
+        items.add("Objects: " + numberOfObjects); //$NON-NLS-1$
+        items.add("Classes: " + numberOfClasses); //$NON-NLS-1$
+        items.add("Class Loaders: " + numberOfClassLoaders); //$NON-NLS-1$
+        items.add("GC Roots: " + numberOfGCRoots); //$NON-NLS-1$
+        items.add("Identifier Size: " + identifierSize); //$NON-NLS-1$
+        BytesFormat bytesFormatter = new BytesFormat(bytesDisplay == null ? BytesDisplay.Smart : bytesDisplay);
+        String usedHeap = "Used Heap: " + bytesFormatter.format(usedHeapSize); //$NON-NLS-1$
+        if ((bytesDisplay == null ? BytesDisplay.Smart : bytesDisplay) != BytesDisplay.Bytes)
+            usedHeap += " (" + usedHeapSize + " bytes)"; //$NON-NLS-1$ //$NON-NLS-2$
+        items.add(usedHeap);
+        if (jvmInfo != null)
+            items.add("JVM Info: " + jvmInfo); //$NON-NLS-1$
+        if (creationDate != null)
+            items.add("Creation Date: " + creationDate); //$NON-NLS-1$
+        return MarkdownDocument.bullets(items);
     }
 
     private String valueOrUnknown(String value)

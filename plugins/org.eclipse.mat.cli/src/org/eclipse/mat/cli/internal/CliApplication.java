@@ -39,7 +39,7 @@ public class CliApplication implements IApplication
         CliArguments.OutputFormat requestedFormat = parser.detectFormat(args);
         try
         {
-            if (requestedFormat == CliArguments.OutputFormat.JSON)
+            if (requestedFormat == CliArguments.OutputFormat.JSON || requestedFormat == CliArguments.OutputFormat.MARKDOWN)
                 Locale.setDefault(Locale.ENGLISH);
 
             parsed = parser.parse(args);
@@ -91,8 +91,8 @@ public class CliApplication implements IApplication
                     PrintStream err, PrintStream out)
     {
         CliArguments.OutputFormat format = parsed == null ? requestedFormat : parsed.getFormat();
-        boolean json = format == CliArguments.OutputFormat.JSON;
-        if (json)
+        boolean structured = format == CliArguments.OutputFormat.JSON || format == CliArguments.OutputFormat.MARKDOWN;
+        if (structured)
         {
             serializer.serializeError(parsed, format, code, error, out);
         }

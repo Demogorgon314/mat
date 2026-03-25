@@ -9,6 +9,7 @@
  *******************************************************************************/
 package org.eclipse.mat.cli.internal.serialization;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +57,23 @@ public class CommandMetadataSerializer
     {
         return CliHelp.renderCommandMetadata(result.getDefinition(),
                         result.getKind() == CommandMetadataResult.Kind.SCHEMA);
+    }
+
+    public void appendMarkdown(MarkdownDocument document, CommandMetadataResult result)
+    {
+        CommandDefinition definition = result.getDefinition();
+        List<String> command = new ArrayList<String>(3);
+        command.add("Name: " + definition.getCommand().getToken()); //$NON-NLS-1$
+        command.add("Summary: " + definition.getSummary()); //$NON-NLS-1$
+        command.add("Usage: " + definition.getUsage()); //$NON-NLS-1$
+        command.add("Requires snapshot: " + (definition.requiresSnapshot() ? "yes" : "no")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+        document.addSection("Command", MarkdownDocument.bullets(command)); //$NON-NLS-1$
+        document.addSection("Positional arguments", positionalArgumentsMarkdown(definition)); //$NON-NLS-1$
+        document.addSection("Options", optionsMarkdown(definition.getOptions())); //$NON-NLS-1$
+        document.addSection("Outputs", outputsMarkdown(uniqueOutputs(definition.getOutputs()))); //$NON-NLS-1$
+        if (result.getKind() == CommandMetadataResult.Kind.SCHEMA)
+            document.addSection("JSON payload", schemaMarkdown(definition)); //$NON-NLS-1$
+        document.addSection("Suggested next commands", MarkdownDocument.bullets(definition.getSuggestedNextCommands(), true)); //$NON-NLS-1$
     }
 
     private String jsonPayloadKind(CommandDefinition definition)
@@ -128,6 +146,59 @@ public class CommandMetadataSerializer
         if (value == null || value.length() == 0)
             return;
         writer.name(name).value(value);
+    }
+
+    private String positionalArgumentsMarkdown(CommandDefinition definition)
+    {
+        if (definition.getPositionalArguments().isEmpty())
+            return "- None."; //$NON-NLS-1$
+        return MarkdownDocument.bullets(definition.getPositionalArguments());
+    }
+
+    private String optionsMarkdown(List<OptionDefinition> options)
+    {
+        List<List<String>> rows = new ArrayList<List<String>>(options.size());
+        for (OptionDefinition option : options)
+        {
+            List<String> row = new ArrayList<String>(4);
+            row.add(option.getName());
+            row.add(option.getValueHint());
+            row.add(Boolean.toString(option.isRequired()));
+            row.add(option.getDescription());
+            rows.add(row);
+        }
+        return MarkdownDocument.table(java.util.Arrays.asList("Name", "Value", "Required", "Description"), rows); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+    }
+
+    private String outputsMarkdown(List<OutputDefinition> outputs)
+    {
+        List<List<String>> rows = new ArrayList<List<String>>(outputs.size());
+        for (OutputDefinition output : outputs)
+        {
+            List<String> row = new ArrayList<String>(3);
+            row.add(output.getFormat());
+            row.add(output.getResultKind());
+            row.add(output.getDescription());
+            rows.add(row);
+        }
+        return MarkdownDocument.table(java.util.Arrays.asList("Format", "Result kind", "Description"), rows); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+    }
+
+    private String schemaMarkdown(CommandDefinition definition)
+    {
+        List<String> bullets = new ArrayList<String>();
+        bullets.add("Envelope fields: schemaVersion, resultKind, truncated, note when present, suggestedNextCommands when present"); //$NON-NLS-1$
+        bullets.add("Payload kind: " + jsonPayloadKind(definition)); //$NON-NLS-1$
+        if (definition.getAgentPayloadDescription() != null && definition.getAgentPayloadDescription().length() > 0)
+            bullets.add("Payload description: " + definition.getAgentPayloadDescription()); //$NON-NLS-1$
+        StringBuilder builder = new StringBuilder();
+        builder.append(MarkdownDocument.bullets(bullets));
+        if (!definition.getAgentPayloadFields().isEmpty())
+        {
+            builder.append('\n').append('\n');
+            builder.append(MarkdownDocument.bullets(definition.getAgentPayloadFields()));
+        }
+        return builder.toString();
     }
 
     private void appendStrings(StringBuilder builder, String label, List<String> values)

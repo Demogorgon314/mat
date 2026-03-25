@@ -19,6 +19,7 @@ import org.eclipse.mat.query.IResultPie;
 import org.eclipse.mat.query.IResultTable;
 import org.eclipse.mat.query.IResultTree;
 import org.eclipse.mat.query.results.CompositeResult;
+import org.eclipse.mat.query.results.DisplayFileResult;
 import org.eclipse.mat.query.results.TextResult;
 import org.eclipse.mat.report.QuerySpec;
 import org.eclipse.mat.report.SectionSpec;
@@ -29,6 +30,7 @@ public class SpecResultSerializer
     private final TableResultSerializer tableSerializer;
     private final TreeResultSerializer treeSerializer;
     private final TextResultSerializer textSerializer;
+    private final DisplayFileResultSerializer displayFileSerializer = new DisplayFileResultSerializer();
     private final PieResultSerializer pieSerializer;
 
     public SpecResultSerializer(TableResultSerializer tableSerializer, TreeResultSerializer treeSerializer,
@@ -88,6 +90,17 @@ public class SpecResultSerializer
     public String compositeToText(CompositeResult result, SerializationOptions options)
     {
         return toText(asSection(result, null), options);
+    }
+
+    public void appendMarkdown(MarkdownDocument document, Spec spec, SerializationOptions options) throws CliException
+    {
+        appendMarkdown(document, spec, options, null, 0);
+    }
+
+    public void appendCompositeMarkdown(MarkdownDocument document, CompositeResult result, SerializationOptions options)
+                    throws CliException
+    {
+        appendMarkdownSection(document, asSection(result, "Result"), options, "Result", 0); //$NON-NLS-1$ //$NON-NLS-2$
     }
 
     SectionSpec asSection(CompositeResult result, String fallbackName)
@@ -202,6 +215,12 @@ public class SpecResultSerializer
                 return false;
             }
             return textSerializer.writeJson(writer, (TextResult) result);
+        }
+        if (result instanceof DisplayFileResult)
+        {
+            writer.name("resultType").value("text"); //$NON-NLS-1$ //$NON-NLS-2$
+            writer.name("content").value(displayFileSerializer.toText((DisplayFileResult) result)); //$NON-NLS-1$
+            return false;
         }
         if (result instanceof IResultTable)
         {
@@ -329,6 +348,10 @@ public class SpecResultSerializer
         {
             builder.append(textSerializer.toText((TextResult) result)).append('\n');
         }
+        else if (result instanceof DisplayFileResult)
+        {
+            builder.append(displayFileSerializer.toText((DisplayFileResult) result)).append('\n');
+        }
         else if (result instanceof IResultTable)
         {
             builder.append(tableSerializer.toText((IResultTable) result, options));
@@ -388,5 +411,88 @@ public class SpecResultSerializer
     {
         for (int ii = 0; ii < depth; ii++)
             builder.append("  "); //$NON-NLS-1$
+    }
+
+    private void appendMarkdown(MarkdownDocument document, Spec spec, SerializationOptions options, String parentPath,
+                    int sectionDepth) throws CliException
+    {
+        String currentPath = joinPath(parentPath, spec.getName());
+        if (spec instanceof SectionSpec)
+        {
+            appendMarkdownSection(document, (SectionSpec) spec, options, currentPath, sectionDepth);
+            return;
+        }
+
+        if (!(spec instanceof QuerySpec))
+            return;
+
+        QuerySpec query = (QuerySpec) spec;
+        IResult result = query.getResult();
+        if (result instanceof CompositeResult)
+        {
+            appendMarkdownSection(document, asSection((CompositeResult) result, currentPath), options, currentPath,
+                            sectionDepth);
+            return;
+        }
+        if (result instanceof SectionSpec)
+        {
+            appendMarkdownSection(document, (SectionSpec) result, options, currentPath, sectionDepth);
+            return;
+        }
+        if (result instanceof Spec)
+        {
+            appendMarkdown(document, (Spec) result, options, currentPath, sectionDepth);
+            return;
+        }
+
+        document.addSection(currentPath == null ? "Result" : currentPath, markdownForLeaf(result, options)); //$NON-NLS-1$
+    }
+
+    private void appendMarkdownSection(MarkdownDocument document, SectionSpec section, SerializationOptions options,
+                    String currentPath, int sectionDepth) throws CliException
+    {
+        List<Spec> children = section.getChildren();
+        String path = currentPath == null || currentPath.length() == 0 ? "Result" : currentPath; //$NON-NLS-1$
+        if (sectionDepth >= options.getTreeDepthLimit())
+        {
+            if (!children.isEmpty())
+                document.addSection(path, "Section truncated by depth."); //$NON-NLS-1$
+            return;
+        }
+
+        int limit = Math.min(children.size(), options.getEffectiveLimit());
+        for (int ii = 0; ii < limit; ii++)
+        {
+            Spec child = children.get(ii);
+            int childSectionDepth = child instanceof SectionSpec ? sectionDepth + 1 : sectionDepth;
+            appendMarkdown(document, child, options, path, childSectionDepth);
+        }
+        if (children.size() > limit)
+            document.addSection(path, "Section truncated by limit."); //$NON-NLS-1$
+    }
+
+    private String markdownForLeaf(IResult result, SerializationOptions options) throws CliException
+    {
+        if (result == null)
+            return "- Empty result."; //$NON-NLS-1$
+        if (result instanceof TextResult)
+            return textSerializer.toMarkdown((TextResult) result, null);
+        if (result instanceof DisplayFileResult)
+            return displayFileSerializer.toMarkdown((DisplayFileResult) result);
+        if (result instanceof IResultTable)
+            return tableSerializer.toMarkdown((IResultTable) result, options);
+        if (result instanceof IResultTree)
+            return treeSerializer.toMarkdown((IResultTree) result, options);
+        if (result instanceof IResultPie)
+            return pieSerializer.toMarkdown((IResultPie) result, options);
+        throw CliException.unsupported("Unsupported result type: " + result.getClass().getName()); //$NON-NLS-1$
+    }
+
+    private String joinPath(String parentPath, String name)
+    {
+        String segment = name == null || name.length() == 0 ? "Result" : name; //$NON-NLS-1$
+        if (parentPath == null || parentPath.length() == 0)
+            return segment;
+        return parentPath + " / " + segment; //$NON-NLS-1$
     }
 }

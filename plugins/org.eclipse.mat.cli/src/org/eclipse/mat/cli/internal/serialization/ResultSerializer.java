@@ -30,6 +30,7 @@ import org.eclipse.mat.query.IResultPie;
 import org.eclipse.mat.query.IResultTable;
 import org.eclipse.mat.query.IResultTree;
 import org.eclipse.mat.query.results.CompositeResult;
+import org.eclipse.mat.query.results.DisplayFileResult;
 import org.eclipse.mat.query.results.TextResult;
 import org.eclipse.mat.report.Spec;
 
@@ -40,6 +41,7 @@ public class ResultSerializer
     private final TableResultSerializer tableSerializer = new TableResultSerializer();
     private final TreeResultSerializer treeSerializer = new TreeResultSerializer();
     private final TextResultSerializer textSerializer = new TextResultSerializer();
+    private final DisplayFileResultSerializer displayFileSerializer = new DisplayFileResultSerializer();
     private final PieResultSerializer pieSerializer = new PieResultSerializer();
     private final SpecResultSerializer specSerializer = new SpecResultSerializer(tableSerializer, treeSerializer,
                     textSerializer, pieSerializer);
@@ -52,6 +54,8 @@ public class ResultSerializer
     {
         if (arguments.getFormat() == CliArguments.OutputFormat.JSON)
             serializeJson(arguments, execution, out);
+        else if (arguments.getFormat() == CliArguments.OutputFormat.MARKDOWN)
+            serializeMarkdown(arguments, execution, out);
         else
             serializeText(arguments, execution, out);
     }
@@ -61,6 +65,11 @@ public class ResultSerializer
         if (arguments != null && arguments.getFormat() == CliArguments.OutputFormat.JSON)
         {
             serializeJsonError(arguments, exitCode, error, out);
+            return;
+        }
+        if (arguments != null && arguments.getFormat() == CliArguments.OutputFormat.MARKDOWN)
+        {
+            serializeMarkdownError(arguments, exitCode, error, out);
             return;
         }
 
@@ -88,6 +97,11 @@ public class ResultSerializer
             serializeJsonError(arguments, exitCode, error, out);
             return;
         }
+        if (format == CliArguments.OutputFormat.MARKDOWN)
+        {
+            serializeMarkdownError(arguments, exitCode, error, out);
+            return;
+        }
         serializeError(arguments, exitCode, error, out);
     }
 
@@ -105,6 +119,10 @@ public class ResultSerializer
         if (result instanceof TextResult)
         {
             out.println(textSerializer.toText((TextResult) result));
+        }
+        else if (result instanceof DisplayFileResult)
+        {
+            out.println(displayFileSerializer.toText((DisplayFileResult) result));
         }
         else if (result instanceof CommandMetadataResult)
         {
@@ -173,6 +191,12 @@ public class ResultSerializer
                 writer.name("content").value(textSerializer.toText((TextResult) result)); //$NON-NLS-1$
                 truncated = false;
             }
+            else if (result instanceof DisplayFileResult)
+            {
+                writer.name("resultKind").value("text"); //$NON-NLS-1$ //$NON-NLS-2$
+                writer.name("content").value(displayFileSerializer.toText((DisplayFileResult) result)); //$NON-NLS-1$
+                truncated = false;
+            }
             else if (result instanceof CommandMetadataResult)
             {
                 writer.name("resultKind").value(metadataSerializer.resultKind((CommandMetadataResult) result)); //$NON-NLS-1$
@@ -232,6 +256,78 @@ public class ResultSerializer
         out.println(writer.toString());
     }
 
+    private void serializeMarkdown(CliArguments arguments, CliExecution execution, PrintStream out) throws CliException
+    {
+        MarkdownDocument document = new MarkdownDocument();
+        if (execution.isSummary())
+        {
+            document.addSection("Result", execution.getSummary().asMarkdown(arguments.getBytesDisplay())); //$NON-NLS-1$
+        }
+        else
+        {
+            SerializationOptions options = new SerializationOptions(arguments.getLimit(), arguments.getTreeDepthLimit(),
+                            false, arguments.isDump(), execution.getObjectAddressResolver(), arguments.getBytesDisplay());
+            IResult result = execution.getResult();
+            if (result instanceof TextResult)
+            {
+                String fenceInfo = arguments.getCommand() == CliCommand.COMPLETION ? arguments.getCompletionShell() : null;
+                document.addSection("Result", textSerializer.toMarkdown((TextResult) result, fenceInfo)); //$NON-NLS-1$
+            }
+            else if (result instanceof DisplayFileResult)
+            {
+                document.addSection("Result", displayFileSerializer.toMarkdown((DisplayFileResult) result)); //$NON-NLS-1$
+            }
+            else if (result instanceof CommandMetadataResult)
+            {
+                metadataSerializer.appendMarkdown(document, (CommandMetadataResult) result);
+            }
+            else if (result instanceof QueryMetadataResult)
+            {
+                queryMetadataSerializer.appendMarkdown(document, (QueryMetadataResult) result);
+            }
+            else if (result instanceof ThreadsResult)
+            {
+                threadsSerializer.appendMarkdown(document, (ThreadsResult) result, options);
+            }
+            else if (result instanceof PackageTreeResult)
+            {
+                document.addSection("Result", packageTreeSerializer.toMarkdown((PackageTreeResult) result, options)); //$NON-NLS-1$
+            }
+            else if (result instanceof IResultTable)
+            {
+                document.addSection("Result", tableSerializer.toMarkdown((IResultTable) result, options)); //$NON-NLS-1$
+            }
+            else if (result instanceof IResultTree)
+            {
+                document.addSection("Result",
+                                treeSerializer.toMarkdown((IResultTree) result, options, arguments.isShowNulls())); //$NON-NLS-1$
+            }
+            else if (result instanceof IResultPie)
+            {
+                document.addSection("Result", pieSerializer.toMarkdown((IResultPie) result, options)); //$NON-NLS-1$
+            }
+            else if (result instanceof CompositeResult)
+            {
+                specSerializer.appendCompositeMarkdown(document, (CompositeResult) result, options);
+            }
+            else if (result instanceof Spec)
+            {
+                specSerializer.appendMarkdown(document, (Spec) result, options);
+            }
+            else
+            {
+                throw unsupported(result);
+            }
+        }
+
+        if (execution != null && execution.getNote() != null && execution.getNote().length() > 0)
+            document.addSection("Note", execution.getNote()); //$NON-NLS-1$
+        if (shouldWriteSuggestedNextCommands(arguments, execution) && !(execution.getResult() instanceof CommandMetadataResult))
+            document.addSection("Suggested next commands", //$NON-NLS-1$
+                            MarkdownDocument.bullets(suggestedNextCommands(arguments, execution), true));
+        out.println(document.render());
+    }
+
     private void serializeJsonError(CliArguments arguments, int exitCode, Throwable error, PrintStream out)
     {
         JsonWriter writer = new JsonWriter();
@@ -256,6 +352,35 @@ public class ResultSerializer
         writeSuggestedNextCommands(writer, suggestedNextCommands(arguments, exitCode, error));
         writer.endObject();
         out.println(writer.toString());
+    }
+
+    private void serializeMarkdownError(CliArguments arguments, int exitCode, Throwable error, PrintStream out)
+    {
+        MarkdownDocument document = new MarkdownDocument();
+        document.addSection("Error", rootCauseMessage(error)); //$NON-NLS-1$
+        document.addSection("Hint", errorHint(arguments, exitCode, error)); //$NON-NLS-1$
+        document.addSection("Suggested next commands", //$NON-NLS-1$
+                        MarkdownDocument.bullets(suggestedNextCommands(arguments, exitCode, error), true));
+
+        java.util.ArrayList<String> diagnostics = new java.util.ArrayList<String>(6);
+        diagnostics.add("Exit code: " + exitCode); //$NON-NLS-1$
+        diagnostics.add("Kind: " + errorKind(arguments, exitCode, error)); //$NON-NLS-1$
+        diagnostics.add("Retryable: " + isRetryable(arguments, exitCode, error)); //$NON-NLS-1$
+        if (arguments != null && arguments.isVerbose())
+        {
+            diagnostics.add("Exception class: " + (error == null ? null : error.getClass().getName())); //$NON-NLS-1$
+            diagnostics.add("Root cause class: " + rootCause(error).getClass().getName()); //$NON-NLS-1$
+            diagnostics.add("Root cause message: " + rootCauseMessage(error)); //$NON-NLS-1$
+        }
+        StringBuilder builder = new StringBuilder();
+        builder.append(MarkdownDocument.bullets(diagnostics));
+        if (arguments != null && arguments.isVerbose())
+        {
+            builder.append('\n').append('\n');
+            builder.append(MarkdownDocument.fencedCode("text", stackTrace(error))); //$NON-NLS-1$
+        }
+        document.addSection("Diagnostics", builder.toString()); //$NON-NLS-1$
+        out.println(document.render());
     }
 
     private void writeSummary(JsonWriter writer, SnapshotSummary summary)
@@ -410,7 +535,7 @@ public class ResultSerializer
         String resolvedObjectAddress = arguments.getObjectAddress() != null ? arguments.getObjectAddress() : objectAddress;
         if (resolvedObjectAddress != null)
             rendered = rendered.replace("0x...", resolvedObjectAddress); //$NON-NLS-1$
-        return rendered;
+        return rewriteFormatReference(arguments, rendered);
     }
 
     private String errorKind(CliArguments arguments, int exitCode, Throwable error)
@@ -451,45 +576,52 @@ public class ResultSerializer
     private String errorHint(CliArguments arguments, int exitCode, Throwable error)
     {
         String kind = errorKind(arguments, exitCode, error);
+        String hint;
         if (exitCode == CliExitCodes.OUT_OF_MEMORY)
-            return "Retry with a larger heap, for example MAT_CLI_VMARGS=\"-Xmx2g\"."; //$NON-NLS-1$
-        if (exitCode == CliExitCodes.USAGE)
-            return usageHint(arguments);
-        if ("query_not_found".equals(kind)) //$NON-NLS-1$
-            return "Run `mat-cli list-queries --format json` to discover valid MAT query identifiers."; //$NON-NLS-1$
-        if ("missing_file".equals(kind)) //$NON-NLS-1$
-            return "Verify that the heap path exists and is readable."; //$NON-NLS-1$
-        if ("permission".equals(kind)) //$NON-NLS-1$
-            return "Use writable runtime directories, for example MAT_CLI_CONFIG_DIR=/tmp/mat-cli/config and MAT_CLI_DATA_DIR=/tmp/mat-cli/workspace."; //$NON-NLS-1$
-        if ("invalid_argument".equals(kind) && arguments != null && arguments.getCommand() == CliCommand.PATH2GC) //$NON-NLS-1$
-            return "Use `mat-cli oql <heap> --query \"SELECT * FROM OBJECTS " //$NON-NLS-1$
+            hint = "Retry with a larger heap, for example MAT_CLI_VMARGS=\"-Xmx2g\"."; //$NON-NLS-1$
+        else if (exitCode == CliExitCodes.USAGE)
+            hint = usageHint(arguments);
+        else if ("query_not_found".equals(kind)) //$NON-NLS-1$
+            hint = "Run `mat-cli list-queries --format json` to discover valid MAT query identifiers."; //$NON-NLS-1$
+        else if ("missing_file".equals(kind)) //$NON-NLS-1$
+            hint = "Verify that the heap path exists and is readable."; //$NON-NLS-1$
+        else if ("permission".equals(kind)) //$NON-NLS-1$
+            hint = "Use writable runtime directories, for example MAT_CLI_CONFIG_DIR=/tmp/mat-cli/config and MAT_CLI_DATA_DIR=/tmp/mat-cli/workspace."; //$NON-NLS-1$
+        else if ("invalid_argument".equals(kind) && arguments != null && arguments.getCommand() == CliCommand.PATH2GC) //$NON-NLS-1$
+            hint = "Use `mat-cli oql <heap> --query \"SELECT * FROM OBJECTS " //$NON-NLS-1$
                             + (arguments.getObjectAddress() == null ? "0x..." : arguments.getObjectAddress()) //$NON-NLS-1$
                             + "\" --format json` to verify the address before retrying path2gc."; //$NON-NLS-1$
-        if ("invalid_argument".equals(kind) && arguments != null && arguments.getCommand() == CliCommand.INSTANCES) //$NON-NLS-1$
-            return "Verify the fully qualified class name, class regex, or contains text, or use `mat-cli objects <heap> --format json` to discover matching classes first."; //$NON-NLS-1$
-        if ("snapshot_lifecycle".equals(kind)) //$NON-NLS-1$
-            return "The snapshot or its index files were closed before result materialization finished; rerun with a fixed CLI build or use --verbose for diagnostics."; //$NON-NLS-1$
-        if ("query_syntax".equals(kind) && arguments != null
+        else if ("invalid_argument".equals(kind) && arguments != null && arguments.getCommand() == CliCommand.INSTANCES) //$NON-NLS-1$
+            hint = "Verify the fully qualified class name, class regex, or contains text, or use `mat-cli objects <heap> --format json` to discover matching classes first."; //$NON-NLS-1$
+        else if ("snapshot_lifecycle".equals(kind)) //$NON-NLS-1$
+            hint = "The snapshot or its index files were closed before result materialization finished; rerun with a fixed CLI build or use --verbose for diagnostics."; //$NON-NLS-1$
+        else if ("query_syntax".equals(kind) && arguments != null
                         && arguments.getCommand() == org.eclipse.mat.cli.internal.CliCommand.OQL)
-            return "Check the OQL query syntax, or use --query-file/--query-stdin for complex expressions."; //$NON-NLS-1$
-        if ("query_error".equals(kind) && arguments != null && arguments.getCommand() == CliCommand.OQL)
-            return "The OQL query was parsed, but MAT reported an execution error; inspect the reported query and narrow the expression."; //$NON-NLS-1$
-        if ("query_syntax".equals(kind) && arguments != null
+            hint = "Check the OQL query syntax, or use --query-file/--query-stdin for complex expressions."; //$NON-NLS-1$
+        else if ("query_error".equals(kind) && arguments != null && arguments.getCommand() == CliCommand.OQL)
+            hint = "The OQL query was parsed, but MAT reported an execution error; inspect the reported query and narrow the expression."; //$NON-NLS-1$
+        else if ("query_syntax".equals(kind) && arguments != null
                         && arguments.getCommand() == org.eclipse.mat.cli.internal.CliCommand.QUERY)
-            return "Check the MAT query command syntax, or use list-queries/describe-query to inspect registered queries first."; //$NON-NLS-1$
-        if (arguments != null && arguments.getCommand() == org.eclipse.mat.cli.internal.CliCommand.DESCRIBE_QUERY)
-            return "Run `mat-cli list-queries --format json` to discover valid MAT query identifiers."; //$NON-NLS-1$
-        return "Retry with --verbose for diagnostics or narrow the query scope."; //$NON-NLS-1$
+            hint = "Check the MAT query command syntax, or use list-queries/describe-query to inspect registered queries first."; //$NON-NLS-1$
+        else if (arguments != null && arguments.getCommand() == org.eclipse.mat.cli.internal.CliCommand.DESCRIBE_QUERY)
+            hint = "Run `mat-cli list-queries --format json` to discover valid MAT query identifiers."; //$NON-NLS-1$
+        else
+            hint = "Retry with --verbose for diagnostics or narrow the query scope."; //$NON-NLS-1$
+        return rewriteFormatReference(arguments, hint);
     }
 
     private String usageHint(CliArguments arguments)
     {
+        String hint;
         if (arguments == null || arguments.getCommand() == null)
-            return "Run `mat-cli --help` or `mat-cli describe <command> --format json` for the expected arguments."; //$NON-NLS-1$
-
-        String command = arguments.getCommand().getToken();
-        return "Run `mat-cli " + command + " --help` or `mat-cli describe " + command //$NON-NLS-1$ //$NON-NLS-2$
-                        + " --format json` for the expected arguments."; //$NON-NLS-1$
+            hint = "Run `mat-cli --help` or `mat-cli describe <command> --format json` for the expected arguments."; //$NON-NLS-1$
+        else
+        {
+            String command = arguments.getCommand().getToken();
+            hint = "Run `mat-cli " + command + " --help` or `mat-cli describe " + command //$NON-NLS-1$ //$NON-NLS-2$
+                            + " --format json` for the expected arguments."; //$NON-NLS-1$
+        }
+        return rewriteFormatReference(arguments, hint);
     }
 
     private boolean isRetryable(CliArguments arguments, int exitCode, Throwable error)
@@ -521,5 +653,12 @@ public class ResultSerializer
         error.printStackTrace(printWriter);
         printWriter.flush();
         return writer.toString();
+    }
+
+    private String rewriteFormatReference(CliArguments arguments, String value)
+    {
+        if (value == null || arguments == null || arguments.getFormat() != CliArguments.OutputFormat.MARKDOWN)
+            return value;
+        return value.replace("--format json", "--format markdown"); //$NON-NLS-1$ //$NON-NLS-2$
     }
 }

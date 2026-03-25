@@ -36,7 +36,7 @@ public final class CliArguments
 
     public enum OutputFormat
     {
-        TEXT, JSON;
+        TEXT, JSON, MARKDOWN;
 
         public static OutputFormat parse(String value) throws CliException
         {
@@ -44,6 +44,8 @@ public final class CliArguments
                 return TEXT;
             if ("json".equalsIgnoreCase(value)) //$NON-NLS-1$
                 return JSON;
+            if ("markdown".equalsIgnoreCase(value)) //$NON-NLS-1$
+                return MARKDOWN;
             throw CliException.usage("Unsupported format: " + value); //$NON-NLS-1$
         }
     }
