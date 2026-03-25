@@ -30,6 +30,7 @@ import org.eclipse.mat.query.IResultPie;
 import org.eclipse.mat.query.IResultTable;
 import org.eclipse.mat.query.IResultTree;
 import org.eclipse.mat.query.results.CompositeResult;
+import org.eclipse.mat.query.results.DisplayFileResult;
 import org.eclipse.mat.query.results.TextResult;
 import org.eclipse.mat.report.Spec;
 
@@ -40,6 +41,7 @@ public class ResultSerializer
     private final TableResultSerializer tableSerializer = new TableResultSerializer();
     private final TreeResultSerializer treeSerializer = new TreeResultSerializer();
     private final TextResultSerializer textSerializer = new TextResultSerializer();
+    private final DisplayFileResultSerializer displayFileSerializer = new DisplayFileResultSerializer();
     private final PieResultSerializer pieSerializer = new PieResultSerializer();
     private final SpecResultSerializer specSerializer = new SpecResultSerializer(tableSerializer, treeSerializer,
                     textSerializer, pieSerializer);
@@ -118,6 +120,10 @@ public class ResultSerializer
         {
             out.println(textSerializer.toText((TextResult) result));
         }
+        else if (result instanceof DisplayFileResult)
+        {
+            out.println(displayFileSerializer.toText((DisplayFileResult) result));
+        }
         else if (result instanceof CommandMetadataResult)
         {
             out.print(metadataSerializer.toText((CommandMetadataResult) result));
@@ -183,6 +189,12 @@ public class ResultSerializer
             {
                 writer.name("resultKind").value("text"); //$NON-NLS-1$ //$NON-NLS-2$
                 writer.name("content").value(textSerializer.toText((TextResult) result)); //$NON-NLS-1$
+                truncated = false;
+            }
+            else if (result instanceof DisplayFileResult)
+            {
+                writer.name("resultKind").value("text"); //$NON-NLS-1$ //$NON-NLS-2$
+                writer.name("content").value(displayFileSerializer.toText((DisplayFileResult) result)); //$NON-NLS-1$
                 truncated = false;
             }
             else if (result instanceof CommandMetadataResult)
@@ -260,6 +272,10 @@ public class ResultSerializer
             {
                 String fenceInfo = arguments.getCommand() == CliCommand.COMPLETION ? arguments.getCompletionShell() : null;
                 document.addSection("Result", textSerializer.toMarkdown((TextResult) result, fenceInfo)); //$NON-NLS-1$
+            }
+            else if (result instanceof DisplayFileResult)
+            {
+                document.addSection("Result", displayFileSerializer.toMarkdown((DisplayFileResult) result)); //$NON-NLS-1$
             }
             else if (result instanceof CommandMetadataResult)
             {

@@ -14,8 +14,10 @@ import static org.junit.Assert.assertTrue;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.text.FieldPosition;
 import java.text.ParsePosition;
 import java.util.Date;
@@ -60,6 +62,7 @@ import org.eclipse.mat.query.IResultPie;
 import org.eclipse.mat.query.IResultTable;
 import org.eclipse.mat.query.IResultTree;
 import org.eclipse.mat.query.ResultMetaData;
+import org.eclipse.mat.query.results.DisplayFileResult;
 import org.eclipse.mat.query.results.TextResult;
 import org.eclipse.mat.report.QuerySpec;
 import org.eclipse.mat.report.SectionSpec;
@@ -644,6 +647,20 @@ public class ResultSerializerTest
     }
 
     @Test
+    public void stripsHtmlFromPieMarkdownDescriptions()
+    {
+        PieResultSerializer serializer = new PieResultSerializer();
+
+        String markdown = serializer.toMarkdown(new HtmlDescriptionPie(), new SerializationOptions(10, 8));
+
+        assertTrue(markdown.contains("Label | Value | Description")); //$NON-NLS-1$
+        assertTrue(markdown.contains("Shallow Size: 128 B")); //$NON-NLS-1$
+        assertTrue(markdown.contains("Retained Size: 1.5 MB")); //$NON-NLS-1$
+        assertFalse(markdown.contains("<p>")); //$NON-NLS-1$
+        assertFalse(markdown.contains("<b>")); //$NON-NLS-1$
+    }
+
+    @Test
     public void marksTreeCyclesInAgentJson()
     {
         TreeResultSerializer serializer = new TreeResultSerializer();
@@ -918,6 +935,26 @@ public class ResultSerializerTest
 
         String markdown = output.toString(StandardCharsets.UTF_8.name());
         assertTrue(markdown.contains("```bash")); //$NON-NLS-1$
+    }
+
+    @Test
+    public void serializesDisplayFileResultToMarkdown() throws Exception
+    {
+        ResultSerializer serializer = new ResultSerializer();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        File report = Files.createTempFile("mat-cli-report", ".html").toFile(); //$NON-NLS-1$ //$NON-NLS-2$
+        CliArguments arguments = new CliArgumentParser()
+                        .parse(new String[] { "query", "sample.hprof", "--command", "default_report org.eclipse.mat.api:overview", "--format", "markdown" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8.name()))
+        {
+            serializer.serialize(arguments, CliExecution.result(new DisplayFileResult(report)), stream);
+        }
+
+        String markdown = output.toString(StandardCharsets.UTF_8.name());
+        assertTrue(markdown.contains("### Result")); //$NON-NLS-1$
+        assertTrue(markdown.contains("Generated report file:")); //$NON-NLS-1$
+        assertTrue(markdown.contains(report.getAbsolutePath())); //$NON-NLS-1$
     }
 
     @Test
@@ -2470,6 +2507,55 @@ public class ResultSerializerTest
         public Color getColor()
         {
             return color;
+        }
+    }
+
+    private static final class HtmlDescriptionPie implements IResultPie
+    {
+        private final List<Slice> slices = Collections.<Slice>singletonList(new HtmlDescriptionSlice());
+
+        public ResultMetaData getResultMetaData()
+        {
+            return null;
+        }
+
+        public List<? extends Slice> getSlices()
+        {
+            return slices;
+        }
+    }
+
+    private static final class HtmlDescriptionSlice implements IResultPie.ColoredSlice
+    {
+        public String getLabel()
+        {
+            return "Suspect 1"; //$NON-NLS-1$
+        }
+
+        public double getValue()
+        {
+            return 42d;
+        }
+
+        public String getDescription()
+        {
+            return "<p><b>Suspect 1</b></p><br/><p>Shallow Size: <b>128 B</b> Retained Size: <b>1.5 MB</b></p>"; //$NON-NLS-1$
+        }
+
+        public IContextObject getContext()
+        {
+            return new IContextObject()
+            {
+                public int getObjectId()
+                {
+                    return 101;
+                }
+            };
+        }
+
+        public Color getColor()
+        {
+            return Color.RED;
         }
     }
 }

@@ -700,6 +700,18 @@ public class CliCommandExecutorTest
     }
 
     @Test
+    public void executesDefaultReportQueryInMarkdownMode() throws Exception
+    {
+        File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);
+        String markdown = execute(new String[] { "query", heap.getAbsolutePath(), "--format", "markdown", "--command",
+                        "default_report org.eclipse.mat.api:overview" }); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
+
+        assertTrue(markdown.contains("### Result")); //$NON-NLS-1$
+        assertTrue(markdown.contains("Generated report file:")); //$NON-NLS-1$
+        assertTrue(markdown.contains("index.html")); //$NON-NLS-1$
+    }
+
+    @Test
     public void failsInvalidOqlWithExecutionError() throws Exception
     {
         File heap = copyHeap(TestSnapshots.SUN_JDK5_13_32BIT);

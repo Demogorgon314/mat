@@ -19,9 +19,12 @@ import org.eclipse.mat.query.IContextObjectSet;
 import org.eclipse.mat.query.IResultPie;
 import org.eclipse.mat.query.IResultPie.ColoredSlice;
 import org.eclipse.mat.query.IResultPie.Slice;
+import org.eclipse.mat.query.results.TextResult;
 
 public class PieResultSerializer
 {
+    private final TextResultSerializer textSerializer = new TextResultSerializer();
+
     public boolean writeJson(JsonWriter writer, IResultPie pie, SerializationOptions options)
     {
         return writeAgentJson(writer, pie, options);
@@ -74,7 +77,7 @@ public class PieResultSerializer
             List<String> row = new ArrayList<String>(5);
             row.add(slice.getLabel());
             row.add(formatValue(slice.getValue()));
-            row.add(slice.getDescription());
+            row.add(descriptionForMarkdown(slice.getDescription()));
             String objectAddress = null;
             Integer objectId = contextObjectId(slice.getContext());
             if (objectId != null)
@@ -92,6 +95,15 @@ public class PieResultSerializer
             builder.append("... ").append(slices.size() - limit).append(" more slices"); //$NON-NLS-1$ //$NON-NLS-2$
         }
         return builder.toString();
+    }
+
+    private String descriptionForMarkdown(String description)
+    {
+        if (description == null || description.length() == 0)
+            return null;
+
+        String normalized = textSerializer.toText(new TextResult(description, true)).trim();
+        return normalized.length() == 0 ? description : normalized;
     }
 
     private void writeSlice(JsonWriter writer, Slice slice, SerializationOptions options)

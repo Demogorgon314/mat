@@ -19,6 +19,7 @@ import org.eclipse.mat.query.IResultPie;
 import org.eclipse.mat.query.IResultTable;
 import org.eclipse.mat.query.IResultTree;
 import org.eclipse.mat.query.results.CompositeResult;
+import org.eclipse.mat.query.results.DisplayFileResult;
 import org.eclipse.mat.query.results.TextResult;
 import org.eclipse.mat.report.QuerySpec;
 import org.eclipse.mat.report.SectionSpec;
@@ -29,6 +30,7 @@ public class SpecResultSerializer
     private final TableResultSerializer tableSerializer;
     private final TreeResultSerializer treeSerializer;
     private final TextResultSerializer textSerializer;
+    private final DisplayFileResultSerializer displayFileSerializer = new DisplayFileResultSerializer();
     private final PieResultSerializer pieSerializer;
 
     public SpecResultSerializer(TableResultSerializer tableSerializer, TreeResultSerializer treeSerializer,
@@ -214,6 +216,12 @@ public class SpecResultSerializer
             }
             return textSerializer.writeJson(writer, (TextResult) result);
         }
+        if (result instanceof DisplayFileResult)
+        {
+            writer.name("resultType").value("text"); //$NON-NLS-1$ //$NON-NLS-2$
+            writer.name("content").value(displayFileSerializer.toText((DisplayFileResult) result)); //$NON-NLS-1$
+            return false;
+        }
         if (result instanceof IResultTable)
         {
             writer.name("resultType").value("table"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -340,6 +348,10 @@ public class SpecResultSerializer
         {
             builder.append(textSerializer.toText((TextResult) result)).append('\n');
         }
+        else if (result instanceof DisplayFileResult)
+        {
+            builder.append(displayFileSerializer.toText((DisplayFileResult) result)).append('\n');
+        }
         else if (result instanceof IResultTable)
         {
             builder.append(tableSerializer.toText((IResultTable) result, options));
@@ -465,6 +477,8 @@ public class SpecResultSerializer
             return "- Empty result."; //$NON-NLS-1$
         if (result instanceof TextResult)
             return textSerializer.toMarkdown((TextResult) result, null);
+        if (result instanceof DisplayFileResult)
+            return displayFileSerializer.toMarkdown((DisplayFileResult) result);
         if (result instanceof IResultTable)
             return tableSerializer.toMarkdown((IResultTable) result, options);
         if (result instanceof IResultTree)
