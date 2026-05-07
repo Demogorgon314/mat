@@ -26,3 +26,6 @@ Keep commit subjects short, imperative, and descriptive. Existing history uses p
 
 ## Contributor Notes
 Do not commit `target/` outputs or other generated artifacts. Prefer small, reviewable changes and update docs when build, packaging, or contributor workflows change. For MAT CLI work, keep the runtime headless: avoid adding `org.eclipse.mat.ui*` dependencies unless they are strictly required.
+
+## Skills
+- `group-metadata-members`: Retrieve and inspect members from an io.streamnative.pulsar.handlers.kop.coordinator.group.GroupMetadata object in a MAT heap dump using OQL queries and the inspect-object command.
